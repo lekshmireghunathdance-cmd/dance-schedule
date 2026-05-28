@@ -371,8 +371,11 @@ const ALL_COLORS = [
 ];
 
 // ── Cloud config ──
-// After deploying your Apps Script, paste your Web App URL here:
-let SCRIPT_URL = localStorage.getItem('dance_script_url') || '';
+// PASTE YOUR WEB APP URL BETWEEN THE QUOTES BELOW (only need to do this once):
+const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbz491RnjA4vDv020J_L1kZP5Fj4lXqSWRXYhAM8sgNO0UVm5_n4PbX70xeQxBNv9bx0Ag/exec';
+let SCRIPT_URL = HARDCODED_URL !== 'YOUR_SCRIPT_URL_HERE'
+  ? HARDCODED_URL
+  : (localStorage.getItem('dance_script_url') || '');
 
 // ── State ──
 let season      = 'summer';
@@ -959,7 +962,7 @@ function saveSetup() {
   const url = document.getElementById('setup-url').value.trim();
   if(!url) { showToast('Please paste your script URL'); return; }
   SCRIPT_URL = url;
-  localStorage.setItem('dance_script_url', url);
+  localStorage.setItem('dance_script_url', url); // overrides hardcoded URL for this browser
   closeOverlay('modal-setup');
   showToast('Connecting…');
   initLoad();
