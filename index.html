@@ -280,7 +280,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
           <button id="mc-show-temporary" onclick="setMcShow('temporary')" style="flex:1;padding:9px;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);transition:all .15s;border-left:1px solid var(--border)">Temporary timing</button>
         </div>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px;line-height:1.6">Both timings are always shown in the batch detail popup. This setting only controls which appears on the main calendar.</p>
+      <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px;line-height:1.6">Both timings are shown in the batch detail popup. The regular timing is optional — leave it empty if this class only exists during the break period.</p>
     </div>
     <div class="modal-actions">
       <button class="btn-danger" id="mc-del" onclick="deleteClass()">Delete</button>
@@ -540,10 +540,13 @@ function renderSidebar(){
 
 // ── Calendar ──
 function getDisplayTime(c){
-  // Each class stores showOnCalendar: 'regular'|'temporary'
-  // Temporary also has tempDay (may differ from regular day)
+  // Temp-only class: always show the temporary timing
+  if(c.tempOnly||(!c.start&&c.tempStart))
+    return{start:c.tempStart,end:c.tempEnd,day:c.tempDay||c.day,isTemp:true};
+  // Has temp timing and set to show temporary
   if(c.showOnCalendar==='temporary'&&c.tempStart&&c.tempEnd)
     return{start:c.tempStart,end:c.tempEnd,day:c.tempDay||c.day,isTemp:true};
+  // Default: regular timing
   return{start:c.start,end:c.end,day:c.day,isTemp:false};
 }
 
@@ -792,8 +795,8 @@ function openEditClass(idx){
   document.getElementById('mc-day').value=c.day;
   document.getElementById('mc-season').value=c.season;
   document.getElementById('mc-tz').value='IST';
-  document.getElementById('mc-start').value=c.start;
-  document.getElementById('mc-end').value=c.end;
+  document.getElementById('mc-start').value=c.start||'';
+  document.getElementById('mc-end').value=c.end||'';
   document.getElementById('mc-temp-day').value=c.tempDay||c.day;
   document.getElementById('mc-temp-tz').value='IST';
   document.getElementById('mc-temp-start').value=c.tempStart||'';
@@ -812,26 +815,41 @@ function saveClass(){
   const regTz=document.getElementById('mc-tz').value;
   const regStart=document.getElementById('mc-start').value;
   const regEnd=document.getElementById('mc-end').value;
-  if(!regStart||!regEnd){showToast('Please set start and end times');return;}
-  const istStart=tzToIst(regStart,regTz);
-  const istEnd=tzToIst(regEnd,regTz);
   let tempStart=null,tempEnd=null,tempDay=null;
+
   if(mcType==='temporary'){
     const tTz=document.getElementById('mc-temp-tz').value;
     const ts=document.getElementById('mc-temp-start').value;
     const te=document.getElementById('mc-temp-end').value;
     if(ts&&te){tempStart=tzToIst(ts,tTz);tempEnd=tzToIst(te,tTz);}
     tempDay=document.getElementById('mc-temp-day').value;
+    // For temporary type: must have at least the temporary timing filled
+    if(!tempStart&&!regStart){showToast('Please enter at least the temporary timing');return;}
+  } else {
+    // Regular type: regular timing is required
+    if(!regStart||!regEnd){showToast('Please set start and end times');return;}
   }
+
+  const hasRegular=!!(regStart&&regEnd);
+  const istStart=hasRegular?tzToIst(regStart,regTz):null;
+  const istEnd=hasRegular?tzToIst(regEnd,regTz):null;
+
+  // If temporary-only (no regular), force showOnCalendar=temporary
+  const showCal=mcType==='temporary'
+    ?((!hasRegular)?'temporary':mcShow)
+    :'regular';
+
   const obj={
     batchId:document.getElementById('mc-batch').value,
-    day:document.getElementById('mc-day').value,
+    day:hasRegular?document.getElementById('mc-day').value:(tempDay||document.getElementById('mc-day').value),
     season:document.getElementById('mc-season').value,
-    start:istStart,end:istEnd,
+    start:istStart||undefined,
+    end:istEnd||undefined,
     tempStart:tempStart||undefined,
     tempEnd:tempEnd||undefined,
     tempDay:tempDay||undefined,
-    showOnCalendar:mcType==='temporary'?mcShow:'regular',
+    showOnCalendar:showCal,
+    tempOnly:mcType==='temporary'&&!hasRegular,
   };
   if(addClassMode)classes.push(obj);
   else classes[editClassIdx]=obj;
@@ -941,29 +959,22 @@ function renderDetailContent(){
   }
 
   function buildRow(istTime,istDay,tempTime,tempDay,tzKey,isTemp){
-    // Always show IST first
     const displayTime=isTemp?(tempTime||istTime):istTime;
     const displayDay=isTemp?(tempDay||istDay):istDay;
+    if(!displayTime)return'';
     const istCell=`<td style="min-width:80px"><strong>${displayDay}</strong><br><small style="color:${isTemp?'var(--orange)':'var(--muted)'}">${fmtTime(displayTime)} IST</small></td>`;
-
-    // If IST-only batch, no extra TZ columns — just IST
     if(isIstOnly&&activeExtras.length===0)return istCell;
-
-    // Preferred TZ column (highlighted)
     let prefCell='';
     if(prefGroup){
       const tz=prefGroup[tzKey];
-      const val=isTemp?(tempTime?tzCell(tempTime,displayDay,tz,true):tzCell(istTime,istDay,tz,true)):tzCell(istTime,istDay,tz,true);
+      const val=isTemp?(tempTime?tzCell(tempTime,displayDay,tz,true):(istTime?tzCell(istTime,istDay,tz,true):'—')):tzCell(istTime,istDay,tz,true);
       prefCell=`<td style="background:var(--blue-light);font-size:13px">${val}</td>`;
     }
-
-    // Extra columns (not highlighted)
     const extraCells=activeExtras.map(g=>{
       const tz=g[tzKey];
-      const val=isTemp?(tempTime?tzCell(tempTime,displayDay,tz,false):tzCell(istTime,istDay,tz,false)):tzCell(istTime,istDay,tz,false);
+      const val=isTemp?(tempTime?tzCell(tempTime,displayDay,tz,false):(istTime?tzCell(istTime,istDay,tz,false):'—')):tzCell(istTime,istDay,tz,false);
       return`<td>${val}</td>`;
     }).join('');
-
     return istCell+prefCell+extraCells;
   }
 
@@ -983,22 +994,33 @@ function renderDetailContent(){
     const headers=buildHeaders(tzKey);
 
     let html=`<div class="section-title"><span class="${badgeClass} season-badge">${sectionLabel}</span></div>`;
-    html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr>${headers}</tr></thead><tbody>`;
-    relevant.forEach(c=>{
-      html+=`<tr>${buildRow(c.start,c.day,null,null,tzKey,false)}</tr>`;
-    });
-    html+=`</tbody></table></div>`;
+    // Regular timing table — only show classes that have a regular timing
+    const regularClasses=relevant.filter(c=>c.start);
+    const tempOnlyClasses=relevant.filter(c=>!c.start);
+    if(regularClasses.length){
+      html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr>${headers}</tr></thead><tbody>`;
+      regularClasses.forEach(c=>{
+        html+=`<tr>${buildRow(c.start,c.day,null,null,tzKey,false)}</tr>`;
+      });
+      html+=`</tbody></table></div>`;
+    }
 
     if(hasTemp){
       html+=`<div class="section-title" style="color:var(--orange)">⏱ Temporary timings <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(during break periods)</small></div>`;
       html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr>${headers}</tr></thead><tbody>`;
-      relevant.forEach(c=>{
+      // Temp-only classes first
+      tempOnlyClasses.forEach(c=>{
+        html+=`<tr>${buildRow(null,c.tempDay||c.day,c.tempStart,c.tempDay||c.day,tzKey,true)}</tr>`;
+      });
+      // Classes with both regular and temp
+      regularClasses.forEach(c=>{
+        const tDay=c.tempDay||c.day;
         if(!c.tempStart){
           const cols=(prefGroup?1:0)+activeExtras.length;
           const emptyCells=cols>0?`<td colspan="${cols}" style="color:var(--subtle);font-size:11px">same as regular</td>`:'';
           html+=`<tr><td><strong>${c.day}</strong><br><small style="color:var(--muted)">${fmtTime(c.start)} IST</small></td>${emptyCells}</tr>`;
         } else {
-          html+=`<tr>${buildRow(c.start,c.day,c.tempStart,c.tempDay||c.day,tzKey,true)}</tr>`;
+          html+=`<tr>${buildRow(c.start,c.day,c.tempStart,tDay,tzKey,true)}</tr>`;
         }
       });
       html+=`</tbody></table></div>`;
