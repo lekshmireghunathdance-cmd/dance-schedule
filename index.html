@@ -579,53 +579,86 @@ function renderCalendar() {
       if(h < END_H - START_H) html += `<div class="hour-line" style="top:${(h+.5)*60*PX_PER_MIN}px"></div>`;
     }
 
-    // ── Overlap detection: assign each event a column slot ──
-    // Build list of valid events with timing info
+    // Build valid event list
     const events = dayCls.map(c => {
       const idx = classes.indexOf(c);
       const sm = minsFromStart(c.start), em = minsFromStart(c.end);
       const batch = getBatch(c.batchId);
       if(sm < 0 || em > TOTAL_MINS || !batch) return null;
       return { c, idx, sm, em, batch };
-    }).filter(Boolean);
+    }).filter(Boolean).sort((a, b) => a.sm - b.sm);
 
-    // Sort by start time
-    events.sort((a, b) => a.sm - b.sm);
+    // For each event, find which other events it actually overlaps with
+    // Then build overlap groups — connected components of overlapping events
+    const n = events.length;
+    const overlapsWith = events.map(() => []);
+    for(let i = 0; i < n; i++) {
+      for(let j = i + 1; j < n; j++) {
+        if(events[i].sm < events[j].em && events[j].sm < events[i].em) {
+          overlapsWith[i].push(j);
+          overlapsWith[j].push(i);
+        }
+      }
+    }
 
-    // Assign columns: greedy interval graph colouring
-    const slots = []; // slots[i] = end time of last event in that slot
-    const assigned = events.map(ev => {
-      const slot = slots.findIndex(end => end <= ev.sm);
-      if(slot === -1) { slots.push(ev.em); return slots.length - 1; }
-      slots[slot] = ev.em; return slot;
-    });
-    const totalSlots = slots.length || 1;
+    // Assign slot and total-slots per event using local grouping
+    // Events with no overlaps get slot=0, totalSlots=1 (full width)
+    const slotOf = new Array(n).fill(0);
+    const totalOf = new Array(n).fill(1);
+    const visited = new Array(n).fill(false);
 
+    for(let i = 0; i < n; i++) {
+      if(visited[i]) continue;
+      if(overlapsWith[i].length === 0) {
+        // No overlaps — full width
+        slotOf[i] = 0; totalOf[i] = 1; visited[i] = true;
+      } else {
+        // BFS to find the full connected overlap group
+        const group = [];
+        const queue = [i];
+        while(queue.length) {
+          const cur = queue.shift();
+          if(visited[cur]) continue;
+          visited[cur] = true;
+          group.push(cur);
+          overlapsWith[cur].forEach(nb => { if(!visited[nb]) queue.push(nb); });
+        }
+        // Greedy column assignment within this group
+        const groupSlots = [];
+        group.forEach(idx => {
+          const ev = events[idx];
+          const slot = groupSlots.findIndex(end => end <= ev.sm);
+          if(slot === -1) { groupSlots.push(ev.em); slotOf[idx] = groupSlots.length - 1; }
+          else { groupSlots[slot] = ev.em; slotOf[idx] = slot; }
+        });
+        const cols = groupSlots.length;
+        group.forEach(idx => { totalOf[idx] = cols; });
+      }
+    }
+
+    // Render events
     events.forEach((ev, i) => {
       const { c, idx, sm, em, batch } = ev;
-      const slot = assigned[i];
+      const slot = slotOf[i], total = totalOf[i];
       const top = sm * PX_PER_MIN;
       const ht  = Math.max((em - sm) * PX_PER_MIN, 16);
       const col = getColor(batch.color);
 
-      // Position within the day column
-      const leftPct  = (slot / totalSlots) * 100;
-      const widthPct = (1 / totalSlots) * 100;
+      const leftPct  = (slot / total) * 100;
+      const widthPct = (1 / total) * 100;
       const leftStyle  = `calc(${leftPct}% + 2px)`;
       const rightStyle = `calc(${100 - leftPct - widthPct}% + 2px)`;
 
       const tzTime = istToTz(c.start, currentTz);
       function tzDayLabel(istDay, istTime, tz) {
         if(tz === 'IST') return '';
-        const off = TZ_OFFSETS[tz];
-        const tzMins = toMins(istTime) + off;
+        const tzMins = toMins(istTime) + TZ_OFFSETS[tz];
         const dayIdx = DAYS.indexOf(istDay);
         if(tzMins < 0)     return DAYS[(dayIdx + 6) % 7].slice(0,3) + ' ';
         if(tzMins >= 1440) return DAYS[(dayIdx + 1) % 7].slice(0,3) + ' ';
         return '';
       }
-      const dayPrefix = tzDayLabel(day, c.start, currentTz);
-      const tzStr = `${dayPrefix}${tzTime} ${currentTz}`;
+      const tzStr = `${tzDayLabel(day, c.start, currentTz)}${tzTime} ${currentTz}`;
       const students = (batch.students||'').split(',').map(s=>s.trim()).filter(Boolean);
 
       let blockContent;
