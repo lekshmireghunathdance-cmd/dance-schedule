@@ -892,7 +892,14 @@ function renderDetailContent() {
     const rows = relevant.map(c => {
       const tzCells = activeGrp.map(g => {
         const tz = g[tzKey];
-        return `<td style="font-size:13px">${istToTz(c.start, tz)}</td>`;
+        const off = TZ_OFFSETS[tz];
+        const istMins = toMins(c.start);
+        const tzMins  = istMins + off;
+        const dayIdx  = DAYS.indexOf(c.day);
+        let dayTag = '';
+        if(tzMins < 0)     dayTag = `<span style="font-size:10px;font-weight:600;opacity:.7">${DAYS[(dayIdx+6)%7].slice(0,3)} </span>`;
+        if(tzMins >= 1440) dayTag = `<span style="font-size:10px;font-weight:600;opacity:.7">${DAYS[(dayIdx+1)%7].slice(0,3)} </span>`;
+        return `<td style="font-size:13px">${dayTag}${istToTz(c.start, tz)}</td>`;
       }).join('');
       return `<tr>
         <td><strong style="font-size:13px">${c.day}</strong><br><small style="color:var(--muted);font-size:11px">${fmtTime(c.start)} IST</small></td>
