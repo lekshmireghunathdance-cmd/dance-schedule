@@ -160,11 +160,6 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <button class="pill-btn" id="btn-summer" onclick="setSeason('summer')">☀ Summer</button>
     <button class="pill-btn" id="btn-winter" onclick="setSeason('winter')">❄ Winter</button>
   </div>
-  <!-- Regular/Temporary display toggle -->
-  <div class="pill-group">
-    <button class="pill-btn" id="btn-show-regular" onclick="setDisplayMode('regular')" title="Show regular timings">Regular</button>
-    <button class="pill-btn" id="btn-show-temporary" onclick="setDisplayMode('temporary')" title="Show temporary timings">Temporary</button>
-  </div>
   <!-- TZ dropdown -->
   <div class="tz-wrap">
     <button class="tz-btn" onclick="toggleTzDropdown()">
@@ -251,23 +246,40 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <div class="ist-preview" id="mc-regular-preview"></div>
     </div>
-    <!-- Temporary timing (shown when type=temporary, optional regular alt) -->
+    <!-- Temporary timing (shown when type=temporary) -->
     <div id="mc-temp-section" style="display:none">
       <div class="section-box orange">
         <div class="section-box-title orange">Temporary timing</div>
-        <div class="field" style="margin-bottom:6px"><label>Enter time in</label><select id="mc-temp-tz" onchange="mcTzChanged('temp')">
-          <option value="IST">IST</option><option value="EDT">EDT</option><option value="EST">EST</option>
-          <option value="CDT">CDT</option><option value="CST">CST</option><option value="PDT">PDT</option>
-          <option value="PST">PST</option><option value="AEDT">AEDT</option><option value="AEST">AEST</option>
-          <option value="BST">BST</option><option value="GMT">GMT</option>
-        </select></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+          <div class="field" style="margin-bottom:0"><label>Day</label>
+            <select id="mc-temp-day">
+              <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+              <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>Enter time in</label>
+            <select id="mc-temp-tz" onchange="mcTzChanged('temp')">
+              <option value="IST">IST</option><option value="EDT">EDT</option><option value="EST">EST</option>
+              <option value="CDT">CDT</option><option value="CST">CST</option><option value="PDT">PDT</option>
+              <option value="PST">PST</option><option value="AEDT">AEDT</option><option value="AEST">AEST</option>
+              <option value="BST">BST</option><option value="GMT">GMT</option>
+            </select>
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="field" style="margin-bottom:0"><label id="mc-temp-start-label">Start</label><input id="mc-temp-start" type="time" oninput="mcTimeChanged('temp')"/></div>
           <div class="field" style="margin-bottom:0"><label id="mc-temp-end-label">End</label><input id="mc-temp-end" type="time" oninput="mcTimeChanged('temp')"/></div>
         </div>
         <div class="ist-preview" id="mc-temp-preview"></div>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px">The Regular timing above is the usual schedule. The Temporary timing above is what's used during break periods. Fill in both so parents can see both in the batch details.</p>
+      <div class="field">
+        <label>Show on calendar</label>
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <button id="mc-show-regular" onclick="setMcShow('regular')" style="flex:1;padding:9px;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);transition:all .15s">Regular timing</button>
+          <button id="mc-show-temporary" onclick="setMcShow('temporary')" style="flex:1;padding:9px;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);transition:all .15s;border-left:1px solid var(--border)">Temporary timing</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px;line-height:1.6">Both timings are always shown in the batch detail popup. This setting only controls which appears on the main calendar.</p>
     </div>
     <div class="modal-actions">
       <button class="btn-danger" id="mc-del" onclick="deleteClass()">Delete</button>
@@ -385,14 +397,22 @@ let SCRIPT_URL = HARDCODED_URL;
 
 // ── State ──
 let season = 'summer';
-let displayMode = 'regular'; // 'regular' | 'temporary'
 let currentTz = 'EDT';
 let sidebarOpen = true;
 let editClassIdx = null, addClassMode = false;
 let editBatchId = null, addBatchMode = false;
 let detailBatchId = null;
-let detailExtraTzGroups = new Set(); // extra groups toggled on in detail popup
+let detailExtraTzGroups = new Set();
 let batches = [], classes = [];
+let mcShow = 'regular'; // which timing to show on calendar for the class being edited
+
+function setMcShow(v) {
+  mcShow = v;
+  document.getElementById('mc-show-regular').style.background = v === 'regular' ? 'var(--blue-light)' : '';
+  document.getElementById('mc-show-regular').style.color = v === 'regular' ? 'var(--blue)' : 'var(--muted)';
+  document.getElementById('mc-show-temporary').style.background = v === 'temporary' ? 'var(--orange-light)' : '';
+  document.getElementById('mc-show-temporary').style.color = v === 'temporary' ? 'var(--orange)' : 'var(--muted)';
+}
 
 // ── Class structure ──
 // Each class entry:
@@ -483,12 +503,6 @@ function setSeason(s){
   document.getElementById('btn-winter').classList.toggle('active-blue',s==='winter');
   syncTzToSeason(s);renderCalendar();
 }
-function setDisplayMode(m){
-  displayMode=m;
-  document.getElementById('btn-show-regular').classList.toggle('active-blue',m==='regular');
-  document.getElementById('btn-show-temporary').classList.toggle('active-orange',m==='temporary');
-  renderCalendar();
-}
 
 // ── TZ dropdown ──
 function renderTzDropdown(){
@@ -520,11 +534,11 @@ function renderSidebar(){
 
 // ── Calendar ──
 function getDisplayTime(c){
-  // Returns {start,end} to display based on displayMode
-  // If displayMode=temporary and tempStart exists, show temp; else show regular
-  if(displayMode==='temporary'&&c.tempStart&&c.tempEnd)
-    return{start:c.tempStart,end:c.tempEnd,isTemp:true};
-  return{start:c.start,end:c.end,isTemp:false};
+  // Each class stores showOnCalendar: 'regular'|'temporary'
+  // Temporary also has tempDay (may differ from regular day)
+  if(c.showOnCalendar==='temporary'&&c.tempStart&&c.tempEnd)
+    return{start:c.tempStart,end:c.tempEnd,day:c.tempDay||c.day,isTemp:true};
+  return{start:c.start,end:c.end,day:c.day,isTemp:false};
 }
 
 function renderCalendar(){
@@ -547,7 +561,11 @@ function renderCalendar(){
   html+=`</div>`;
 
   DAYS.forEach(day=>{
-    const dayCls=visible.filter(c=>c.day===day);
+    // Include events whose display day (possibly tempDay) matches this column
+    const dayCls=visible.filter(c=>{
+      const dt=getDisplayTime(c);
+      return dt.day===day;
+    });
     html+=`<div class="cal-col" style="height:${GRID_H}px" data-day="${day}" onclick="calColClick(event,'${day}')" onmousemove="calColHover(event)" onmouseleave="calColLeave(event)">`;
     html+=`<div class="cal-hover-indicator" id="hover-${day}"></div>`;
     for(let h=0;h<=END_H-START_H;h++){
@@ -648,21 +666,25 @@ document.addEventListener('mouseup',e=>{
     const c=classes[dragState.idx];
     let changed=false;
     // Day change
-    if(colEl&&colEl.dataset.day&&colEl.dataset.day!==c.day){c.day=colEl.dataset.day;changed=true;}
+    if(colEl&&colEl.dataset.day){
+      const newDay=colEl.dataset.day;
+      const dt=getDisplayTime(c);
+      if(newDay!==dt.day){
+        if(c.showOnCalendar==='temporary'&&c.tempStart){c.tempDay=newDay;}
+        else{c.day=newDay;}
+        changed=true;
+      }
+    }
     // Time change: calculate new start from Y position within column
     if(colEl){
       const rect=colEl.getBoundingClientRect();
-      const offsetY=e.clientY-rect.top;
-      const rawMin=offsetY/PX_PER_MIN;
-      const snapped=Math.round(rawMin/15)*15;
+      const snapped=Math.round(((e.clientY-rect.top)/PX_PER_MIN)/15)*15;
       const newStartMin=START_H*60+Math.min(snapped,TOTAL_MINS-60);
       const dt=getDisplayTime(c);
       const dur=toMins(dt.end)-toMins(dt.start);
-      const newEndMin=Math.min(newStartMin+dur,END_H*60);
       const newStart=minsToIstStr(newStartMin);
-      const newEnd=minsToIstStr(newEndMin);
-      // Update the appropriate timing
-      if(displayMode==='temporary'&&c.tempStart){
+      const newEnd=minsToIstStr(Math.min(newStartMin+dur,END_H*60));
+      if(c.showOnCalendar==='temporary'&&c.tempStart){
         if(newStart!==c.tempStart){c.tempStart=newStart;c.tempEnd=newEnd;changed=true;}
       } else {
         if(newStart!==c.start){c.start=newStart;c.end=newEnd;changed=true;}
@@ -705,14 +727,15 @@ function calColHover(e){
 function calColLeave(e){const d=e.currentTarget.dataset.day;const i=document.getElementById('hover-'+d);if(i)i.style.display='none';}
 
 // ── Add / Edit class ──
-let mcType='regular'; // 'regular' | 'temporary'
+let mcType='regular';
 function setMcType(t){
   mcType=t;
   document.getElementById('mc-type-regular').classList.toggle('active-blue',t==='regular');
   document.getElementById('mc-type-temporary').classList.toggle('active-orange',t==='temporary');
   document.getElementById('mc-temp-section').style.display=t==='temporary'?'block':'none';
-  // Relabel regular box
   document.querySelector('#mc-regular-box .section-box-title').textContent=t==='temporary'?'Regular timing (usual schedule)':'Regular timing';
+  if(t==='regular') setMcShow('regular');
+  else setMcShow(mcShow==='temporary'?'temporary':'regular');
 }
 function mcTzChanged(which){
   const prefix=which==='temp'?'mc-temp-':'mc-';
@@ -744,11 +767,13 @@ function openAddClass(prefillDay,prefillStart,prefillEnd){
   document.getElementById('mc-tz').value='IST';
   document.getElementById('mc-start').value=prefillStart||'09:00';
   document.getElementById('mc-end').value=prefillEnd||'10:00';
+  document.getElementById('mc-temp-day').value=prefillDay||'Monday';
   document.getElementById('mc-temp-tz').value='IST';
   document.getElementById('mc-temp-start').value='';
   document.getElementById('mc-temp-end').value='';
   document.getElementById('mc-regular-preview').style.display='none';
   document.getElementById('mc-temp-preview').style.display='none';
+  mcShow='regular';
   setMcType('regular');mcTzChanged('regular');mcTzChanged('temp');
   document.getElementById('modal-class').classList.add('open');
 }
@@ -763,13 +788,15 @@ function openEditClass(idx){
   document.getElementById('mc-tz').value='IST';
   document.getElementById('mc-start').value=c.start;
   document.getElementById('mc-end').value=c.end;
+  document.getElementById('mc-temp-day').value=c.tempDay||c.day;
   document.getElementById('mc-temp-tz').value='IST';
   document.getElementById('mc-temp-start').value=c.tempStart||'';
   document.getElementById('mc-temp-end').value=c.tempEnd||'';
   document.getElementById('mc-regular-preview').style.display='none';
   document.getElementById('mc-temp-preview').style.display='none';
   const t=c.tempStart?'temporary':'regular';
-  setMcType(t);mcTzChanged('regular');mcTzChanged('temp');
+  mcShow=c.showOnCalendar||'regular';
+  setMcType(t);setMcShow(mcShow);mcTzChanged('regular');mcTzChanged('temp');
   document.getElementById('modal-class').classList.add('open');
 }
 function populateBatchSelect(selId){
@@ -782,12 +809,13 @@ function saveClass(){
   if(!regStart||!regEnd){showToast('Please set start and end times');return;}
   const istStart=tzToIst(regStart,regTz);
   const istEnd=tzToIst(regEnd,regTz);
-  let tempStart=null,tempEnd=null;
+  let tempStart=null,tempEnd=null,tempDay=null;
   if(mcType==='temporary'){
     const tTz=document.getElementById('mc-temp-tz').value;
     const ts=document.getElementById('mc-temp-start').value;
     const te=document.getElementById('mc-temp-end').value;
     if(ts&&te){tempStart=tzToIst(ts,tTz);tempEnd=tzToIst(te,tTz);}
+    tempDay=document.getElementById('mc-temp-day').value;
   }
   const obj={
     batchId:document.getElementById('mc-batch').value,
@@ -796,6 +824,8 @@ function saveClass(){
     start:istStart,end:istEnd,
     tempStart:tempStart||undefined,
     tempEnd:tempEnd||undefined,
+    tempDay:tempDay||undefined,
+    showOnCalendar:mcType==='temporary'?mcShow:'regular',
   };
   if(addClassMode)classes.push(obj);
   else classes[editClassIdx]=obj;
@@ -917,16 +947,17 @@ function renderDetailContent(){
 
     // Temporary rows (if any)
     if(hasTemp){
-      const tempThCells=thCells; // same headers
+      const tempThCells=thCells;
       html+=`<div class="section-title" style="color:var(--orange)">⏱ Temporary timings <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(during break periods)</small></div>`;
       html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr><th>Day / IST</th>${tempThCells}</tr></thead><tbody>`;
       relevant.forEach(c=>{
+        const tDay=c.tempDay||c.day;
         if(!c.tempStart){
           const tzCells=activeGroups.map(()=>`<td style="color:var(--subtle);font-size:11px">same as regular</td>`).join('');
           html+=`<tr><td><strong>${c.day}</strong><br><small style="color:var(--muted)">${fmtTime(c.start)} IST</small></td>${tzCells}</tr>`;
         } else {
-          const tzCells=activeGroups.map(g=>`<td>${tzCell(c.tempStart,c.day,g[tzKey])}</td>`).join('');
-          html+=`<tr><td><strong>${c.day}</strong><br><small style="color:var(--orange)">${fmtTime(c.tempStart)} IST</small></td>${tzCells}</tr>`;
+          const tzCells=activeGroups.map(g=>`<td>${tzCell(c.tempStart,tDay,g[tzKey])}</td>`).join('');
+          html+=`<tr><td><strong>${tDay}</strong><br><small style="color:var(--orange)">${fmtTime(c.tempStart)} IST</small></td>${tzCells}</tr>`;
         }
       });
       html+=`</tbody></table></div>`;
@@ -982,8 +1013,6 @@ async function initLoad(){
   document.getElementById('sync-status').textContent='✓ Synced';
   document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
   document.getElementById('btn-winter').classList.toggle('active-blue',season==='winter');
-  document.getElementById('btn-show-regular').classList.toggle('active-blue',displayMode==='regular');
-  document.getElementById('btn-show-temporary').classList.toggle('active-orange',displayMode==='temporary');
   syncTzToSeason(season);
   document.getElementById('tz-label-text').textContent=currentTz;
   renderTzDropdown();renderSidebar();renderCalendar();
@@ -992,7 +1021,6 @@ async function initLoad(){
 // Boot
 document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
 document.getElementById('btn-winter').classList.toggle('active-blue',season==='winter');
-document.getElementById('btn-show-regular').classList.add('active-blue');
 document.getElementById('tz-label-text').textContent=currentTz;
 renderTzDropdown();renderSidebar();renderCalendar();
 initLoad();
