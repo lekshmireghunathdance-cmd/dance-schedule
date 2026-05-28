@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dance Class Schedule</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f6f8fc;--surface:#fff;--border:#dadce0;--text:#202124;--muted:#5f6368;--subtle:#9aa0a6;
+  --blue:#1a73e8;--blue-light:#e8f0fe;--hover:#f1f3f4;--sidebar:260px;
+  --radius:8px;--shadow:0 1px 3px rgba(60,64,67,.15),0 2px 6px rgba(60,64,67,.1);
+}
+body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* Header */
+.app-header{height:64px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;position:sticky;top:0;z-index:100;flex-shrink:0;flex-wrap:wrap}
+.hamburger{width:40px;height:40px;border:none;background:none;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+.hamburger:hover{background:var(--hover)}
+.logo-area{display:flex;align-items:center;gap:8px;margin-right:4px;flex-shrink:0}
+.logo-icon{width:32px;height:32px}
+.logo-text{font-family:'Google Sans',sans-serif;font-size:20px;color:var(--muted);font-weight:400;letter-spacing:-.3px}
+.logo-text span{color:#1a73e8}
+.header-spacer{flex:1}
+.tz-wrap{position:relative;flex-shrink:0}
+.tz-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--border);border-radius:20px;background:var(--surface);cursor:pointer;font-size:13px;font-family:'Roboto',sans-serif;color:var(--text);transition:background .15s}
+.tz-btn:hover{background:var(--hover)}
+.tz-btn svg{width:15px;height:15px;color:var(--muted);flex-shrink:0}
+.tz-dropdown{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);min-width:260px;z-index:400;overflow:hidden;display:none}
+.tz-dropdown.open{display:block}
+.tz-option{padding:10px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.tz-option:hover{background:var(--hover)}
+.tz-option.active{color:var(--blue);font-weight:500}
+.tz-option .tz-check{width:16px;height:16px;flex-shrink:0;visibility:hidden}
+.tz-option.active .tz-check{visibility:visible}
+.header-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:none;background:none;cursor:pointer;font-size:13px;font-family:'Roboto',sans-serif;color:var(--text);transition:background .15s;flex-shrink:0;white-space:nowrap}
+.header-btn:hover{background:var(--hover)}
+.header-btn.primary{background:var(--blue-light);color:var(--blue);font-weight:500}
+.header-btn.primary:hover{background:#d2e3fc}
+.season-pill{display:flex;border:1px solid var(--border);border-radius:20px;overflow:hidden;flex-shrink:0}
+.s-btn{padding:7px 14px;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;border:none;background:none;cursor:pointer;color:var(--muted);transition:all .2s}
+.s-btn.active{background:var(--blue);color:#fff}
+
+/* Layout */
+.app-body{display:flex;flex:1;overflow:hidden;min-height:0}
+.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto;flex-shrink:0;transition:width .2s}
+.sidebar.collapsed{width:0;overflow:hidden;padding:0}
+.sidebar-section{padding:0 12px;margin-bottom:8px}
+.sidebar-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:8px 4px 4px}
+.batch-row{display:flex;align-items:center;gap:8px;padding:8px;border-radius:var(--radius);cursor:pointer;transition:background .15s}
+.batch-row:hover{background:var(--hover)}
+.batch-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.batch-name{font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch-actions{display:flex;gap:2px;opacity:0}
+.batch-row:hover .batch-actions{opacity:1}
+.icon-btn{width:26px;height:26px;border:none;background:none;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:background .15s}
+.icon-btn:hover{background:var(--border)}
+.icon-btn svg{width:14px;height:14px}
+.sidebar-add{display:flex;align-items:center;gap:8px;padding:8px 12px;color:var(--blue);font-size:13px;cursor:pointer;border-radius:var(--radius);transition:background .15s;margin:0 12px}
+.sidebar-add:hover{background:var(--blue-light)}
+.sidebar-add svg{width:16px;height:16px}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 16px}
+
+/* Calendar */
+.cal-outer{flex:1;overflow:auto}
+.cal-grid{display:grid;grid-template-columns:52px 52px repeat(7,minmax(88px,1fr));min-width:740px}
+.cal-hdr-corner{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+.cal-hdr{background:var(--surface);border-bottom:1px solid var(--border);border-left:1px solid var(--border);text-align:center;padding:10px 4px;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:.3px;text-transform:uppercase;position:sticky;top:0;z-index:10}
+.cal-time{font-size:11px;color:var(--subtle);text-align:right;padding:2px 5px 0;border-right:1px solid var(--border);background:var(--surface)}
+.cal-time-tz{font-size:11px;color:var(--blue);text-align:left;padding:2px 5px 0;border-right:1px solid var(--border);background:var(--surface)}
+.cal-col{position:relative;border-left:1px solid var(--border);cursor:pointer}
+.cal-col:hover{background:rgba(26,115,232,.03)}
+.hour-line{position:absolute;left:0;right:0;border-top:1px solid #f0f0f0;pointer-events:none}
+.hour-line.solid{border-top:1px solid var(--border);pointer-events:none}
+.cal-event{position:absolute;left:2px;right:2px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;z-index:2;padding:3px 5px;line-height:1.3;overflow:hidden;transition:filter .15s,box-shadow .15s;border-left:3px solid}
+.cal-event:hover{filter:brightness(.93);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.cal-hover-indicator{position:absolute;left:2px;right:2px;background:rgba(26,115,232,.12);border-left:3px solid var(--blue);border-radius:4px;pointer-events:none;z-index:1;display:none}
+
+/* Modals */
+.overlay{display:none;position:fixed;inset:0;background:rgba(32,33,36,.5);z-index:300;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:12px;padding:28px;width:420px;max-width:96vw;box-shadow:0 8px 32px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto}
+.modal-sm{width:360px}
+.modal-lg{width:720px}
+.modal h2{font-family:'Google Sans',sans-serif;font-size:20px;font-weight:500;margin-bottom:20px;color:var(--text)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.field input,.field select,.field textarea{width:100%;font-size:14px;font-family:'Roboto',sans-serif;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;transition:border .15s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px #e8f0fe}
+.field textarea{resize:vertical;min-height:60px}
+.modal-actions{display:flex;gap:8px;margin-top:20px;justify-content:flex-end;align-items:center}
+.modal-actions button{font-size:14px;font-family:'Roboto',sans-serif;font-weight:500;padding:9px 18px;border-radius:var(--radius);border:none;cursor:pointer;transition:background .15s}
+.btn-cancel{background:none;color:var(--muted);border:1px solid var(--border)!important}
+.btn-cancel:hover{background:var(--hover)}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:#1765cc}
+.btn-danger{background:none;color:#d93025;margin-right:auto;border:1px solid #d93025!important}
+.btn-danger:hover{background:#fce8e6}
+
+/* Colour picker */
+.color-grid{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0}
+.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .1s,border-color .15s}
+.color-swatch:hover{transform:scale(1.15)}
+.color-swatch.selected{border-color:var(--text)}
+
+/* Batch detail */
+.detail-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.detail-dot{width:18px;height:18px;border-radius:4px;flex-shrink:0}
+.detail-title{font-family:'Google Sans',sans-serif;font-size:20px;font-weight:500}
+.detail-students{font-size:13px;color:var(--muted);margin-bottom:14px}
+.detail-students span{background:var(--hover);padding:3px 8px;border-radius:12px;margin-right:4px;margin-bottom:4px;display:inline-block}
+.timing-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}
+.timing-table th{text-align:left;padding:7px 10px;font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border)}
+.timing-table td{padding:7px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+.timing-table tr:last-child td{border-bottom:none}
+.season-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.badge-summer{background:#fff8e1;color:#e65100}
+.badge-winter{background:#e3f2fd;color:#1565c0}
+.badge-both{background:#e8f5e9;color:#2e7d32}
+.section-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
+
+/* TZ filter pills in detail */
+.tz-filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tz-pill{padding:5px 12px;border-radius:16px;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .15s;text-align:center;line-height:1.4}
+.tz-pill.on{border-color:var(--blue);background:var(--blue-light);color:var(--blue)}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:#323232;color:#fff;font-size:13px;padding:10px 20px;border-radius:var(--radius);opacity:0;transition:all .25s;z-index:500;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:680px){
+  .sidebar{display:none}
+  .logo-text{font-size:16px}
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect y="4" width="24" height="2" rx="1"/><rect y="11" width="24" height="2" rx="1"/><rect y="18" width="24" height="2" rx="1"/></svg>
+  </button>
+  <div class="logo-area">
+    <svg class="logo-icon" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#1a73e8"/><text x="16" y="22" text-anchor="middle" font-size="16" fill="white">💃</text></svg>
+    <span class="logo-text">Dance <span>Schedule</span></span>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="season-pill">
+    <button class="s-btn" id="btn-summer" onclick="setSeason('summer')">☀ Summer</button>
+    <button class="s-btn" id="btn-winter" onclick="setSeason('winter')">❄ Winter</button>
+  </div>
+  <div class="tz-wrap">
+    <button class="tz-btn" onclick="toggleTzDropdown()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+      <span id="tz-label-text">EDT</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="tz-dropdown" id="tz-dropdown"></div>
+  </div>
+  <button class="header-btn primary" onclick="openAddClass()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+    Add class
+  </button>
+  <button class="header-btn" onclick="if(confirm('Reset to original schedule? All changes will be lost.'))resetSchedule()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+    Reset
+  </button>
+  <span id="sync-status" style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
+  <button class="header-btn" onclick="openSetup()" title="Cloud sync settings" style="flex-shrink:0">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
+    Sync setup
+  </button>
+</header>
+
+<div class="app-body">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Batches</div>
+      <div id="batch-list"></div>
+      <div id="batch-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No batches yet. Click below to add one.</div>
+      <div class="sidebar-add" onclick="openBatchManager()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Manage batches
+      </div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div style="font-size:10px;color:var(--subtle);padding:4px">Changes auto-saved</div>
+    </div>
+  </aside>
+
+  <main class="cal-outer">
+    <div id="cal-inner"></div>
+  </main>
+</div>
+
+<!-- ADD / EDIT CLASS -->
+<div class="overlay" id="modal-class">
+  <div class="modal modal-sm">
+    <h2 id="mc-title">Add class</h2>
+    <div class="field"><label>Batch</label><select id="mc-batch"></select></div>
+    <div class="field"><label>Day</label>
+      <select id="mc-day">
+        <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+        <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Enter time in timezone</label>
+      <select id="mc-tz" onchange="mcTzChanged()">
+        <option value="IST">IST – India Standard Time</option>
+        <option value="EDT">EDT – Eastern Summer (US)</option>
+        <option value="EST">EST – Eastern Winter (US)</option>
+        <option value="CDT">CDT – Central Summer (US)</option>
+        <option value="CST">CST – Central Winter (US)</option>
+        <option value="PDT">PDT – Pacific Summer (US)</option>
+        <option value="PST">PST – Pacific Winter (US)</option>
+        <option value="AEDT">AEDT – Australian Eastern Summer</option>
+        <option value="AEST">AEST – Australian Eastern Winter</option>
+        <option value="BST">BST – British Summer Time</option>
+        <option value="GMT">GMT – Greenwich Mean Time</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label id="mc-start-label">Start</label><input id="mc-start" type="time" oninput="mcTimeChanged()"/></div>
+      <div class="field"><label id="mc-end-label">End</label><input id="mc-end" type="time" oninput="mcTimeChanged()"/></div>
+    </div>
+    <div id="mc-ist-preview" style="display:none;background:var(--blue-light);border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--blue);margin-bottom:4px"></div>
+    <div class="field"><label>Season</label>
+      <select id="mc-season">
+        <option value="both">Both seasons</option>
+        <option value="summer">Summer only</option>
+        <option value="winter">Winter only</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" id="mc-del" onclick="deleteClass()">Delete</button>
+      <button class="btn-cancel" onclick="closeOverlay('modal-class')">Cancel</button>
+      <button class="btn-primary" onclick="saveClass()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- BATCH MANAGER -->
+<div class="overlay" id="modal-batches">
+  <div class="modal">
+    <h2>Batch manager</h2>
+    <div id="bm-list" style="margin-bottom:14px"></div>
+    <button class="header-btn primary" onclick="openNewBatch()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      New batch
+    </button>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-batches')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW / EDIT BATCH -->
+<div class="overlay" id="modal-batch-edit">
+  <div class="modal modal-sm">
+    <h2 id="be-title">New batch</h2>
+    <div class="field"><label>Batch name</label><input id="be-name" type="text" placeholder="e.g. Batch 9"/></div>
+    <div class="field"><label>Students (comma separated)</label><textarea id="be-students" placeholder="Ava, Harini, ..."></textarea></div>
+    <div class="field"><label>Colour</label><div class="color-grid" id="be-color-grid"></div></div>
+    <div class="modal-actions">
+      <button class="btn-danger" id="be-del" onclick="deleteBatch()">Delete batch</button>
+      <button class="btn-cancel" onclick="closeOverlay('modal-batch-edit')">Cancel</button>
+      <button class="btn-primary" onclick="saveBatch()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- BATCH DETAIL -->
+<div class="overlay" id="modal-detail">
+  <div class="modal modal-lg">
+    <div id="detail-content"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-detail')">Close</button>
+      <button class="btn-primary" onclick="editBatchFromDetail()">Edit batch</button>
+    </div>
+  </div>
+</div>
+
+<!-- SYNC SETUP MODAL -->
+<div class="overlay" id="modal-setup">
+  <div class="modal modal-sm">
+    <h2>☁ Cloud sync setup</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">This connects your schedule to Google Sheets so it syncs across every device and browser. Follow the steps below, then paste your Script URL here.</p>
+    <div style="background:var(--bg);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;margin-bottom:16px">
+      <strong>Step 1</strong> — Go to <a href="https://sheets.google.com" target="_blank" style="color:var(--blue)">sheets.google.com</a> and create a new blank spreadsheet. Name it "Dance Schedule".<br>
+      <strong>Step 2</strong> — Click <em>Extensions → Apps Script</em>.<br>
+      <strong>Step 3</strong> — Delete everything in the editor and paste in the contents of <strong>Code.gs</strong> (the other file you downloaded).<br>
+      <strong>Step 4</strong> — Click <em>Deploy → New deployment</em>. Type: <em>Web app</em>. Set "Who has access" to <em>Anyone</em>. Click Deploy.<br>
+      <strong>Step 5</strong> — Copy the Web App URL and paste it below.
+    </div>
+    <div class="field">
+      <label>Your Web App URL</label>
+      <input id="setup-url" type="url" placeholder="https://script.google.com/macros/s/…/exec"/>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px">This URL is saved in this browser so you only need to do this once per device.</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-setup')">Cancel</button>
+      <button class="btn-primary" onclick="saveSetup()">Connect & sync</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Constants (defined before use) ──
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const START_H = 4, END_H = 23;
+const TOTAL_MINS = (END_H - START_H) * 60;
+const PX_PER_MIN = 1.1;
+const GRID_H = TOTAL_MINS * PX_PER_MIN;
+
+// Minutes offset from IST (IST = UTC+330min)
+const TZ_OFFSETS = {
+  EDT:-570, EST:-630,   // Eastern  UTC-4 / UTC-5
+  CDT:-630, CST:-690,   // Central  UTC-5 / UTC-6
+  PDT:-690, PST:-750,   // Pacific  UTC-7 / UTC-8
+  AEDT:+270,AEST:+210,  // Australian Eastern  UTC+11 / UTC+10
+  BST:-270,  GMT:-330,  // UK  UTC+1 / UTC+0
+};
+
+const TZ_LIST = [
+  {id:'EDT', label:'EDT – Eastern Summer (US)'},
+  {id:'EST', label:'EST – Eastern Winter (US)'},
+  {id:'CDT', label:'CDT – Central Summer (US)'},
+  {id:'CST', label:'CST – Central Winter (US)'},
+  {id:'PDT', label:'PDT – Pacific Summer (US)'},
+  {id:'PST', label:'PST – Pacific Winter (US)'},
+  {id:'AEDT',label:'AEDT – Australian Eastern Summer'},
+  {id:'AEST',label:'AEST – Australian Eastern Winter'},
+  {id:'BST', label:'BST – British Summer Time'},
+  {id:'GMT', label:'GMT – Greenwich Mean Time'},
+];
+
+const TZ_GROUPS = [
+  {label:'Eastern',    summer:'EDT', winter:'EST'},
+  {label:'Central',    summer:'CDT', winter:'CST'},
+  {label:'Pacific',    summer:'PDT', winter:'PST'},
+  {label:'Australian', summer:'AEDT',winter:'AEST'},
+  {label:'British',    summer:'BST', winter:'GMT'},
+];
+
+const ALL_COLORS = [
+  {id:'c1', bg:'#e8f0fe',border:'#4285f4',text:'#1a237e'},
+  {id:'c2', bg:'#e6f4ea',border:'#34a853',text:'#1b5e20'},
+  {id:'c3', bg:'#fce8e6',border:'#ea4335',text:'#b71c1c'},
+  {id:'c4', bg:'#fef7e0',border:'#fbbc04',text:'#e65100'},
+  {id:'c5', bg:'#fce4ec',border:'#e91e63',text:'#880e4f'},
+  {id:'c6', bg:'#ede7f6',border:'#7c4dff',text:'#311b92'},
+  {id:'c7', bg:'#e0f7fa',border:'#00bcd4',text:'#006064'},
+  {id:'c8', bg:'#f1f8e9',border:'#8bc34a',text:'#33691e'},
+  {id:'c9', bg:'#fff3e0',border:'#ff9800',text:'#bf360c'},
+  {id:'c10',bg:'#fdf2f8',border:'#d500f9',text:'#4a148c'},
+  {id:'c11',bg:'#e8eaf6',border:'#3f51b5',text:'#1a237e'},
+  {id:'c12',bg:'#e0f2f1',border:'#009688',text:'#004d40'},
+  {id:'c13',bg:'#fff8e1',border:'#ffc107',text:'#ff6f00'},
+  {id:'c14',bg:'#fbe9e7',border:'#ff5722',text:'#bf360c'},
+  {id:'c15',bg:'#f3e5f5',border:'#9c27b0',text:'#4a148c'},
+  {id:'c16',bg:'#e1f5fe',border:'#03a9f4',text:'#01579b'},
+  {id:'c17',bg:'#eceff1',border:'#607d8b',text:'#263238'},
+  {id:'c18',bg:'#efebe9',border:'#795548',text:'#3e2723'},
+  {id:'c19',bg:'#f9fbe7',border:'#cddc39',text:'#827717'},
+  {id:'c20',bg:'#e8f5e9',border:'#4caf50',text:'#1b5e20'},
+];
+
+// ── Cloud config ──
+// After deploying your Apps Script, paste your Web App URL here:
+let SCRIPT_URL = localStorage.getItem('dance_script_url') || '';
+
+// ── State ──
+let season      = 'summer';
+let currentTz   = 'EDT';
+let sidebarOpen = true;
+let editClassIdx = null, addClassMode = false;
+let editBatchId  = null, addBatchMode = false;
+let detailBatchId = null;
+let detailActiveTzGroups = new Set(TZ_GROUPS.map(g => g.label));
+
+let batches = [];
+let classes  = [];
+
+// ── Cloud storage — JSONP (no CORS issues, works on all browsers) ──
+
+// Read: inject a <script> tag with a callback — bypasses CORS entirely
+function cloudLoad() {
+  return new Promise((resolve) => {
+    if(!SCRIPT_URL) { resolve(null); return; }
+    const cbName = 'ds_cb_' + Date.now();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      script.remove();
+      resolve(null);
+    }, 10000);
+    window[cbName] = (data) => {
+      clearTimeout(timer);
+      delete window[cbName];
+      script.remove();
+      resolve(data && data.ok ? data.data : null);
+    };
+    script.src = SCRIPT_URL + '?callback=' + cbName + '&_=' + Date.now();
+    script.onerror = () => { clearTimeout(timer); delete window[cbName]; resolve(null); };
+    document.head.appendChild(script);
+  });
+}
+
+// Write: use a hidden form POST — no CORS preflight, works everywhere
+function cloudSave(key, value) {
+  if(!SCRIPT_URL) return;
+  const strVal = typeof value === 'string' ? value : JSON.stringify(value);
+  // Use sendBeacon if available (fire-and-forget, very reliable)
+  const payload = JSON.stringify({ key, value: strVal });
+  if(navigator.sendBeacon) {
+    const blob = new Blob([payload], { type: 'text/plain' });
+    navigator.sendBeacon(SCRIPT_URL, blob);
+  } else {
+    // Fallback: hidden iframe form POST
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = SCRIPT_URL;
+    form.target = '_hidden_save';
+    form.style.display = 'none';
+    const field = document.createElement('input');
+    field.type = 'hidden';
+    field.name = 'payload';
+    field.value = payload;
+    form.appendChild(field);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(() => form.remove(), 3000);
+  }
+}
+
+function save(key, val) {
+  const strVal = typeof val === 'string' ? val : JSON.stringify(val);
+  cloudSave(key, strVal);
+}
+
+// ── Helpers ──
+function getBatch(id)  { return batches.find(b => b.id === id); }
+function getColor(cid) { return ALL_COLORS.find(c => c.id === cid) || ALL_COLORS[0]; }
+function toMins(t)     { const [h,m] = t.split(':').map(Number); return h*60+m; }
+function minsFromStart(t){ return toMins(t) - START_H*60; }
+function fmtTime(t) {
+  const [h,m] = t.split(':').map(Number);
+  const p = h < 12 ? 'am' : 'pm';
+  const h12 = h === 0 ? 12 : h > 12 ? h-12 : h;
+  return m === 0 ? `${h12}${p}` : `${h12}:${String(m).padStart(2,'0')}${p}`;
+}
+function istToTz(istTime, tzName) {
+  const off = TZ_OFFSETS[tzName];
+  let total = toMins(istTime) + off;
+  if(total < 0) total += 1440;
+  if(total >= 1440) total -= 1440;
+  const h = Math.floor(total/60), m = total % 60;
+  const p = h < 12 ? 'am' : 'pm';
+  const h12 = h === 0 ? 12 : h > 12 ? h-12 : h;
+  return m === 0 ? `${h12}${p}` : `${h12}:${String(m).padStart(2,'0')}${p}`;
+}
+function istHourToTz(istH, tzName) {
+  const off = TZ_OFFSETS[tzName];
+  let total = istH*60 + off;
+  if(total < 0) total += 1440;
+  if(total >= 1440) total -= 1440;
+  const h = Math.floor(total/60), m = total % 60;
+  const p = h < 12 ? 'am' : 'pm';
+  const h12 = h === 0 ? 12 : h > 12 ? h-12 : h;
+  return m === 0 ? `${h12}${p}` : `${h12}:${String(m).padStart(2,'0')}${p}`;
+}
+
+// ── Season ──
+function syncTzToSeason(s) {
+  // Find which TZ_GROUP currentTz belongs to, then switch to summer/winter variant
+  const group = TZ_GROUPS.find(g => g.summer === currentTz || g.winter === currentTz);
+  if(!group) return; // IST or unrecognised — leave unchanged
+  const target = s === 'summer' ? group.summer : group.winter;
+  if(target !== currentTz) {
+    currentTz = target;
+    save('tz', currentTz);
+    document.getElementById('tz-label-text').textContent = currentTz;
+    renderTzDropdown();
+  }
+}
+function setSeason(s) {
+  season = s;
+  save('season', s);
+  document.getElementById('btn-summer').classList.toggle('active', s === 'summer');
+  document.getElementById('btn-winter').classList.toggle('active', s === 'winter');
+  syncTzToSeason(s);
+  renderCalendar();
+}
+
+// ── Timezone dropdown ──
+function renderTzDropdown() {
+  const chk = `<svg class="tz-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>`;
+  document.getElementById('tz-dropdown').innerHTML = TZ_LIST.map(t =>
+    `<div class="tz-option${t.id === currentTz ? ' active':''}" onclick="setTz('${t.id}')">${chk}${t.label}</div>`
+  ).join('');
+}
+function setTz(tz) {
+  currentTz = tz;
+  save('tz', tz);
+  document.getElementById('tz-label-text').textContent = tz;
+  renderTzDropdown();
+  document.getElementById('tz-dropdown').classList.remove('open');
+  renderCalendar();
+}
+function toggleTzDropdown() {
+  document.getElementById('tz-dropdown').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if(!e.target.closest('.tz-wrap')) document.getElementById('tz-dropdown').classList.remove('open');
+});
+
+// ── Sidebar ──
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.getElementById('sidebar').classList.toggle('collapsed', !sidebarOpen);
+}
+function renderSidebar() {
+  document.getElementById('batch-list').innerHTML = batches.map(b => {
+    const col = getColor(b.color);
+    return `<div class="batch-row" onclick="openDetail('${b.id}')">
+      <div class="batch-dot" style="background:${col.border}"></div>
+      <span class="batch-name">${b.name}</span>
+      <div class="batch-actions">
+        <button class="icon-btn" onclick="event.stopPropagation();openEditBatch('${b.id}')" title="Edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+  const empty = document.getElementById('batch-empty');
+  if(empty) empty.style.display = batches.length === 0 ? 'block' : 'none';
+}
+
+// ── Calendar ──
+function renderCalendar() {
+  const visible = classes.filter(c => c.season === 'both' || c.season === season);
+  let html = `<div class="cal-grid">`;
+
+  // Header row
+  html += `<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--subtle);display:flex;align-items:flex-end;justify-content:flex-end;padding:0 5px 6px;border-right:1px solid var(--border)">IST</div>`;
+  html += `<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--blue);display:flex;align-items:flex-end;justify-content:flex-start;padding:0 5px 6px;border-right:1px solid var(--border)">${currentTz}</div>`;
+  DAYS.forEach(d => { html += `<div class="cal-hdr">${d.slice(0,3)}</div>`; });
+
+  // IST time column
+  html += `<div style="display:flex;flex-direction:column;background:var(--surface);">`;
+  for(let h = START_H; h <= END_H; h++) {
+    const lbl = h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`;
+    html += `<div class="cal-time" style="height:${60*PX_PER_MIN}px">${lbl}</div>`;
+  }
+  html += `</div>`;
+
+  // Selected TZ column
+  html += `<div style="display:flex;flex-direction:column;background:var(--surface);">`;
+  for(let h = START_H; h <= END_H; h++) {
+    html += `<div class="cal-time-tz" style="height:${60*PX_PER_MIN}px">${istHourToTz(h, currentTz)}</div>`;
+  }
+  html += `</div>`;
+
+  // Day columns
+  DAYS.forEach(day => {
+    const dayCls = visible.filter(c => c.day === day);
+    html += `<div class="cal-col" style="height:${GRID_H}px" data-day="${day}" onclick="calColClick(event,'${day}')" onmousemove="calColHover(event)" onmouseleave="calColLeave(event)">`;
+    html += `<div class="cal-hover-indicator" id="hover-${day}"></div>`;
+    for(let h = 0; h <= END_H - START_H; h++) {
+      html += `<div class="hour-line solid" style="top:${h*60*PX_PER_MIN}px"></div>`;
+      if(h < END_H - START_H) html += `<div class="hour-line" style="top:${(h+.5)*60*PX_PER_MIN}px"></div>`;
+    }
+    dayCls.forEach(c => {
+      const idx = classes.indexOf(c);
+      const sm = minsFromStart(c.start), em = minsFromStart(c.end);
+      if(sm < 0 || em > TOTAL_MINS) return;
+      const top = sm * PX_PER_MIN;
+      const ht  = Math.max((em - sm) * PX_PER_MIN, 16);
+      const batch = getBatch(c.batchId);
+      if(!batch) return;
+      const col = getColor(batch.color);
+      const tzTime = istToTz(c.start, currentTz);
+
+      function tzDayLabel(istDay, istTime, tz) {
+        if(tz === 'IST') return '';
+        const off = TZ_OFFSETS[tz];
+        const istMins = toMins(istTime);
+        const tzMins  = istMins + off;
+        const dayIdx  = DAYS.indexOf(istDay);
+        if(tzMins < 0)     return DAYS[(dayIdx + 6) % 7].slice(0,3) + ' ';
+        if(tzMins >= 1440) return DAYS[(dayIdx + 1) % 7].slice(0,3) + ' ';
+        return '';
+      }
+      const dayPrefix = tzDayLabel(day, c.start, currentTz);
+      const tzStr = `${dayPrefix}${tzTime} ${currentTz}`;
+      const students = (batch.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+
+      let blockContent;
+      if(ht < 22) {
+        // very small: just batch name, single line
+        blockContent = `<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${batch.name}</span>`;
+      } else if(ht < 36) {
+        // small: batch name + tz on same line
+        blockContent = `<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${batch.name} <span style="opacity:.75;font-size:9px">${tzStr}</span></span>`;
+      } else if(ht < 52) {
+        // medium: tz line + batch name
+        blockContent = `<span style="display:block;font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden">${tzStr}</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch.name}</span>`;
+      } else {
+        // full: tz, batch name, students
+        const studentStr = students.length ? students.join(', ') : '';
+        blockContent = `<span style="display:block;font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden">${tzStr}</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch.name}</span>${studentStr ? `<span style="display:block;font-size:9px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px">${studentStr}</span>` : ''}`;
+      }
+
+      html += `<div class="cal-event" style="top:${top}px;height:${ht}px;background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column;justify-content:flex-start;" onclick="event.stopPropagation();openEditClass(${idx})" title="${batch.name}${students.length?' | '+students.join(', '):''} | ${c.start} IST = ${tzStr}">${blockContent}</div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+  document.getElementById('cal-inner').innerHTML = html;
+}
+
+// ── Grid click to add ──
+function pxToIst(offsetY) {
+  // snap to nearest 15 min
+  const rawMin = offsetY / PX_PER_MIN;
+  const snapped = Math.round(rawMin / 15) * 15;
+  const totalMin = START_H * 60 + Math.min(snapped, TOTAL_MINS - 60);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function calColClick(e, day) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const offsetY = e.clientY - rect.top;
+  const start = pxToIst(offsetY);
+  const [sh, sm2] = start.split(':').map(Number);
+  const endMin = Math.min(sh * 60 + sm2 + 60, END_H * 60);
+  const end = `${String(Math.floor(endMin/60)).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+  openAddClass(day, start, end);
+}
+function calColHover(e) {
+  const col = e.currentTarget;
+  const day = col.dataset.day;
+  const indicator = document.getElementById('hover-' + day);
+  if(!indicator) return;
+  const rect = col.getBoundingClientRect();
+  const offsetY = e.clientY - rect.top;
+  const rawMin = offsetY / PX_PER_MIN;
+  const snapped = Math.round(rawMin / 15) * 15;
+  const top = snapped * PX_PER_MIN;
+  indicator.style.top    = top + 'px';
+  indicator.style.height = (60 * PX_PER_MIN) + 'px';
+  indicator.style.display = 'block';
+}
+function calColLeave(e) {
+  const day = e.currentTarget.dataset.day;
+  const indicator = document.getElementById('hover-' + day);
+  if(indicator) indicator.style.display = 'none';
+}
+
+// ── Add / Edit class ──
+
+// Convert a time string from any TZ to IST (stored format)
+function tzToIst(time, tzName) {
+  if(tzName === 'IST') return time;
+  const offsetMin = TZ_OFFSETS[tzName]; // offset = TZ - IST, so IST = TZ - offset
+  let total = toMins(time) - offsetMin; // subtract to go back to IST
+  if(total < 0) total += 1440;
+  if(total >= 1440) total -= 1440;
+  const h = Math.floor(total/60), m = total % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+// Convert IST time to any TZ for display
+function istToTzRaw(time, tzName) {
+  if(tzName === 'IST') return time;
+  const offsetMin = TZ_OFFSETS[tzName];
+  let total = toMins(time) + offsetMin;
+  if(total < 0) total += 1440;
+  if(total >= 1440) total -= 1440;
+  const h = Math.floor(total/60), m = total % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function mcTzChanged() {
+  const tz = document.getElementById('mc-tz').value;
+  const lbl = tz === 'IST' ? '' : ` (${tz})`;
+  document.getElementById('mc-start-label').textContent = `Start${lbl}`;
+  document.getElementById('mc-end-label').textContent   = `End${lbl}`;
+  mcTimeChanged();
+}
+function mcTimeChanged() {
+  const tz    = document.getElementById('mc-tz').value;
+  const start = document.getElementById('mc-start').value;
+  const end   = document.getElementById('mc-end').value;
+  const preview = document.getElementById('mc-ist-preview');
+  if(tz === 'IST' || (!start && !end)) { preview.style.display = 'none'; return; }
+  const parts = [];
+  if(start) parts.push(`Start: ${fmtTime(tzToIst(start, tz))} IST`);
+  if(end)   parts.push(`End: ${fmtTime(tzToIst(end, tz))} IST`);
+  preview.textContent = '→ ' + parts.join('   ');
+  preview.style.display = 'block';
+}
+function openAddClass(prefillDay, prefillStart, prefillEnd) {
+  addClassMode = true; editClassIdx = null;
+  document.getElementById('mc-title').textContent = 'Add class';
+  document.getElementById('mc-del').style.display = 'none';
+  populateBatchSelect();
+  document.getElementById('mc-tz').value     = 'IST';
+  document.getElementById('mc-day').value    = prefillDay || 'Monday';
+  document.getElementById('mc-start').value  = prefillStart || '09:00';
+  document.getElementById('mc-end').value    = prefillEnd   || '10:00';
+  document.getElementById('mc-season').value = season;
+  document.getElementById('mc-ist-preview').style.display = 'none';
+  mcTzChanged();
+  document.getElementById('modal-class').classList.add('open');
+}
+function openEditClass(idx) {
+  addClassMode = false; editClassIdx = idx;
+  const c = classes[idx];
+  document.getElementById('mc-title').textContent = 'Edit class';
+  document.getElementById('mc-del').style.display = '';
+  populateBatchSelect(c.batchId);
+  // Always show stored IST time when editing; user can switch TZ if they want
+  document.getElementById('mc-tz').value     = 'IST';
+  document.getElementById('mc-day').value    = c.day;
+  document.getElementById('mc-start').value  = c.start;
+  document.getElementById('mc-end').value    = c.end;
+  document.getElementById('mc-season').value = c.season;
+  document.getElementById('mc-ist-preview').style.display = 'none';
+  mcTzChanged();
+  document.getElementById('modal-class').classList.add('open');
+}
+function populateBatchSelect(selectedId) {
+  document.getElementById('mc-batch').innerHTML = batches.map(b =>
+    `<option value="${b.id}"${b.id === selectedId ? ' selected':''}>${b.name}</option>`
+  ).join('');
+}
+function saveClass() {
+  const tz    = document.getElementById('mc-tz').value;
+  const start = document.getElementById('mc-start').value;
+  const end   = document.getElementById('mc-end').value;
+  if(!start || !end) { showToast('Please set start and end times'); return; }
+  // Convert to IST for storage
+  const istStart = tzToIst(start, tz);
+  const istEnd   = tzToIst(end, tz);
+  const obj = {
+    batchId: document.getElementById('mc-batch').value,
+    day:     document.getElementById('mc-day').value,
+    start:   istStart,
+    end:     istEnd,
+    season:  document.getElementById('mc-season').value,
+  };
+  if(addClassMode) classes.push(obj);
+  else classes[editClassIdx] = obj;
+  save('classes', classes);
+  closeOverlay('modal-class');
+  renderCalendar();
+  showToast(addClassMode ? 'Class added' : 'Class updated');
+}
+function deleteClass() {
+  if(editClassIdx !== null) classes.splice(editClassIdx, 1);
+  save('classes', classes);
+  closeOverlay('modal-class');
+  renderCalendar();
+  showToast('Class deleted');
+}
+
+// ── Batch manager ──
+function openBatchManager() {
+  renderBatchManager();
+  document.getElementById('modal-batches').classList.add('open');
+}
+function renderBatchManager() {
+  document.getElementById('bm-list').innerHTML = batches.map(b => {
+    const col = getColor(b.color);
+    const count = (b.students||'').split(',').filter(s => s.trim()).length;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0">
+      <div style="width:14px;height:14px;border-radius:3px;background:${col.border};flex-shrink:0"></div>
+      <span style="flex:1;font-size:14px">${b.name}</span>
+      <span style="font-size:12px;color:var(--muted)">${count} student${count!==1?'s':''}</span>
+      <button class="icon-btn" onclick="openEditBatch('${b.id}');closeOverlay('modal-batches')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+function openNewBatch() {
+  addBatchMode = true; editBatchId = null;
+  document.getElementById('be-title').textContent = 'New batch';
+  document.getElementById('be-del').style.display = 'none';
+  document.getElementById('be-name').value = '';
+  document.getElementById('be-students').value = '';
+  renderColorGrid('c1');
+  document.getElementById('modal-batch-edit').classList.add('open');
+}
+function openEditBatch(id) {
+  addBatchMode = false; editBatchId = id;
+  const b = getBatch(id);
+  document.getElementById('be-title').textContent = 'Edit batch';
+  document.getElementById('be-del').style.display = '';
+  document.getElementById('be-name').value = b.name;
+  document.getElementById('be-students').value = b.students || '';
+  renderColorGrid(b.color);
+  document.getElementById('modal-batch-edit').classList.add('open');
+}
+function renderColorGrid(selectedId) {
+  document.getElementById('be-color-grid').innerHTML = ALL_COLORS.map(c =>
+    `<div class="color-swatch${c.id === selectedId ? ' selected':''}" style="background:${c.border}" onclick="selectColor('${c.id}')" data-cid="${c.id}"></div>`
+  ).join('');
+}
+function selectColor(cid) {
+  document.querySelectorAll('.color-swatch').forEach(el => el.classList.toggle('selected', el.dataset.cid === cid));
+}
+function getSelectedColor() {
+  const el = document.querySelector('.color-swatch.selected');
+  return el ? el.dataset.cid : 'c1';
+}
+function saveBatch() {
+  const name = document.getElementById('be-name').value.trim();
+  if(!name) { showToast('Please enter a batch name'); return; }
+  if(addBatchMode) {
+    batches.push({id:'b_'+Date.now(), name, color:getSelectedColor(), students:document.getElementById('be-students').value.trim()});
+  } else {
+    const b = getBatch(editBatchId);
+    b.name = name; b.color = getSelectedColor(); b.students = document.getElementById('be-students').value.trim();
+  }
+  save('batches', batches);
+  closeOverlay('modal-batch-edit');
+  renderSidebar();
+  renderCalendar();
+  showToast(addBatchMode ? 'Batch created' : 'Batch updated');
+}
+function deleteBatch() {
+  if(!confirm('Delete this batch and all its classes?')) return;
+  classes = classes.filter(c => c.batchId !== editBatchId);
+  batches = batches.filter(b => b.id !== editBatchId);
+  save('batches', batches);
+  save('classes', classes);
+  closeOverlay('modal-batch-edit');
+  renderSidebar();
+  renderCalendar();
+  showToast('Batch deleted');
+}
+
+// ── Batch detail ──
+function openDetail(batchId) {
+  detailBatchId = batchId;
+  detailActiveTzGroups = new Set(TZ_GROUPS.map(g => g.label));
+  renderDetailContent();
+  document.getElementById('modal-detail').classList.add('open');
+}
+function toggleDetailTz(label) {
+  if(detailActiveTzGroups.has(label)) {
+    if(detailActiveTzGroups.size === 1) return;
+    detailActiveTzGroups.delete(label);
+  } else {
+    detailActiveTzGroups.add(label);
+  }
+  renderDetailContent();
+}
+function renderDetailContent() {
+  const b   = getBatch(detailBatchId);
+  const col = getColor(b.color);
+  const bClasses = classes.filter(c => c.batchId === detailBatchId);
+  const students = (b.students||'').split(',').map(s => s.trim()).filter(Boolean);
+  const activeGrp = TZ_GROUPS.filter(g => detailActiveTzGroups.has(g.label));
+
+  // For a given season table, use summer or winter variant of each TZ group
+  function timingTable(seasonFilter) {
+    // which tz key to use per group for this season
+    const tzKey = seasonFilter === 'summer' ? 'summer' : 'winter';
+    const relevant = bClasses.filter(c => c.season === 'both' || c.season === seasonFilter);
+
+    // column headers: IST + one per active group (showing the seasonal TZ name)
+    const headers = ['IST', ...activeGrp.map(g => {
+      const tzName = g[tzKey];
+      return `<span style="font-weight:600">${tzName}</span><br><small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">${g.label}</small>`;
+    })].map(h => `<th>${h}</th>`).join('');
+
+    if(!relevant.length) {
+      return `<table class="timing-table"><thead><tr>${headers}</tr></thead>
+        <tbody><tr><td colspan="${1+activeGrp.length}" style="color:var(--muted);font-size:12px;padding:8px 10px">No classes this season</td></tr></tbody></table>`;
+    }
+
+    const rows = relevant.map(c => {
+      const tzCells = activeGrp.map(g => {
+        const tz = g[tzKey];
+        return `<td style="font-size:13px">${istToTz(c.start, tz)}</td>`;
+      }).join('');
+      return `<tr>
+        <td><strong style="font-size:13px">${c.day}</strong><br><small style="color:var(--muted);font-size:11px">${fmtTime(c.start)} IST</small></td>
+        ${tzCells}
+      </tr>`;
+    }).join('');
+
+    return `<table class="timing-table">
+      <thead><tr>${headers}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  const filterPills = TZ_GROUPS.map(g => {
+    const on = detailActiveTzGroups.has(g.label);
+    return `<button class="tz-pill${on?' on':''}" onclick="toggleDetailTz('${g.label}')">${g.label}<br><span style="font-size:10px;font-weight:400">${g.summer}/${g.winter}</span></button>`;
+  }).join('');
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="detail-header">
+      <div class="detail-dot" style="background:${col.border}"></div>
+      <div class="detail-title">${b.name}</div>
+    </div>
+    ${students.length ? `<div class="detail-students">${students.map(s=>`<span>${s}</span>`).join('')}</div>` : ''}
+    <div class="section-title" style="margin-top:4px">Show timezones</div>
+    <div class="tz-filter-bar">${filterPills}</div>
+    <div class="section-title">☀ Summer timings <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(EDT · CDT · PDT · AEDT · BST)</small></div>
+    <div style="overflow-x:auto;margin-bottom:4px">${timingTable('summer')}</div>
+    <div class="section-title">❄ Winter timings <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(EST · CST · PST · AEST · GMT)</small></div>
+    <div style="overflow-x:auto">${timingTable('winter')}</div>
+  `;
+}
+function editBatchFromDetail() {
+  closeOverlay('modal-detail');
+  openEditBatch(detailBatchId);
+}
+
+// ── Utilities ──
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+function resetSchedule() {
+  batches = JSON.parse(JSON.stringify(DEFAULT_BATCHES));
+  classes = JSON.parse(JSON.stringify(DEFAULT_CLASSES));
+  save('batches', batches);
+  save('classes', classes);
+  renderSidebar();
+  renderCalendar();
+  showToast('Schedule reset to original');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// Close overlays on backdrop click
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('click', e => { if(e.target === el) el.classList.remove('open'); });
+});
+
+// ── Setup modal ──
+function openSetup() {
+  document.getElementById('setup-url').value = SCRIPT_URL;
+  document.getElementById('modal-setup').classList.add('open');
+}
+function saveSetup() {
+  const url = document.getElementById('setup-url').value.trim();
+  if(!url) { showToast('Please paste your script URL'); return; }
+  SCRIPT_URL = url;
+  localStorage.setItem('dance_script_url', url);
+  closeOverlay('modal-setup');
+  showToast('Connecting…');
+  initLoad();
+}
+
+// ── Init: load from cloud ──
+async function initLoad() {
+  if(!SCRIPT_URL) {
+    document.getElementById('sync-status').textContent = '⚙ Not connected';
+    renderSidebar(); renderCalendar(); return;
+  }
+  document.getElementById('sync-status').textContent = 'Syncing…';
+  const data = await cloudLoad();
+  if(!data) {
+    document.getElementById('sync-status').textContent = '⚠ Offline';
+    showToast('Could not reach cloud — check your Script URL in Sync setup');
+    renderSidebar(); renderCalendar(); return;
+  }
+  try {
+    const b = data.batches;
+    batches = b ? (typeof b === 'string' ? JSON.parse(b) : b) : [];
+  } catch(e) { batches = []; }
+  try {
+    const c = data.classes;
+    classes = c ? (typeof c === 'string' ? JSON.parse(c) : c) : [];
+  } catch(e) { classes = []; }
+  if(data.season) season = data.season;
+  if(data.tz) currentTz = data.tz;
+  document.getElementById('sync-status').textContent = '✓ Synced';
+  document.getElementById('btn-summer').classList.toggle('active', season === 'summer');
+  document.getElementById('btn-winter').classList.toggle('active', season === 'winter');
+  syncTzToSeason(season);
+  document.getElementById('tz-label-text').textContent = currentTz;
+  renderTzDropdown();
+  renderSidebar();
+  renderCalendar();
+}
+
+// ── Boot ──
+document.getElementById('btn-summer').classList.toggle('active', season === 'summer');
+document.getElementById('btn-winter').classList.toggle('active', season === 'winter');
+document.getElementById('tz-label-text').textContent = currentTz;
+renderTzDropdown();
+renderSidebar();
+renderCalendar();
+initLoad();
+</script>
+</body>
+</html>
