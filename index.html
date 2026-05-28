@@ -161,8 +161,13 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <button class="pill-btn" id="btn-summer" onclick="setSeason('summer')">☀ Summer</button>
     <button class="pill-btn" id="btn-winter" onclick="setSeason('winter')">❄ Winter</button>
   </div>
+  <!-- IST-only toggle -->
+  <button class="header-btn" id="btn-ist-only" onclick="toggleIstOnly()" title="Toggle IST-only view">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    IST only
+  </button>
   <!-- TZ dropdown -->
-  <div class="tz-wrap">
+  <div class="tz-wrap" id="tz-wrap-el">
     <button class="tz-btn" onclick="toggleTzDropdown()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
       <span id="tz-label-text">EDT</span>
@@ -177,6 +182,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
   <button class="header-btn" onclick="if(confirm('Reset to original schedule? All changes will be lost.'))resetSchedule()">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
     Reset
+  </button>
+  <button class="header-btn" id="btn-download-week" onclick="downloadWeekJpg()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Download week
   </button>
   <span id="sync-status" style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
   <button class="header-btn" onclick="openSetup()">
@@ -404,6 +413,7 @@ let SCRIPT_URL = HARDCODED_URL;
 // ── State ──
 let season = 'summer';
 let currentTz = 'EDT';
+let istOnly = false; // hide TZ column, show only IST times in blocks
 let sidebarOpen = true;
 let editClassIdx = null, addClassMode = false;
 let editBatchId = null, addBatchMode = false;
@@ -509,6 +519,16 @@ function setSeason(s){
   document.getElementById('btn-winter').classList.toggle('active-blue',s==='winter');
   syncTzToSeason(s);renderCalendar();
 }
+function toggleIstOnly(){
+  istOnly=!istOnly;
+  const btn=document.getElementById('btn-ist-only');
+  btn.style.background=istOnly?'var(--blue-light)':'';
+  btn.style.color=istOnly?'var(--blue)':'';
+  btn.style.fontWeight=istOnly?'500':'';
+  const tzWrap=document.getElementById('tz-wrap-el');
+  if(tzWrap)tzWrap.style.display=istOnly?'none':'';
+  renderCalendar();
+}
 
 // ── TZ dropdown ──
 function renderTzDropdown(){
@@ -552,9 +572,9 @@ function getDisplayTime(c){
 
 function renderCalendar(){
   const visible=classes.filter(c=>c.season==='both'||c.season===season);
-  let html=`<div class="cal-grid">`;
+  let html=`<div class="cal-grid" style="grid-template-columns:52px ${istOnly?'':'52px '}repeat(7,minmax(88px,1fr))">`;
   html+=`<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--subtle);display:flex;align-items:flex-end;justify-content:flex-end;padding:0 5px 6px;border-right:1px solid var(--border)">IST</div>`;
-  html+=`<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--blue);display:flex;align-items:flex-end;justify-content:flex-start;padding:0 5px 6px;border-right:1px solid var(--border)">${currentTz}</div>`;
+  if(!istOnly) html+=`<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--blue);display:flex;align-items:flex-end;justify-content:flex-start;padding:0 5px 6px;border-right:1px solid var(--border)">${currentTz}</div>`;
   DAYS.forEach(d=>{html+=`<div class="cal-hdr">${d.slice(0,3)}</div>`;});
 
   // IST time col
@@ -564,10 +584,12 @@ function renderCalendar(){
     html+=`<div class="cal-time" style="height:${60*PX_PER_MIN}px">${lbl}</div>`;
   }
   html+=`</div>`;
-  // TZ col
-  html+=`<div style="display:flex;flex-direction:column;background:var(--surface);">`;
-  for(let h=START_H;h<=END_H;h++){html+=`<div class="cal-time-tz" style="height:${60*PX_PER_MIN}px">${istHourToTz(h,currentTz)}</div>`;}
-  html+=`</div>`;
+  // TZ col — hidden in IST-only mode
+  if(!istOnly){
+    html+=`<div style="display:flex;flex-direction:column;background:var(--surface);">`;
+    for(let h=START_H;h<=END_H;h++){html+=`<div class="cal-time-tz" style="height:${60*PX_PER_MIN}px">${istHourToTz(h,currentTz)}</div>`;}
+    html+=`</div>`;
+  }
 
   DAYS.forEach(day=>{
     // Include events whose display day (possibly tempDay) matches this column
@@ -617,9 +639,9 @@ function renderCalendar(){
       const col=getColor(batch.color);
       const lp=(slot/total)*100,wp=(1/total)*100;
       const ls=`calc(${lp}% + 2px)`,rs=`calc(${100-lp-wp}% + 2px)`;
-      const tzTime=istToTz(dt.start,currentTz);
-      const dayPfx=tzDayShift(day,dt.start,currentTz);
-      const tzStr=`${dayPfx}${tzTime} ${currentTz}`;
+      const tzTime=istOnly?fmtTime(dt.start):istToTz(dt.start,currentTz);
+      const dayPfx=istOnly?'':tzDayShift(day,dt.start,currentTz);
+      const tzStr=istOnly?`${tzTime} IST`:`${dayPfx}${tzTime} ${currentTz}`;
       const students=(batch.students||'').split(',').map(s=>s.trim()).filter(Boolean);
       const typeTag=dt.isTemp?'<span style="font-size:8px;background:#ff980033;border-radius:3px;padding:0 3px;margin-right:2px">TEMP</span>':'';
       let bc;
@@ -1056,7 +1078,250 @@ function renderDetailContent(){
   `;
 }
 
-// ── Download batch detail as JPG ──
+// ── Download Week as JPG (1080×1350, IST only, Calibri font) ──
+async function downloadWeekJpg(){
+  const btn=document.getElementById('btn-download-week');
+  btn.textContent='Preparing…';btn.disabled=true;
+
+  const W=1080,H=1350;
+  const canvas=document.createElement('canvas');
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+
+  // ── Palette ──
+  const C={
+    bg:'#faf9f7',surface:'#ffffff',border:'#e8e4dc',
+    text:'#1a1816',muted:'#6b6560',subtle:'#a09b95',
+    accent:'#2563eb',accentLight:'#eff6ff',
+    headerBg:'#1e293b',headerText:'#ffffff',
+    orange:'#ea580c',
+  };
+
+  const FONT='Calibri, Arial, sans-serif';
+
+  // ── Layout ──
+  const PAD=36;
+  const HEADER_H=110;
+  const DAY_HEADER_H=44;
+  const TIME_COL_W=62;
+  const COLS=7;
+  const COL_W=Math.floor((W-PAD*2-TIME_COL_W)/COLS);
+  const GRID_TOP=HEADER_H+DAY_HEADER_H+PAD;
+  const GRID_H=H-GRID_TOP-PAD;
+  const visible=classes.filter(c=>c.season==='both'||c.season===season);
+
+  // Work out which hours actually have classes so we can crop sensibly
+  let minH=START_H,maxH=END_H;
+  if(visible.length){
+    let lo=END_H*60,hi=START_H*60;
+    visible.forEach(c=>{
+      const dt=getDisplayTime(c);
+      if(!dt.start)return;
+      lo=Math.min(lo,toMins(dt.start));
+      hi=Math.max(hi,toMins(dt.end||dt.start));
+    });
+    minH=Math.max(START_H,Math.floor(lo/60)-1);
+    maxH=Math.min(END_H,Math.ceil(hi/60)+1);
+  }
+  const DISPLAY_MINS=(maxH-minH)*60;
+  const PX_PM=GRID_H/DISPLAY_MINS;
+
+  function minuteY(totalMin){return GRID_TOP+(totalMin-minH*60)*PX_PM;}
+
+  // ── Background ──
+  ctx.fillStyle=C.bg;
+  ctx.fillRect(0,0,W,H);
+
+  // ── Top header band ──
+  const grad=ctx.createLinearGradient(0,0,W,HEADER_H);
+  grad.addColorStop(0,'#1e293b');grad.addColorStop(1,'#0f172a');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,HEADER_H);
+
+  // Title
+  ctx.fillStyle=C.headerText;
+  ctx.font=`bold 32px ${FONT}`;
+  ctx.textBaseline='middle';
+  ctx.fillText('💃 Dance Schedule',PAD,HEADER_H*0.42);
+
+  // Season + date subtitle
+  const seasonLabel=season==='summer'?'☀ Summer':'❄ Winter';
+  ctx.font=`18px ${FONT}`;
+  ctx.fillStyle='rgba(255,255,255,0.65)';
+  ctx.fillText(`${seasonLabel} · IST timings`,PAD,HEADER_H*0.72);
+
+  // ── Day headers ──
+  const dayColors=['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899'];
+  DAYS.forEach((day,di)=>{
+    const x=PAD+TIME_COL_W+di*COL_W;
+    ctx.fillStyle=dayColors[di];
+    ctx.fillRect(x,HEADER_H,COL_W-2,DAY_HEADER_H);
+    ctx.fillStyle='#fff';
+    ctx.font=`bold 15px ${FONT}`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(day.toUpperCase(),x+COL_W/2-1,HEADER_H+DAY_HEADER_H/2);
+  });
+  ctx.textAlign='left';
+
+  // ── Grid background ──
+  ctx.fillStyle=C.surface;
+  ctx.fillRect(PAD+TIME_COL_W,GRID_TOP,COL_W*COLS,GRID_H);
+
+  // ── Hour lines + time labels ──
+  for(let h=minH;h<=maxH;h++){
+    const y=minuteY(h*60);
+    if(y<GRID_TOP||y>GRID_TOP+GRID_H)continue;
+    ctx.strokeStyle=h%2===0?C.border:'#f0ede8';
+    ctx.lineWidth=h%2===0?1:0.5;
+    ctx.beginPath();ctx.moveTo(PAD+TIME_COL_W,y);ctx.lineTo(W-PAD,y);ctx.stroke();
+    // Time label
+    const lbl=h===0?'12am':h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
+    ctx.fillStyle=C.subtle;
+    ctx.font=`11px ${FONT}`;
+    ctx.textAlign='right';
+    ctx.textBaseline='top';
+    ctx.fillText(lbl,PAD+TIME_COL_W-6,y+2);
+  }
+  ctx.textAlign='left';
+
+  // ── Vertical column dividers ──
+  DAYS.forEach((_,di)=>{
+    if(di===0)return;
+    const x=PAD+TIME_COL_W+di*COL_W;
+    ctx.strokeStyle=C.border;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,GRID_TOP);ctx.lineTo(x,GRID_TOP+GRID_H);ctx.stroke();
+  });
+
+  // ── Events ──
+  DAYS.forEach((day,di)=>{
+    const dayCls=visible.filter(c=>{const dt=getDisplayTime(c);return dt.day===day;});
+    const events=dayCls.map(c=>{
+      const dt=getDisplayTime(c);
+      if(!dt.start||!dt.end)return null;
+      const sm=toMins(dt.start),em=toMins(dt.end);
+      const batch=getBatch(c.batchId);
+      if(!batch)return null;
+      return{c,sm,em,batch,dt};
+    }).filter(Boolean).sort((a,b)=>a.sm-b.sm);
+
+    // Overlap slots
+    const n=events.length;
+    const ov=events.map(()=>[]);
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)
+      if(events[i].sm<events[j].em&&events[j].sm<events[i].em){ov[i].push(j);ov[j].push(i);}
+    const slotOf=new Array(n).fill(0),totalOf=new Array(n).fill(1),vis2=new Array(n).fill(false);
+    for(let i=0;i<n;i++){
+      if(vis2[i])continue;
+      if(ov[i].length===0){slotOf[i]=0;totalOf[i]=1;vis2[i]=true;}
+      else{
+        const grp=[],q=[i];
+        while(q.length){const cur=q.shift();if(vis2[cur])continue;vis2[cur]=true;grp.push(cur);ov[cur].forEach(nb=>{if(!vis2[nb])q.push(nb);});}
+        const gs=[];
+        grp.forEach(gi=>{const ev=events[gi];const s=gs.findIndex(e=>e<=ev.sm);if(s===-1){gs.push(ev.em);slotOf[gi]=gs.length-1;}else{gs[s]=ev.em;slotOf[gi]=s;}});
+        grp.forEach(gi=>{totalOf[gi]=gs.length;});
+      }
+    }
+
+    events.forEach((ev,i)=>{
+      const{sm,em,batch,dt,c}=ev;
+      const slot=slotOf[i],total=totalOf[i];
+      const colPx=COL_W-3;
+      const evW=Math.floor(colPx/total)-2;
+      const colX=PAD+TIME_COL_W+di*COL_W+1+slot*(colPx/total);
+      const y1=minuteY(sm),y2=minuteY(em);
+      const evH=Math.max(y2-y1,20);
+      const colData=getColor(batch.color);
+
+      // Card shadow
+      ctx.shadowColor='rgba(0,0,0,0.08)';ctx.shadowBlur=6;ctx.shadowOffsetY=2;
+
+      // Card background
+      ctx.fillStyle=colData.bg;
+      roundRect(ctx,colX,y1,evW,evH,5);
+      ctx.fill();
+      ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+
+      // Left accent bar
+      ctx.fillStyle=colData.border;
+      roundRect(ctx,colX,y1,4,evH,3);
+      ctx.fill();
+
+      // TEMP badge
+      if(dt.isTemp){
+        ctx.fillStyle=C.orange+'22';
+        ctx.fillRect(colX+5,y1,evW-5,16);
+        ctx.fillStyle=C.orange;
+        ctx.font=`bold 8px ${FONT}`;
+        ctx.textBaseline='middle';
+        ctx.fillText('TEMP',colX+8,y1+8);
+      }
+
+      // Batch name
+      ctx.fillStyle=colData.text;
+      ctx.font=`bold ${evH>40?12:10}px ${FONT}`;
+      ctx.textBaseline='top';
+      const nameY=y1+(dt.isTemp?17:5);
+      const maxW=evW-10;
+      let name=batch.name;
+      while(ctx.measureText(name).width>maxW&&name.length>3)name=name.slice(0,-1)+'…';
+      ctx.fillText(name,colX+7,nameY);
+
+      // IST time
+      if(evH>28){
+        ctx.fillStyle=colData.text;
+        ctx.font=`${evH>40?11:9}px ${FONT}`;
+        ctx.globalAlpha=0.75;
+        ctx.fillText(fmtTime(dt.start)+' IST',colX+7,nameY+(evH>40?16:13));
+        ctx.globalAlpha=1;
+      }
+
+      // Students
+      if(evH>52){
+        const students=(batch.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+        if(students.length){
+          ctx.fillStyle=colData.text;
+          ctx.font=`9px ${FONT}`;
+          ctx.globalAlpha=0.6;
+          let sStr=students.join(', ');
+          while(ctx.measureText(sStr).width>maxW&&sStr.length>3)sStr=sStr.slice(0,-1)+'…';
+          ctx.fillText(sStr,colX+7,nameY+(evH>40?32:26));
+          ctx.globalAlpha=1;
+        }
+      }
+    });
+  });
+
+  // ── Outer border ──
+  ctx.strokeStyle=C.border;ctx.lineWidth=1.5;
+  ctx.strokeRect(PAD+TIME_COL_W,GRID_TOP,COL_W*COLS,GRID_H);
+
+  // ── Footer ──
+  ctx.fillStyle=C.subtle;
+  ctx.font=`11px ${FONT}`;
+  ctx.textAlign='center';
+  ctx.textBaseline='bottom';
+  ctx.fillText(`Dance Schedule · ${season==='summer'?'Summer':'Winter'} · IST`,W/2,H-10);
+  ctx.textAlign='left';
+
+  // ── Download ──
+  const link=document.createElement('a');
+  link.download=`dance-schedule-${season}-IST.jpg`;
+  link.href=canvas.toDataURL('image/jpeg',0.95);
+  link.click();
+  showToast('Week downloaded!');
+  btn.textContent='Download week';btn.disabled=false;
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
 async function downloadDetailJpg() {
   const btn = document.getElementById('btn-download-jpg');
   btn.textContent = 'Preparing…';
