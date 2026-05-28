@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Dance Class Schedule</title>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -310,6 +311,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="field"><label>Students (comma separated)</label><textarea id="be-students" placeholder="Ava, Harini, ..."></textarea></div>
     <div class="field"><label>Preferred timezone (shown in timing popup)</label>
       <select id="be-tz-group">
+        <option value="IST">IST – India Standard Time (default)</option>
         <option value="Eastern">Eastern (EDT/EST)</option>
         <option value="Central">Central (CDT/CST)</option>
         <option value="Pacific">Pacific (PDT/PST)</option>
@@ -332,6 +334,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <div id="detail-content"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeOverlay('modal-detail')">Close</button>
+      <button class="btn-cancel" onclick="downloadDetailJpg()" id="btn-download-jpg">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download JPG
+      </button>
       <button class="btn-primary" onclick="editBatchFromDetail()">Edit batch</button>
     </div>
   </div>
@@ -858,7 +864,7 @@ function openNewBatch(){
   document.getElementById('be-del').style.display='none';
   document.getElementById('be-name').value='';
   document.getElementById('be-students').value='';
-  document.getElementById('be-tz-group').value='Eastern';
+  document.getElementById('be-tz-group').value=b&&b.tzGroup?b.tzGroup:'IST';
   renderColorGrid('c1');
   document.getElementById('modal-batch-edit').classList.add('open');
 }
@@ -869,7 +875,7 @@ function openEditBatch(id){
   document.getElementById('be-del').style.display='';
   document.getElementById('be-name').value=b.name;
   document.getElementById('be-students').value=b.students||'';
-  document.getElementById('be-tz-group').value=b.tzGroup||'Eastern';
+  document.getElementById('be-tz-group').value=b.tzGroup||'IST';
   renderColorGrid(b.color);
   document.getElementById('modal-batch-edit').classList.add('open');
 }
@@ -914,50 +920,85 @@ function renderDetailContent(){
   const col=getColor(b.color);
   const bClasses=classes.filter(c=>c.batchId===detailBatchId);
   const students=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
-  const prefGroup=TZ_GROUPS.find(g=>g.label===(b.tzGroup||'Eastern'))||TZ_GROUPS[0];
+  const tzGroupPref=b.tzGroup||'IST';
+  const isIstOnly=tzGroupPref==='IST';
 
-  // Active groups = preferred + any extras toggled on
-  const activeGroups=[prefGroup,...TZ_GROUPS.filter(g=>g.label!==prefGroup.label&&detailExtraTzGroups.has(g.label))];
+  // prefGroup: null if IST-only, otherwise the TZ_GROUPS entry
+  const prefGroup=isIstOnly?null:TZ_GROUPS.find(g=>g.label===tzGroupPref)||TZ_GROUPS[0];
 
-  function tzCell(istTime,istDay,tz){
+  // Extra toggleable groups (all groups except preferred)
+  const allToggleable=TZ_GROUPS.filter(g=>!prefGroup||g.label!==prefGroup.label);
+  const activeExtras=TZ_GROUPS.filter(g=>detailExtraTzGroups.has(g.label));
+
+  function tzCell(istTime,istDay,tz,highlight){
     if(!istTime)return'—';
     const shift=tzDayShift(istDay,istTime,tz);
-    return (shift?`<span style="font-size:10px;font-weight:600;opacity:.7">${shift}</span>`:'')+istToTz(istTime,tz);
+    const daySpan=shift?`<span style="font-size:10px;font-weight:700;opacity:.8">${shift}</span>`:'';
+    const timeStr=istToTz(istTime,tz);
+    if(highlight)
+      return`<span style="font-weight:700;font-size:13px">${daySpan}${timeStr}</span>`;
+    return`${daySpan}${timeStr}`;
+  }
+
+  function buildRow(istTime,istDay,tempTime,tempDay,tzKey,isTemp){
+    // Always show IST first
+    const displayTime=isTemp?(tempTime||istTime):istTime;
+    const displayDay=isTemp?(tempDay||istDay):istDay;
+    const istCell=`<td style="min-width:80px"><strong>${displayDay}</strong><br><small style="color:${isTemp?'var(--orange)':'var(--muted)'}">${fmtTime(displayTime)} IST</small></td>`;
+
+    // If IST-only batch, no extra TZ columns — just IST
+    if(isIstOnly&&activeExtras.length===0)return istCell;
+
+    // Preferred TZ column (highlighted)
+    let prefCell='';
+    if(prefGroup){
+      const tz=prefGroup[tzKey];
+      const val=isTemp?(tempTime?tzCell(tempTime,displayDay,tz,true):tzCell(istTime,istDay,tz,true)):tzCell(istTime,istDay,tz,true);
+      prefCell=`<td style="background:var(--blue-light);font-size:13px">${val}</td>`;
+    }
+
+    // Extra columns (not highlighted)
+    const extraCells=activeExtras.map(g=>{
+      const tz=g[tzKey];
+      const val=isTemp?(tempTime?tzCell(tempTime,displayDay,tz,false):tzCell(istTime,istDay,tz,false)):tzCell(istTime,istDay,tz,false);
+      return`<td>${val}</td>`;
+    }).join('');
+
+    return istCell+prefCell+extraCells;
+  }
+
+  function buildHeaders(tzKey){
+    const istTh=`<th>Day / IST</th>`;
+    if(isIstOnly&&activeExtras.length===0)return istTh;
+    const prefTh=prefGroup?`<th style="background:var(--blue-light)"><strong>${prefGroup[tzKey]}</strong><br><small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--blue)">${prefGroup.label}</small></th>`:'';
+    const extraThs=activeExtras.map(g=>`<th><strong>${g[tzKey]}</strong><br><small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">${g.label}</small></th>`).join('');
+    return istTh+prefTh+extraThs;
   }
 
   function timingSection(seasonFilter,sectionLabel,badgeClass){
     const tzKey=seasonFilter==='summer'?'summer':'winter';
     const relevant=bClasses.filter(c=>c.season==='both'||c.season===seasonFilter);
     if(!relevant.length)return'';
-
     const hasTemp=relevant.some(c=>c.tempStart);
-    const thCells=activeGroups.map(g=>{
-      const tz=g[tzKey];
-      return`<th><strong>${tz}</strong><br><small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">${g.label}</small></th>`;
-    }).join('');
+    const headers=buildHeaders(tzKey);
 
-    // Regular rows
     let html=`<div class="section-title"><span class="${badgeClass} season-badge">${sectionLabel}</span></div>`;
-    html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr><th>Day / IST</th>${thCells}</tr></thead><tbody>`;
+    html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr>${headers}</tr></thead><tbody>`;
     relevant.forEach(c=>{
-      const tzCells=activeGroups.map(g=>`<td>${tzCell(c.start,c.day,g[tzKey])}</td>`).join('');
-      html+=`<tr><td><strong>${c.day}</strong><br><small style="color:var(--muted)">${fmtTime(c.start)} IST</small></td>${tzCells}</tr>`;
+      html+=`<tr>${buildRow(c.start,c.day,null,null,tzKey,false)}</tr>`;
     });
     html+=`</tbody></table></div>`;
 
-    // Temporary rows (if any)
     if(hasTemp){
-      const tempThCells=thCells;
       html+=`<div class="section-title" style="color:var(--orange)">⏱ Temporary timings <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(during break periods)</small></div>`;
-      html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr><th>Day / IST</th>${tempThCells}</tr></thead><tbody>`;
+      html+=`<div style="overflow-x:auto"><table class="timing-table"><thead><tr>${headers}</tr></thead><tbody>`;
       relevant.forEach(c=>{
-        const tDay=c.tempDay||c.day;
         if(!c.tempStart){
-          const tzCells=activeGroups.map(()=>`<td style="color:var(--subtle);font-size:11px">same as regular</td>`).join('');
-          html+=`<tr><td><strong>${c.day}</strong><br><small style="color:var(--muted)">${fmtTime(c.start)} IST</small></td>${tzCells}</tr>`;
+          const cols=(prefGroup?1:0)+activeExtras.length;
+          const emptyCells=cols>0?`<td colspan="${cols}" style="color:var(--subtle);font-size:11px">same as regular</td>`:'';
+          html+=`<tr><td><strong>${c.day}</strong><br><small style="color:var(--muted)">${fmtTime(c.start)} IST</small></td>${emptyCells}</tr>`;
         } else {
-          const tzCells=activeGroups.map(g=>`<td>${tzCell(c.tempStart,tDay,g[tzKey])}</td>`).join('');
-          html+=`<tr><td><strong>${tDay}</strong><br><small style="color:var(--orange)">${fmtTime(c.tempStart)} IST</small></td>${tzCells}</tr>`;
+          html+=`<tr>${buildRow(c.start,c.day,c.tempStart,c.tempDay||c.day,tzKey,true)}</tr>`;
         }
       });
       html+=`</tbody></table></div>`;
@@ -965,10 +1006,16 @@ function renderDetailContent(){
     return html;
   }
 
-  const extraPills=TZ_GROUPS.filter(g=>g.label!==prefGroup.label).map(g=>{
+  // Toggle pills — all TZ groups if IST-only, otherwise all except preferred
+  const pillGroups=isIstOnly?TZ_GROUPS:allToggleable;
+  const extraPills=pillGroups.map(g=>{
     const on=detailExtraTzGroups.has(g.label);
     return`<button class="tz-pill${on?' on':''}" onclick="toggleDetailTz('${g.label}')">${g.label}<br><span style="font-size:10px;font-weight:400">${g.summer}/${g.winter}</span></button>`;
   }).join('');
+
+  const prefLabel=isIstOnly
+    ?`<span style="font-size:12px;color:var(--muted);font-weight:500">Students are in <strong style="color:var(--blue)">IST</strong></span>`
+    :`<span style="font-size:12px;color:var(--muted);font-weight:500">Preferred: <strong style="color:var(--blue)">${prefGroup.label}</strong> <span style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:2px 6px;border-radius:8px">highlighted</span></span>`;
 
   document.getElementById('detail-content').innerHTML=`
     <div class="detail-header">
@@ -976,13 +1023,79 @@ function renderDetailContent(){
       <div class="detail-title">${b.name}</div>
     </div>
     ${students.length?`<div class="detail-students">${students.map(s=>`<span>${s}</span>`).join('')}</div>`:''}
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--muted);font-weight:500">Showing: <strong style="color:var(--blue)">${prefGroup.label}</strong></span>
-      ${extraPills?`<span style="font-size:11px;color:var(--subtle)">+ add:</span>${extraPills}`:''}
+    <div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        ${prefLabel}
+      </div>
+      ${extraPills?`<div style="font-size:11px;color:var(--subtle);margin-bottom:6px">Also show:</div><div class="tz-filter-bar">${extraPills}</div>`:''}
     </div>
     ${timingSection('summer','☀ Summer','badge-summer')}
     ${timingSection('winter','❄ Winter','badge-winter')}
   `;
+}
+
+// ── Download batch detail as JPG ──
+async function downloadDetailJpg() {
+  const btn = document.getElementById('btn-download-jpg');
+  btn.textContent = 'Preparing…';
+  btn.disabled = true;
+
+  const b = getBatch(detailBatchId);
+  const source = document.getElementById('detail-content');
+
+  // Create a styled clone for rendering — white background, generous padding
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = `
+    position:fixed;left:-9999px;top:0;
+    background:#ffffff;padding:32px 36px;
+    font-family:'Roboto',sans-serif;font-size:13px;color:#202124;
+    width:${Math.min(source.offsetWidth + 72, 820)}px;
+    box-sizing:border-box;
+  `;
+
+  // Clone the content
+  const clone = source.cloneNode(true);
+  // Remove any buttons inside (none expected, but safety)
+  clone.querySelectorAll('button').forEach(el => el.remove());
+  wrapper.appendChild(clone);
+  document.body.appendChild(wrapper);
+
+  // Make blue-light backgrounds visible on white
+  wrapper.querySelectorAll('[style*="var(--blue-light)"]').forEach(el => {
+    el.style.background = '#e8f0fe';
+  });
+  wrapper.querySelectorAll('[style*="var(--hover)"]').forEach(el => {
+    el.style.background = '#f1f3f4';
+  });
+  // Resolve CSS vars that html2canvas won't handle
+  wrapper.querySelectorAll('*').forEach(el => {
+    const cs = getComputedStyle(el);
+    ['color','background-color','border-color','border-bottom-color'].forEach(prop => {
+      const val = cs.getPropertyValue(prop);
+      if(val) el.style[prop.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())] = val;
+    });
+  });
+
+  try {
+    const canvas = await html2canvas(wrapper, {
+      scale: 2, // retina quality
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
+    const link = document.createElement('a');
+    link.download = `${b.name.replace(/\s+/g,'-')}-timings.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.92);
+    link.click();
+    showToast('Downloaded!');
+  } catch(e) {
+    showToast('Download failed — try again');
+    console.error(e);
+  } finally {
+    document.body.removeChild(wrapper);
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download JPG`;
+    btn.disabled = false;
+  }
 }
 
 // ── Utilities ──
