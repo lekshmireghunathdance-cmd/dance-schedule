@@ -195,10 +195,6 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
     Reset
   </button>
-  <button class="header-btn" id="btn-download-week" onclick="downloadWeekJpg()">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Download week
-  </button>
   <button class="header-btn" id="btn-this-week" onclick="openThisWeek()" style="background:var(--orange-light);color:var(--orange);font-weight:500">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     This week
@@ -212,13 +208,31 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 
 <div class="app-body">
   <aside class="sidebar" id="sidebar">
+    <!-- Batches section -->
     <div class="sidebar-section">
-      <div class="sidebar-label">Batches</div>
-      <div id="batch-list"></div>
-      <div id="batch-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No batches yet.</div>
-      <div class="sidebar-add" onclick="openBatchManager()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-        Manage batches
+      <div class="sidebar-label" onclick="toggleSidebarSection('batches')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+        <span>Batches</span>
+        <svg id="batches-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <div id="batches-body">
+        <div id="batch-list"></div>
+        <div id="batch-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No batches yet.</div>
+        <div class="sidebar-add" onclick="openBatchManager()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Manage batches
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <!-- Students section -->
+    <div class="sidebar-section">
+      <div class="sidebar-label" onclick="toggleSidebarSection('students')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+        <span>Students</span>
+        <svg id="students-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s;transform:rotate(-90deg)"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <div id="students-body" style="display:none">
+        <div id="student-list"></div>
+        <div id="student-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No students yet.</div>
       </div>
     </div>
     <div class="sidebar-divider"></div>
@@ -374,6 +388,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <!-- Planner header -->
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0">
       <div style="font-family:'Google Sans',sans-serif;font-size:18px;font-weight:500;color:var(--orange)">📅 This week</div>
+      <div class="pill-group" style="flex-shrink:0">
+        <button class="pill-btn" id="tw-btn-summer" onclick="twSetSeason('summer')">☀ Summer</button>
+        <button class="pill-btn" id="tw-btn-winter" onclick="twSetSeason('winter')">❄ Winter</button>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;margin-left:4px">
         <label style="font-size:12px;color:var(--muted);font-weight:500">Week starting Monday:</label>
         <input type="date" id="tw-date-input" onchange="twSetWeek()" style="font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
@@ -410,6 +428,16 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <button class="btn-danger" onclick="twDeleteEdit()">Remove</button>
       <button class="btn-cancel" onclick="closeOverlay('modal-tw-edit')">Cancel</button>
       <button class="btn-primary" onclick="twSaveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT DETAIL -->
+<div class="overlay" id="modal-student">
+  <div class="modal modal-lg">
+    <div id="student-detail-content"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-student')">Close</button>
     </div>
   </div>
 </div>
@@ -620,11 +648,21 @@ function setTz(tz){currentTz=tz;save('tz',tz);document.getElementById('tz-label-
 function toggleTzDropdown(){document.getElementById('tz-dropdown').classList.toggle('open');}
 document.addEventListener('click',e=>{if(!e.target.closest('.tz-wrap'))document.getElementById('tz-dropdown').classList.remove('open');});
 
-// ── Sidebar ──
-function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sidebar').classList.toggle('collapsed',!sidebarOpen);}
-function renderSidebar(){
-  document.getElementById('batch-list').innerHTML=batches.map(b=>{
-    const col=getColor(b.color);
+// ── Sidebar collapsible sections ──
+const sidebarSectionState = { batches: true, students: false };
+function toggleSidebarSection(name) {
+  sidebarSectionState[name] = !sidebarSectionState[name];
+  const body = document.getElementById(name + '-body');
+  const chevron = document.getElementById(name + '-chevron');
+  if(body) body.style.display = sidebarSectionState[name] ? '' : 'none';
+  if(chevron) chevron.style.transform = sidebarSectionState[name] ? '' : 'rotate(-90deg)';
+}
+
+// ── Student list ──
+function renderSidebar() {
+  // Batches
+  document.getElementById('batch-list').innerHTML = batches.map(b => {
+    const col = getColor(b.color);
     return `<div class="batch-row" onclick="openDetail('${b.id}')">
       <div class="batch-dot" style="background:${col.border}"></div>
       <span class="batch-name">${b.name}</span>
@@ -635,9 +673,106 @@ function renderSidebar(){
       </div>
     </div>`;
   }).join('');
-  const e=document.getElementById('batch-empty');
-  if(e)e.style.display=batches.length===0?'block':'none';
+  const e = document.getElementById('batch-empty');
+  if(e) e.style.display = batches.length === 0 ? 'block' : 'none';
+
+  // Students — collect all students across batches, alphabetical
+  const allStudents = [];
+  batches.forEach(b => {
+    (b.students || '').split(',').map(s => s.trim()).filter(Boolean).forEach(name => {
+      allStudents.push({ name, batchId: b.id, batchName: b.name });
+    });
+  });
+  allStudents.sort((a, b) => a.name.localeCompare(b.name));
+
+  const sl = document.getElementById('student-list');
+  const se = document.getElementById('student-empty');
+  if(sl) sl.innerHTML = allStudents.map(s => {
+    const col = getColor(getBatch(s.batchId)?.color || 'c1');
+    return `<div class="batch-row" onclick="openStudentDetail('${s.batchId}','${s.name.replace(/'/g,"\\'")}')">
+      <div class="batch-dot" style="background:${col.border}"></div>
+      <span class="batch-name">${s.name}</span>
+      <span style="font-size:10px;color:var(--subtle);flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.batchName}</span>
+    </div>`;
+  }).join('');
+  if(se) se.style.display = allStudents.length === 0 ? 'block' : 'none';
 }
+
+// ── Student detail popup ──
+function openStudentDetail(batchId, studentName) {
+  const b = getBatch(batchId);
+  if(!b) return;
+  const col = getColor(b.color);
+  const bClasses = classes.filter(c => c.batchId === batchId);
+  const tzGroupPref = b.tzGroup || 'IST';
+  const isIstOnly = tzGroupPref === 'IST';
+  const prefGroup = isIstOnly ? null : TZ_GROUPS.find(g => g.label === tzGroupPref) || TZ_GROUPS[0];
+
+  function tzCellStr(istTime, istDay, tz) {
+    if(!istTime) return '—';
+    const shift = tzDayShift(istDay, istTime, tz);
+    return (shift ? `<span style="font-size:10px;font-weight:700;opacity:.8">${shift}</span>` : '') + istToTz(istTime, tz);
+  }
+
+  function buildTimingRows(seasonFilter) {
+    const tzKey = seasonFilter === 'summer' ? 'summer' : 'winter';
+    const relevant = bClasses.filter(c => c.season === 'both' || c.season === seasonFilter);
+    if(!relevant.length) return `<tr><td colspan="3" style="color:var(--muted);font-size:12px;padding:8px 10px">No classes this season</td></tr>`;
+    return relevant.map(c => {
+      const dt = getDisplayTime(c);
+      const displayTime = dt.start || '';
+      const displayDay = dt.day || c.day;
+      const istCell = `<td><strong>${displayDay}</strong><br><small style="color:var(--muted)">${displayTime ? fmtTime(displayTime) + ' IST' : '—'}</small></td>`;
+      const prefCell = prefGroup
+        ? `<td style="background:var(--blue-light);font-weight:600">${tzCellStr(displayTime, displayDay, prefGroup[tzKey])}</td>`
+        : '';
+      // Temp info
+      const tempRow = c.tempStart
+        ? `<tr style="background:#fff8f0"><td><strong>${c.tempDay||c.day}</strong> <span style="font-size:10px;color:var(--orange);font-weight:500">TEMP</span><br><small style="color:var(--orange)">${fmtTime(c.tempStart)} IST</small></td>${prefGroup ? `<td style="background:var(--blue-light);font-weight:600">${tzCellStr(c.tempStart, c.tempDay||c.day, prefGroup[tzKey])}</td>` : ''}</tr>`
+        : '';
+      return `<tr>${istCell}${prefCell}</tr>${tempRow}`;
+    }).join('');
+  }
+
+  const thPref = prefGroup
+    ? `<th style="background:var(--blue-light)">${prefGroup.summer}/${prefGroup.winter}<br><small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--blue)">${prefGroup.label}</small></th>`
+    : '';
+
+  document.getElementById('student-detail-content').innerHTML = `
+    <div class="detail-header">
+      <div class="detail-dot" style="background:${col.border}"></div>
+      <div>
+        <div class="detail-title">${studentName}</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px">${b.name}</div>
+      </div>
+    </div>
+    <div class="section-title">☀ Summer timings</div>
+    <div style="overflow-x:auto"><table class="timing-table">
+      <thead><tr><th>Day / IST</th>${thPref}</tr></thead>
+      <tbody>${buildTimingRows('summer')}</tbody>
+    </table></div>
+    <div class="section-title">❄ Winter timings</div>
+    <div style="overflow-x:auto"><table class="timing-table">
+      <thead><tr><th>Day / IST</th>${thPref}</tr></thead>
+      <tbody>${buildTimingRows('winter')}</tbody>
+    </table></div>
+    ${!prefGroup ? `<p style="font-size:12px;color:var(--muted);margin-top:8px">Preferred timezone: IST — <a href="#" onclick="closeOverlay('modal-student');openEditBatch('${batchId}');return false;" style="color:var(--blue)">edit batch to add a timezone</a></p>` : ''}
+  `;
+  document.getElementById('modal-student').classList.add('open');
+}
+
+// ── This Week season ──
+let twSeason = season; // defaults to main calendar season
+function twSetSeason(s) {
+  twSeason = s;
+  document.getElementById('tw-btn-summer').classList.toggle('active-blue', s === 'summer');
+  document.getElementById('tw-btn-winter').classList.toggle('active-blue', s === 'winter');
+  // Repopulate from calendar with new season
+  twPopulateFromCalendar();
+  twRender();
+}
+
+function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sidebar').classList.toggle('collapsed',!sidebarOpen);}
 
 // ── Calendar ──
 function getDisplayTime(c){
@@ -1162,7 +1297,7 @@ function renderDetailContent(){
 // ── Download Week as JPG (1080×1350, IST only, Calibri font) ──
 async function downloadWeekJpg(){
   const btn=document.getElementById('btn-download-week');
-  btn.textContent='Preparing…';btn.disabled=true;
+  if(btn){btn.textContent='Preparing…';btn.disabled=true;}
 
   // Yield to browser so UI doesn't freeze
   await new Promise(r=>setTimeout(r,50));
@@ -1359,7 +1494,8 @@ async function downloadWeekJpg(){
     console.error('Download failed:',e);
     showToast('Download failed: '+e.message);
   } finally {
-    btn.textContent='Download week'; btn.disabled=false;
+    const btn=document.getElementById('btn-download-week');
+    if(btn){btn.textContent='Download week';btn.disabled=false;}
   }
 }
 
@@ -1464,6 +1600,9 @@ function dateToDay(d){return['Sunday','Monday','Tuesday','Wednesday','Thursday',
 
 function openThisWeek(){
   if(!twWeekStart) twWeekStart=getMondayOf(new Date());
+  twSeason=season; // sync with main calendar season on open
+  document.getElementById('tw-btn-summer').classList.toggle('active-blue',twSeason==='summer');
+  document.getElementById('tw-btn-winter').classList.toggle('active-blue',twSeason==='winter');
   if(!twWeekCache[twWeekKey()]) twPopulateFromCalendar();
   else twEvents=twWeekCache[twWeekKey()];
   twRender();
@@ -1498,7 +1637,7 @@ function twRefreshFromCalendar(){
   twPopulateFromCalendar();twRender();showToast('Refreshed from calendar');
 }
 function twPopulateFromCalendar(){
-  const visible=classes.filter(c=>c.season==='both'||c.season===season);
+  const visible=classes.filter(c=>c.season==='both'||c.season===twSeason);
   const evs=[];
   visible.forEach(c=>{
     const dt=getDisplayTime(c);
@@ -1737,7 +1876,7 @@ async function downloadThisWeekJpg(){
     ctx.fillStyle='#fff';ctx.font=`bold 26px ${FONT}`;ctx.textBaseline='middle';ctx.textAlign='left';
     ctx.fillText('Dance Schedule',PAD,HDR*0.38);
     ctx.font=`14px ${FONT}`;ctx.fillStyle='rgba(255,255,255,0.55)';
-    const wkLabel=`Week of ${fmtDate(twWeekStart)} – ${fmtDate(addDays(twWeekStart,6))} · ${season==='summer'?'Summer':'Winter'} · IST`;
+    const wkLabel=`Week of ${fmtDate(twWeekStart)} – ${fmtDate(addDays(twWeekStart,6))} · ${twSeason==='summer'?'Summer':'Winter'} · IST`;
     ctx.fillText(wkLabel,PAD,HDR*0.72);
 
     // Day headers
