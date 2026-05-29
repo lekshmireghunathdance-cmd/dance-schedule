@@ -1793,26 +1793,31 @@ function saveSetup(){
 
 // ── Init ──
 async function initLoad(){
-  // Show fallback data immediately so the app is never blank
-  if(batches.length === 0 && FALLBACK_BATCHES.length > 0) {
-    batches = JSON.parse(JSON.stringify(FALLBACK_BATCHES));
-    classes = JSON.parse(JSON.stringify(FALLBACK_CLASSES));
-    renderSidebar(); renderCalendar();
-  }
-
   if(!SCRIPT_URL){
+    // No cloud configured — use fallback
+    batches=JSON.parse(JSON.stringify(FALLBACK_BATCHES));
+    classes=JSON.parse(JSON.stringify(FALLBACK_CLASSES));
     document.getElementById('sync-status').textContent='⚙ Not connected';
-    return;
+    renderSidebar();renderCalendar();return;
   }
+  // Show a loading indicator but DON'T render fallback yet —
+  // always wait for cloud so baked-in data never overrides saved changes
   document.getElementById('sync-status').textContent='Syncing…';
+  renderSidebar();renderCalendar(); // renders empty briefly while loading
   try{
     const data=await cloudLoad();
     if(!data){
-      document.getElementById('sync-status').textContent='⚠ Offline — showing local data';
-      return;
+      // Cloud unreachable — only now fall back to baked-in data
+      document.getElementById('sync-status').textContent='⚠ Offline — showing cached data';
+      if(batches.length===0) batches=JSON.parse(JSON.stringify(FALLBACK_BATCHES));
+      if(classes.length===0) classes=JSON.parse(JSON.stringify(FALLBACK_CLASSES));
+      renderSidebar();renderCalendar();return;
     }
-    try{const b=data.batches;batches=b?(typeof b==='string'?JSON.parse(b):b):[];}catch(e){batches=JSON.parse(JSON.stringify(FALLBACK_BATCHES));}
-    try{const c=data.classes;classes=c?(typeof c==='string'?JSON.parse(c):c):[];}catch(e){classes=JSON.parse(JSON.stringify(FALLBACK_CLASSES));}
+    // Cloud responded — use its data exclusively
+    try{const b=data.batches;batches=b?(typeof b==='string'?JSON.parse(b):b):[];}
+    catch(e){batches=[];}
+    try{const c=data.classes;classes=c?(typeof c==='string'?JSON.parse(c):c):[];}
+    catch(e){classes=[];}
     if(data.season)season=data.season;
     if(data.tz)currentTz=data.tz;
     document.getElementById('sync-status').textContent='✓ Synced';
@@ -1823,7 +1828,10 @@ async function initLoad(){
     renderTzDropdown();renderSidebar();renderCalendar();
   }catch(err){
     console.error('initLoad error:',err);
-    document.getElementById('sync-status').textContent='⚠ Error — showing local data';
+    document.getElementById('sync-status').textContent='⚠ Error';
+    if(batches.length===0) batches=JSON.parse(JSON.stringify(FALLBACK_BATCHES));
+    if(classes.length===0) classes=JSON.parse(JSON.stringify(FALLBACK_CLASSES));
+    renderSidebar();renderCalendar();
   }
 }
 
