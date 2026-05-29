@@ -1539,10 +1539,26 @@ function twRender(){
       if(h<TW_END_H-TW_START_H)html+=`<div class="hour-line" style="top:${(h+.5)*60*TW_PX_PM}px;pointer-events:none"></div>`;
     }
     const evs=dayEvs.map(e=>{const sm=twMinsFromStart(e.start),em=twMinsFromStart(e.end);return{e,sm,em};}).filter(x=>x.sm>=0&&x.em<=TW_TOTAL_MINS).sort((a,b)=>a.sm-b.sm);
-    const slots=[];const assigned=evs.map(({sm,em})=>{const s=slots.findIndex(e=>e<=sm);if(s===-1){slots.push(em);return slots.length-1;}slots[s]=em;return s;});
-    const total=slots.length||1;
+    // Proper overlap detection — only split cells that actually overlap
+    const n=evs.length;
+    const ov=evs.map(()=>[]);
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)
+      if(evs[i].sm<evs[j].em&&evs[j].sm<evs[i].em){ov[i].push(j);ov[j].push(i);}
+    const slotOf=new Array(n).fill(0),totalOf=new Array(n).fill(1),vis=new Array(n).fill(false);
+    for(let i=0;i<n;i++){
+      if(vis[i])continue;
+      if(ov[i].length===0){slotOf[i]=0;totalOf[i]=1;vis[i]=true;}
+      else{
+        const grp=[],q=[i];
+        while(q.length){const cur=q.shift();if(vis[cur])continue;vis[cur]=true;grp.push(cur);ov[cur].forEach(nb=>{if(!vis[nb])q.push(nb);});}
+        const gs=[];
+        grp.forEach(gi=>{const ev=evs[gi];const s=gs.findIndex(e=>e<=ev.sm);if(s===-1){gs.push(ev.em);slotOf[gi]=gs.length-1;}else{gs[s]=ev.em;slotOf[gi]=s;}});
+        grp.forEach(gi=>{totalOf[gi]=gs.length;});
+      }
+    }
     evs.forEach(({e,sm,em},i)=>{
-      const slot=assigned[i];const top=sm*TW_PX_PM,ht=Math.max((em-sm)*TW_PX_PM,18);
+      const slot=slotOf[i],total=totalOf[i];
+      const top=sm*TW_PX_PM,ht=Math.max((em-sm)*TW_PX_PM,18);
       const col=getColor(getBatch(e.batchId)?.color||'c1');const batch=getBatch(e.batchId);
       const lp=(slot/total)*100,wp=(1/total)*100;
       const ls=`calc(${lp}% + 2px)`,rs=`calc(${100-lp-wp}% + 2px)`;
@@ -1559,10 +1575,18 @@ function twRender(){
   html+=`</div>`;
   document.getElementById('tw-cal-inner').innerHTML=html;
 }
+function twOffsetY(e, col){
+  // Returns Y offset in pixels from top of column, scroll-corrected
+  const outer=document.getElementById('tw-cal-outer');
+  const outerRect=outer?outer.getBoundingClientRect():{top:0};
+  const scrollTop=outer?outer.scrollTop:0;
+  const colTop=col.getBoundingClientRect().top + scrollTop - outerRect.top;
+  const mouseY=e.clientY + scrollTop - outerRect.top;
+  return Math.max(0, mouseY - colTop);
+}
 function twColClick(e,dateStr){
   if(twDragState&&twDragState.moved)return;
-  const rect=e.currentTarget.getBoundingClientRect();
-  const raw=Math.round(((e.clientY-rect.top)/TW_PX_PM)/15)*15;
+  const raw=Math.round((twOffsetY(e,e.currentTarget)/TW_PX_PM)/15)*15;
   const startMin=TW_START_H*60+Math.min(raw,TW_TOTAL_MINS-60);
   const endMin=Math.min(startMin+60,TW_END_H*60);
   if(!batches.length){showToast('Add a batch first');return;}
@@ -1571,7 +1595,7 @@ function twColClick(e,dateStr){
 }
 function twColHover(e){
   const col=e.currentTarget;
-  const raw=Math.round(((e.clientY-col.getBoundingClientRect().top)/TW_PX_PM)/15)*15;
+  const raw=Math.round((twOffsetY(e,col)/TW_PX_PM)/15)*15;
   let ind=col.querySelector('.tw-hover-ind');
   if(!ind){ind=document.createElement('div');ind.className='tw-hover-ind cal-hover-indicator';col.appendChild(ind);}
   ind.style.top=raw*TW_PX_PM+'px';ind.style.height=60*TW_PX_PM+'px';ind.style.display='block';
@@ -1647,14 +1671,19 @@ function twMouseUp(e){
       const col=target?.closest?.('.tw-col');
       const ev=twEvents.find(x=>x.id===twDragState.evId);
       if(ev&&col){
-        if(col.dataset.date) ev.date=new Date(col.dataset.date+'T00:00:00');
-        const rect=col.getBoundingClientRect();
-        const raw=Math.round(((e.clientY-rect.top)/TW_PX_PM)/15)*15;
-        const newStartMin=TW_START_H*60+Math.min(Math.max(raw,0),TW_TOTAL_MINS-60);
-        const dur=toMins(ev.end)-toMins(ev.start);
+        if(col.dataset.date) ev.date=new Date(col.dataset.date+'T12:00:00');
+        // Get Y position relative to the column top, accounting for scroll
+        const outer=document.getElementById('tw-cal-outer');
+        const colTop=col.getBoundingClientRect().top + (outer?outer.scrollTop:0) - (outer?outer.getBoundingClientRect().top:0);
+        const mouseYInDoc=e.clientY + (outer?outer.scrollTop:0) - (outer?outer.getBoundingClientRect().top:0);
+        const offsetY=Math.max(0, mouseYInDoc - colTop);
+        const raw=Math.round((offsetY/TW_PX_PM)/15)*15;
+        const newStartMin=TW_START_H*60+Math.min(raw,TW_TOTAL_MINS-60);
+        const dur=Math.max(toMins(ev.end)-toMins(ev.start),30);
         ev.start=minsToIstStr(newStartMin);
-        ev.end=minsToIstStr(Math.min(newStartMin+Math.max(dur,30),TW_END_H*60));
-        twRender();
+        ev.end=minsToIstStr(Math.min(newStartMin+dur,TW_END_H*60));
+        twSaveEvents();twRender();
+        showToast(`Moved to ${ev.date.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}`);
       }
     }catch(err){console.warn('twMouseUp error:',err);}
   }
