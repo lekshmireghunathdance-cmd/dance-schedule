@@ -379,6 +379,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <button class="header-btn" onclick="twPrevWeek()">← Prev</button>
       <button class="header-btn" onclick="twNextWeek()">Next →</button>
+      <button class="header-btn" onclick="twRefreshFromCalendar()" title="Re-sync from main calendar">↺ Refresh</button>
       <div style="flex:1"></div>
       <span style="font-size:12px;color:var(--subtle)">Drag to rearrange · changes don't affect main calendar</span>
       <button class="header-btn primary" onclick="downloadThisWeekJpg()" id="btn-tw-download">
@@ -390,6 +391,24 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <!-- Planner calendar -->
     <div style="flex:1;overflow:auto" id="tw-cal-outer">
       <div id="tw-cal-inner"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TW EVENT EDIT -->
+<div class="overlay" id="modal-tw-edit">
+  <div class="modal modal-sm">
+    <h2>Edit class</h2>
+    <div class="field"><label>Batch</label><select id="twe-batch"></select></div>
+    <div class="field"><label>Date</label><input id="twe-date" type="date"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Start (IST)</label><input id="twe-start" type="time"/></div>
+      <div class="field"><label>End (IST)</label><input id="twe-end" type="time"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="twDeleteEdit()">Remove</button>
+      <button class="btn-cancel" onclick="closeOverlay('modal-tw-edit')">Cancel</button>
+      <button class="btn-primary" onclick="twSaveEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -1422,9 +1441,12 @@ const TW_TOTAL_MINS=(TW_END_H-TW_START_H)*60;
 const TW_PX_PM=1.4;
 const TW_GRID_H=TW_TOTAL_MINS*TW_PX_PM;
 
-let twWeekStart=null;   // Monday Date of the displayed week
-let twEvents=[];        // [{batchId, date(Date), start(IST hh:mm), end(IST hh:mm), isTemp, label}]
+let twWeekStart=null;
+let twWeekCache={};
+let twEvents=[];
 let twDragState=null;
+let twEditId=null;
+function twWeekKey(){return twWeekStart?twWeekStart.toISOString().slice(0,10):'';}
 
 function getMondayOf(d){
   const date=new Date(d);
@@ -1440,98 +1462,87 @@ function fmtDateShort(d){return d.toLocaleDateString('en-GB',{weekday:'short',da
 function dateToDay(d){return['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];}
 
 function openThisWeek(){
-  // Default to current week
   if(!twWeekStart) twWeekStart=getMondayOf(new Date());
-  // Populate events from main calendar (copy)
-  twPopulateFromCalendar();
+  if(!twWeekCache[twWeekKey()]) twPopulateFromCalendar();
+  else twEvents=twWeekCache[twWeekKey()];
   twRender();
-  // Set date input
-  const inp=document.getElementById('tw-date-input');
-  inp.value=twWeekStart.toISOString().slice(0,10);
+  document.getElementById('tw-date-input').value=twWeekStart.toISOString().slice(0,10);
   document.getElementById('modal-thisweek').classList.add('open');
 }
 function twSetWeek(){
   const val=document.getElementById('tw-date-input').value;
   if(!val)return;
-  twWeekStart=getMondayOf(new Date(val));
+  twWeekStart=getMondayOf(new Date(val+'T12:00:00'));
   document.getElementById('tw-date-input').value=twWeekStart.toISOString().slice(0,10);
-  twPopulateFromCalendar();
+  if(!twWeekCache[twWeekKey()]) twPopulateFromCalendar();
+  else twEvents=twWeekCache[twWeekKey()];
   twRender();
 }
-function twPrevWeek(){twWeekStart=addDays(twWeekStart,-7);document.getElementById('tw-date-input').value=twWeekStart.toISOString().slice(0,10);twPopulateFromCalendar();twRender();}
-function twNextWeek(){twWeekStart=addDays(twWeekStart,7);document.getElementById('tw-date-input').value=twWeekStart.toISOString().slice(0,10);twPopulateFromCalendar();twRender();}
-
+function twPrevWeek(){
+  twWeekStart=addDays(twWeekStart,-7);
+  document.getElementById('tw-date-input').value=twWeekStart.toISOString().slice(0,10);
+  if(!twWeekCache[twWeekKey()]) twPopulateFromCalendar();
+  else twEvents=twWeekCache[twWeekKey()];
+  twRender();
+}
+function twNextWeek(){
+  twWeekStart=addDays(twWeekStart,7);
+  document.getElementById('tw-date-input').value=twWeekStart.toISOString().slice(0,10);
+  if(!twWeekCache[twWeekKey()]) twPopulateFromCalendar();
+  else twEvents=twWeekCache[twWeekKey()];
+  twRender();
+}
+function twRefreshFromCalendar(){
+  if(!confirm('Refresh from main calendar? Your edits for this week will be replaced.'))return;
+  twPopulateFromCalendar();twRender();showToast('Refreshed from calendar');
+}
 function twPopulateFromCalendar(){
-  // Copy visible classes from main calendar into week slots
   const visible=classes.filter(c=>c.season==='both'||c.season===season);
-  twEvents=[];
+  const evs=[];
   visible.forEach(c=>{
     const dt=getDisplayTime(c);
     if(!dt.start||!dt.end)return;
-    const batch=getBatch(c.batchId);
-    if(!batch)return;
-    // Find which date in this week corresponds to dt.day
+    const batch=getBatch(c.batchId);if(!batch)return;
     for(let i=0;i<7;i++){
       const d=addDays(twWeekStart,i);
       if(dateToDay(d)===dt.day){
-        twEvents.push({
-          id:'tw_'+Date.now()+'_'+Math.random(),
-          batchId:c.batchId,
-          date:new Date(d),
-          start:dt.start,
-          end:dt.end,
-          isTemp:dt.isTemp,
-        });
+        evs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:c.batchId,date:new Date(d),start:dt.start,end:dt.end,isTemp:dt.isTemp});
         break;
       }
     }
   });
+  twWeekCache[twWeekKey()]=evs;twEvents=evs;
 }
-
+function twSaveEvents(){twWeekCache[twWeekKey()]=twEvents;}
 function twMinsFromStart(t){return toMins(t)-TW_START_H*60;}
-
 function twRender(){
   const days=Array.from({length:7},(_,i)=>addDays(twWeekStart,i));
   let html=`<div class="tw-cal-grid" style="grid-template-columns:52px repeat(7,minmax(100px,1fr))">`;
-
-  // Header
   html+=`<div class="tw-hdr-corner">IST</div>`;
   days.forEach(d=>{
     const isToday=new Date().toDateString()===d.toDateString();
-    html+=`<div class="tw-hdr" style="${isToday?'color:var(--orange);font-weight:700;':''}">
-      ${d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}
-      <span class="tw-date">${fmtDate(d)}</span>
-    </div>`;
+    html+=`<div class="tw-hdr" style="${isToday?'color:var(--orange);font-weight:700;':''}">${d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}<span class="tw-date">${fmtDate(d)}</span></div>`;
   });
-
-  // Time col
   html+=`<div style="display:flex;flex-direction:column;background:var(--surface)">`;
   for(let h=TW_START_H;h<=TW_END_H;h++){
     const lbl=h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
     html+=`<div class="tw-time" style="height:${60*TW_PX_PM}px">${lbl}</div>`;
   }
   html+=`</div>`;
-
-  // Day columns
   days.forEach((d,di)=>{
     const dateStr=d.toISOString().slice(0,10);
     const dayEvs=twEvents.filter(e=>e.date.toISOString().slice(0,10)===dateStr);
     html+=`<div class="tw-col" style="height:${TW_GRID_H}px" data-date="${dateStr}" onclick="twColClick(event,'${dateStr}')" onmousemove="twColHover(event)" onmouseleave="twColLeave(event)" data-di="${di}">`;
-    // Hour lines
     for(let h=0;h<=TW_END_H-TW_START_H;h++){
       html+=`<div class="hour-line solid" style="top:${h*60*TW_PX_PM}px;pointer-events:none"></div>`;
       if(h<TW_END_H-TW_START_H)html+=`<div class="hour-line" style="top:${(h+.5)*60*TW_PX_PM}px;pointer-events:none"></div>`;
     }
-    // Overlap
     const evs=dayEvs.map(e=>{const sm=twMinsFromStart(e.start),em=twMinsFromStart(e.end);return{e,sm,em};}).filter(x=>x.sm>=0&&x.em<=TW_TOTAL_MINS).sort((a,b)=>a.sm-b.sm);
-    const slots=[];
-    const assigned=evs.map(({sm,em})=>{const s=slots.findIndex(e=>e<=sm);if(s===-1){slots.push(em);return slots.length-1;}slots[s]=em;return s;});
+    const slots=[];const assigned=evs.map(({sm,em})=>{const s=slots.findIndex(e=>e<=sm);if(s===-1){slots.push(em);return slots.length-1;}slots[s]=em;return s;});
     const total=slots.length||1;
     evs.forEach(({e,sm,em},i)=>{
-      const slot=assigned[i];
-      const top=sm*TW_PX_PM,ht=Math.max((em-sm)*TW_PX_PM,18);
-      const col=getColor(getBatch(e.batchId)?.color||'c1');
-      const batch=getBatch(e.batchId);
+      const slot=assigned[i];const top=sm*TW_PX_PM,ht=Math.max((em-sm)*TW_PX_PM,18);
+      const col=getColor(getBatch(e.batchId)?.color||'c1');const batch=getBatch(e.batchId);
       const lp=(slot/total)*100,wp=(1/total)*100;
       const ls=`calc(${lp}% + 2px)`,rs=`calc(${100-lp-wp}% + 2px)`;
       const tempTag=e.isTemp?'<span style="font-size:8px;background:#ff980033;border-radius:2px;padding:0 2px;margin-right:2px">TEMP</span>':'';
@@ -1540,36 +1551,50 @@ function twRender(){
       if(ht<22)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${tempTag}${batch?.name||''}</span>`;
       else if(ht<36)bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${fmtTime(e.start)} IST</span><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch?.name||''}</span>`;
       else{const ss=students.slice(0,3).join(', ')+(students.length>3?'…':'');bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${fmtTime(e.start)} IST</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch?.name||''}</span>${ss?`<span style="display:block;font-size:9px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ss}</span>`:''}`;}
-      html+=`<div class="tw-event" data-evid="${e.id}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column" onmousedown="twDragStart(event,'${e.id}')" onclick="event.stopPropagation()" title="${batch?.name||''} | ${e.start} IST">${bc}</div>`;
+      html+=`<div class="tw-event" data-evid="${e.id}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column" onmousedown="twDragStart(event,'${e.id}')" onclick="event.stopPropagation();twOpenEdit('${e.id}')" title="${batch?.name||''} | ${e.start} IST">${bc}</div>`;
     });
     html+=`</div>`;
   });
   html+=`</div>`;
   document.getElementById('tw-cal-inner').innerHTML=html;
 }
-
-// TW click to add
 function twColClick(e,dateStr){
   if(twDragState&&twDragState.moved)return;
   const rect=e.currentTarget.getBoundingClientRect();
   const raw=Math.round(((e.clientY-rect.top)/TW_PX_PM)/15)*15;
   const startMin=TW_START_H*60+Math.min(raw,TW_TOTAL_MINS-60);
   const endMin=Math.min(startMin+60,TW_END_H*60);
-  const start=minsToIstStr(startMin),end=minsToIstStr(endMin);
-  // Pick first batch if any
   if(!batches.length){showToast('Add a batch first');return;}
-  twEvents.push({id:'tw_'+Date.now(),batchId:batches[0].id,date:new Date(dateStr),start,end,isTemp:false});
-  twRender();
+  const newEv={id:'tw_'+Date.now(),batchId:batches[0].id,date:new Date(dateStr+'T12:00:00'),start:minsToIstStr(startMin),end:minsToIstStr(endMin),isTemp:false};
+  twEvents.push(newEv);twSaveEvents();twRender();twOpenEdit(newEv.id);
 }
 function twColHover(e){
   const col=e.currentTarget;
-  const di=col.dataset.di;
   const raw=Math.round(((e.clientY-col.getBoundingClientRect().top)/TW_PX_PM)/15)*15;
   let ind=col.querySelector('.tw-hover-ind');
   if(!ind){ind=document.createElement('div');ind.className='tw-hover-ind cal-hover-indicator';col.appendChild(ind);}
   ind.style.top=raw*TW_PX_PM+'px';ind.style.height=60*TW_PX_PM+'px';ind.style.display='block';
 }
 function twColLeave(e){const ind=e.currentTarget.querySelector('.tw-hover-ind');if(ind)ind.style.display='none';}
+function twOpenEdit(evId){
+  twEditId=evId;const ev=twEvents.find(x=>x.id===evId);if(!ev)return;
+  document.getElementById('twe-batch').innerHTML=batches.map(b=>`<option value="${b.id}"${b.id===ev.batchId?' selected':''}>${b.name}</option>`).join('');
+  document.getElementById('twe-date').value=ev.date.toISOString().slice(0,10);
+  document.getElementById('twe-start').value=ev.start;document.getElementById('twe-end').value=ev.end;
+  document.getElementById('modal-tw-edit').classList.add('open');
+}
+function twSaveEdit(){
+  const ev=twEvents.find(x=>x.id===twEditId);if(!ev){closeOverlay('modal-tw-edit');return;}
+  ev.batchId=document.getElementById('twe-batch').value;
+  const dateVal=document.getElementById('twe-date').value;
+  if(dateVal)ev.date=new Date(dateVal+'T12:00:00');
+  ev.start=document.getElementById('twe-start').value;ev.end=document.getElementById('twe-end').value;
+  twSaveEvents();closeOverlay('modal-tw-edit');twRender();
+}
+function twDeleteEdit(){
+  twEvents=twEvents.filter(x=>x.id!==twEditId);twSaveEvents();closeOverlay('modal-tw-edit');twRender();
+}
+
 
 // TW drag
 function twDragStart(e,evId){
