@@ -767,8 +767,9 @@ function twSetSeason(s) {
   twSeason = s;
   document.getElementById('tw-btn-summer').classList.toggle('active-blue', s === 'summer');
   document.getElementById('tw-btn-winter').classList.toggle('active-blue', s === 'winter');
-  // Repopulate from calendar with new season
+  // Repopulate from calendar with new season and persist
   twPopulateFromCalendar();
+  twSaveEvents(); // persist season change
   twRender();
 }
 
@@ -1600,7 +1601,8 @@ function dateToDay(d){return['Sunday','Monday','Tuesday','Wednesday','Thursday',
 
 function openThisWeek(){
   if(!twWeekStart) twWeekStart=getMondayOf(new Date());
-  twSeason=season; // sync with main calendar season on open
+  // Only sync season from main calendar if nothing has been saved
+  // (twSeason defaults to main season at declaration, so this is safe)
   document.getElementById('tw-btn-summer').classList.toggle('active-blue',twSeason==='summer');
   document.getElementById('tw-btn-winter').classList.toggle('active-blue',twSeason==='winter');
   if(!twWeekCache[twWeekKey()]) twPopulateFromCalendar();
@@ -1660,7 +1662,12 @@ function twSaveEvents(){
   Object.keys(twWeekCache).forEach(wk=>{
     serialisable[wk]=twWeekCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));
   });
-  save('twWeekCache',serialisable);
+  // Also save current week start and season so they survive reload
+  save('twWeekCache',JSON.stringify({
+    cache: serialisable,
+    weekStart: twWeekStart?twWeekStart.toISOString():null,
+    season: twSeason,
+  }));
 }
 function twMinsFromStart(t){return toMins(t)-TW_START_H*60;}
 function twRender(){
@@ -1999,10 +2006,14 @@ async function initLoad(){
     try{
       const tw=data.twWeekCache;
       if(tw){
-        const raw=typeof tw==='string'?JSON.parse(tw):tw;
+        const parsed=typeof tw==='string'?JSON.parse(tw):tw;
+        // Support both old format (plain object) and new format ({cache, weekStart, season})
+        const raw=parsed.cache||parsed;
         Object.keys(raw).forEach(wk=>{
           twWeekCache[wk]=raw[wk].map(e=>({...e,date:new Date(e.date)}));
         });
+        if(parsed.weekStart) twWeekStart=new Date(parsed.weekStart);
+        if(parsed.season) twSeason=parsed.season;
       }
     }catch(e){twWeekCache={};}
     if(data.season)season=data.season;
