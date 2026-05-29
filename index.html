@@ -448,9 +448,10 @@ const ALL_COLORS = [
   {id:'c19',bg:'#f9fbe7',border:'#cddc39',text:'#827717'},{id:'c20',bg:'#e8f5e9',border:'#4caf50',text:'#1b5e20'},
 ];
 
-// ── Cloud ──
-const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbz491RnjA4vDv020J_L1kZP5Fj4lXqSWRXYhAM8sgNO0UVm5_n4PbX70xeQxBNv9bx0Ag/exec';
-let SCRIPT_URL = HARDCODED_URL;
+// ── Fallback data (recovered from Google Sheet) ──
+// These load instantly if cloud sync fails, so the app is never blank
+const FALLBACK_BATCHES = [{"id":"b_1779945992049","name":"Ohio 1","color":"c1","students":"Ava, Harini","tzGroup":"Eastern"},{"id":"b_1779947401569","name":"Karthika and Lasya","color":"c2","students":"","tzGroup":"Eastern"},{"id":"b_1779947429102","name":"Ohio 2","color":"c3","students":"Sai, Aarohi, Mahati, Kavya, Varshita, Rithika, Nihavsi","tzGroup":"Eastern"},{"id":"b_1779947540597","name":"Ohio 3","color":"c4","students":"Aadya, Akshaya and Aishwarya","tzGroup":"Eastern"},{"id":"b_1779947654464","name":"Ohio 4","color":"c5","students":"Nidhi, Aadya, Aadvi, Risha","tzGroup":"Eastern"},{"id":"b_1779948203548","name":"Ohio 5","color":"c6","students":"Daksha, Nitya, Aditi","tzGroup":"Eastern"},{"id":"b_1779948390181","name":"Ohio 6","color":"c7","students":"Ushika, Josya, Rithanya","tzGroup":"Eastern"},{"id":"b_1779948527368","name":"Kids India","color":"c8","students":"Ameya, Yayati, Anugraha"},{"id":"b_1779948994900","name":"Adults 1","color":"c9","students":"Lakshmi, Joycy"},{"id":"b_1779969803450","name":"New Jersey Kids","color":"c10","students":"Anika, Anvika, Nyasa","tzGroup":"Eastern"},{"id":"b_1779969814017","name":"Adults 2","color":"c11","students":"Swathy, Subhashini"},{"id":"b_1779969825184","name":"Harika","color":"c12","students":"","tzGroup":"Pacific"},{"id":"b_1779969834617","name":"Amrutha","color":"c13","students":""},{"id":"b_1779969838517","name":"Nishna","color":"c14","students":"","tzGroup":"Eastern"},{"id":"b_1779969854447","name":"Adults 3","color":"c15","students":"Vijayalakshmi, Anuhya, Tanoogna"},{"id":"b_1779970215911","name":"Offline class","color":"c19","students":""}];
+const FALLBACK_CLASSES = []; // paste classes JSON here once you share it
 
 // ── State ──
 let season = 'summer';
@@ -480,25 +481,43 @@ function setMcShow(v) {
 //   tempStart, tempEnd }             // optional temporary IST times (when type='temporary')
 
 // ── Cloud ──
-function cloudLoad() {
-  return new Promise(resolve => {
-    if(!SCRIPT_URL){resolve(null);return;}
-    const cb='ds_cb_'+Date.now();
-    const s=document.createElement('script');
-    const t=setTimeout(()=>{delete window[cb];s.remove();resolve(null);},10000);
-    window[cb]=d=>{clearTimeout(t);delete window[cb];s.remove();resolve(d&&d.ok?d.data:null);};
-    s.src=SCRIPT_URL+'?callback='+cb+'&_='+Date.now();
-    s.onerror=()=>{clearTimeout(t);delete window[cb];resolve(null);};
-    document.head.appendChild(s);
-  });
+// Once you set up the Cloudflare Worker, replace this URL with your worker URL:
+const HARDCODED_URL = 'https://dance-schedule.lekshmireghunath-dance.workers.dev';
+let SCRIPT_URL = localStorage.getItem('dance_worker_url') || HARDCODED_URL;
+
+async function cloudLoad() {
+  if(!SCRIPT_URL) return null;
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'GET', redirect: 'follow' });
+    const text = await res.text();
+    const json = JSON.parse(text);
+    return json.ok ? json.data : null;
+  } catch(e) {
+    console.warn('cloudLoad failed:', e);
+    return null;
+  }
 }
-function cloudSave(key,value){
-  if(!SCRIPT_URL)return;
-  const payload=JSON.stringify({key,value:typeof value==='string'?value:JSON.stringify(value)});
-  if(navigator.sendBeacon){navigator.sendBeacon(SCRIPT_URL,new Blob([payload],{type:'text/plain'}));}
-  else{const f=document.createElement('form');f.method='POST';f.action=SCRIPT_URL;f.target='_hs';f.style.display='none';const i=document.createElement('input');i.type='hidden';i.name='payload';i.value=payload;f.appendChild(i);document.body.appendChild(f);f.submit();setTimeout(()=>f.remove(),3000);}
+async function cloudSave(key, value) {
+  if(!SCRIPT_URL) return;
+  const strVal = typeof value === 'string' ? value : JSON.stringify(value);
+  const payload = JSON.stringify({ key, value: strVal });
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload,
+      redirect: 'follow',
+    });
+  } catch(e) {
+    // Fallback: sendBeacon
+    if(navigator.sendBeacon) {
+      navigator.sendBeacon(SCRIPT_URL, new Blob([payload], { type: 'text/plain' }));
+    }
+  }
 }
-function save(key,val){cloudSave(key,typeof val==='string'?val:JSON.stringify(val));}
+function save(key, val) {
+  cloudSave(key, typeof val === 'string' ? val : JSON.stringify(val));
+}
 
 // ── Helpers ──
 function getBatch(id){return batches.find(b=>b.id===id);}
@@ -1743,26 +1762,32 @@ function openSetup(){document.getElementById('setup-url').value=SCRIPT_URL;docum
 function saveSetup(){
   const url=document.getElementById('setup-url').value.trim();
   if(!url){showToast('Please paste your script URL');return;}
-  SCRIPT_URL=url;localStorage.setItem('dance_script_url',url);
+  SCRIPT_URL=url;localStorage.setItem('dance_worker_url',url);
   closeOverlay('modal-setup');showToast('Connecting…');initLoad();
 }
 
 // ── Init ──
 async function initLoad(){
+  // Show fallback data immediately so the app is never blank
+  if(batches.length === 0 && FALLBACK_BATCHES.length > 0) {
+    batches = JSON.parse(JSON.stringify(FALLBACK_BATCHES));
+    classes = JSON.parse(JSON.stringify(FALLBACK_CLASSES));
+    renderSidebar(); renderCalendar();
+  }
+
   if(!SCRIPT_URL){
     document.getElementById('sync-status').textContent='⚙ Not connected';
-    renderSidebar();renderCalendar();return;
+    return;
   }
   document.getElementById('sync-status').textContent='Syncing…';
   try{
     const data=await cloudLoad();
     if(!data){
-      document.getElementById('sync-status').textContent='⚠ Offline';
-      showToast('Could not reach cloud — data may not load');
-      renderSidebar();renderCalendar();return;
+      document.getElementById('sync-status').textContent='⚠ Offline — showing local data';
+      return;
     }
-    try{const b=data.batches;batches=b?(typeof b==='string'?JSON.parse(b):b):[];}catch(e){batches=[];}
-    try{const c=data.classes;classes=c?(typeof c==='string'?JSON.parse(c):c):[];}catch(e){classes=[];}
+    try{const b=data.batches;batches=b?(typeof b==='string'?JSON.parse(b):b):[];}catch(e){batches=JSON.parse(JSON.stringify(FALLBACK_BATCHES));}
+    try{const c=data.classes;classes=c?(typeof c==='string'?JSON.parse(c):c):[];}catch(e){classes=JSON.parse(JSON.stringify(FALLBACK_CLASSES));}
     if(data.season)season=data.season;
     if(data.tz)currentTz=data.tz;
     document.getElementById('sync-status').textContent='✓ Synced';
@@ -1773,9 +1798,7 @@ async function initLoad(){
     renderTzDropdown();renderSidebar();renderCalendar();
   }catch(err){
     console.error('initLoad error:',err);
-    document.getElementById('sync-status').textContent='⚠ Error';
-    showToast('Load error — try refreshing');
-    renderSidebar();renderCalendar();
+    document.getElementById('sync-status').textContent='⚠ Error — showing local data';
   }
 }
 
