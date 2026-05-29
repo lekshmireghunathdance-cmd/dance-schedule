@@ -1565,7 +1565,8 @@ document.addEventListener('mousemove',twMouseMove);
 document.addEventListener('mouseup',twMouseUp);
 
 function twMouseMove(e){
-  if(!twDragState||!document.getElementById('modal-thisweek').classList.contains('open'))return;
+  if(!twDragState)return;
+  if(!document.getElementById('modal-thisweek').classList.contains('open')){twDragState=null;return;}
   const dx=Math.abs(e.clientX-twDragState.startX),dy=Math.abs(e.clientY-twDragState.startY);
   if(!twDragState.moved&&(dx>4||dy>4)){
     twDragState.moved=true;
@@ -1574,7 +1575,7 @@ function twMouseMove(e){
     const col=getColor(batch?.color||'c1');
     const g=document.createElement('div');
     g.className='drag-ghost';
-    g.style.cssText=`background:${col.bg};border-left-color:${col.border};color:${col.text};width:100px;height:40px`;
+    g.style.cssText=`background:${col.bg};border-left-color:${col.border};color:${col.text};width:100px;height:40px;position:fixed;pointer-events:none;z-index:9999;border-radius:4px;border-left:3px solid;padding:3px 5px;font-size:11px;font-weight:500`;
     g.textContent=batch?.name||'';
     g.style.left=(e.clientX+12)+'px';g.style.top=(e.clientY-10)+'px';
     document.body.appendChild(g);twDragState.ghost=g;
@@ -1583,32 +1584,34 @@ function twMouseMove(e){
   }
   if(twDragState.ghost){twDragState.ghost.style.left=(e.clientX+12)+'px';twDragState.ghost.style.top=(e.clientY-10)+'px';}
   document.querySelectorAll('.tw-col').forEach(c=>c.classList.remove('tw-drag-over'));
-  const target=document.elementFromPoint(e.clientX,e.clientY);
-  const col=target?.closest('.tw-col');
-  if(col)col.classList.add('tw-drag-over');
+  try{
+    const target=document.elementFromPoint(e.clientX,e.clientY);
+    const col=target?.closest?.('.tw-col');
+    if(col)col.classList.add('tw-drag-over');
+  }catch(err){}
 }
 function twMouseUp(e){
-  if(!twDragState||!document.getElementById('modal-thisweek').classList.contains('open'))return;
+  if(!twDragState)return;
   if(twDragState.ghost){twDragState.ghost.remove();twDragState.ghost=null;}
   document.body.style.cursor='';
   document.querySelectorAll('.tw-event').forEach(el=>el.style.pointerEvents='');
   document.querySelectorAll('.tw-col').forEach(c=>c.classList.remove('tw-drag-over'));
   if(twDragState.moved){
-    const target=document.elementFromPoint(e.clientX,e.clientY);
-    const col=target?.closest('.tw-col');
-    const ev=twEvents.find(x=>x.id===twDragState.evId);
-    if(ev&&col){
-      // New date
-      if(col.dataset.date) ev.date=new Date(col.dataset.date);
-      // New time from Y
-      const rect=col.getBoundingClientRect();
-      const raw=Math.round(((e.clientY-rect.top)/TW_PX_PM)/15)*15;
-      const newStartMin=TW_START_H*60+Math.min(raw,TW_TOTAL_MINS-60);
-      const dur=toMins(ev.end)-toMins(ev.start);
-      ev.start=minsToIstStr(newStartMin);
-      ev.end=minsToIstStr(Math.min(newStartMin+dur,TW_END_H*60));
-      twRender();
-    }
+    try{
+      const target=document.elementFromPoint(e.clientX,e.clientY);
+      const col=target?.closest?.('.tw-col');
+      const ev=twEvents.find(x=>x.id===twDragState.evId);
+      if(ev&&col){
+        if(col.dataset.date) ev.date=new Date(col.dataset.date+'T00:00:00');
+        const rect=col.getBoundingClientRect();
+        const raw=Math.round(((e.clientY-rect.top)/TW_PX_PM)/15)*15;
+        const newStartMin=TW_START_H*60+Math.min(Math.max(raw,0),TW_TOTAL_MINS-60);
+        const dur=toMins(ev.end)-toMins(ev.start);
+        ev.start=minsToIstStr(newStartMin);
+        ev.end=minsToIstStr(Math.min(newStartMin+Math.max(dur,30),TW_END_H*60));
+        twRender();
+      }
+    }catch(err){console.warn('twMouseUp error:',err);}
   }
   twDragState=null;
 }
@@ -1746,20 +1749,34 @@ function saveSetup(){
 
 // ── Init ──
 async function initLoad(){
-  if(!SCRIPT_URL){document.getElementById('sync-status').textContent='⚙ Not connected';renderSidebar();renderCalendar();return;}
+  if(!SCRIPT_URL){
+    document.getElementById('sync-status').textContent='⚙ Not connected';
+    renderSidebar();renderCalendar();return;
+  }
   document.getElementById('sync-status').textContent='Syncing…';
-  const data=await cloudLoad();
-  if(!data){document.getElementById('sync-status').textContent='⚠ Offline';showToast('Could not reach cloud');renderSidebar();renderCalendar();return;}
-  try{const b=data.batches;batches=b?(typeof b==='string'?JSON.parse(b):b):[];}catch(e){batches=[];}
-  try{const c=data.classes;classes=c?(typeof c==='string'?JSON.parse(c):c):[];}catch(e){classes=[];}
-  if(data.season)season=data.season;
-  if(data.tz)currentTz=data.tz;
-  document.getElementById('sync-status').textContent='✓ Synced';
-  document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
-  document.getElementById('btn-winter').classList.toggle('active-blue',season==='winter');
-  syncTzToSeason(season);
-  document.getElementById('tz-label-text').textContent=currentTz;
-  renderTzDropdown();renderSidebar();renderCalendar();
+  try{
+    const data=await cloudLoad();
+    if(!data){
+      document.getElementById('sync-status').textContent='⚠ Offline';
+      showToast('Could not reach cloud — data may not load');
+      renderSidebar();renderCalendar();return;
+    }
+    try{const b=data.batches;batches=b?(typeof b==='string'?JSON.parse(b):b):[];}catch(e){batches=[];}
+    try{const c=data.classes;classes=c?(typeof c==='string'?JSON.parse(c):c):[];}catch(e){classes=[];}
+    if(data.season)season=data.season;
+    if(data.tz)currentTz=data.tz;
+    document.getElementById('sync-status').textContent='✓ Synced';
+    document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
+    document.getElementById('btn-winter').classList.toggle('active-blue',season==='winter');
+    syncTzToSeason(season);
+    document.getElementById('tz-label-text').textContent=currentTz;
+    renderTzDropdown();renderSidebar();renderCalendar();
+  }catch(err){
+    console.error('initLoad error:',err);
+    document.getElementById('sync-status').textContent='⚠ Error';
+    showToast('Load error — try refreshing');
+    renderSidebar();renderCalendar();
+  }
 }
 
 // Boot
