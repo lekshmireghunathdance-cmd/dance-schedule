@@ -207,6 +207,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
     Sync
   </button>
+  <span id="sync-status" style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
 </header>
 
 <div class="app-body">
@@ -984,7 +985,7 @@ function openNewBatch(){
   document.getElementById('be-del').style.display='none';
   document.getElementById('be-name').value='';
   document.getElementById('be-students').value='';
-  document.getElementById('be-tz-group').value=b&&b.tzGroup?b.tzGroup:'IST';
+  document.getElementById('be-tz-group').value='IST';
   renderColorGrid('c1');
   document.getElementById('modal-batch-edit').classList.add('open');
 }
