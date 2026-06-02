@@ -239,6 +239,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
     Sync
   </button>
+  <button class="header-btn" onclick="openFactoryReset()" style="color:#d93025" title="Factory reset">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    Reset all
+  </button>
   <span id="sync-status" style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
 </header>
 
@@ -540,6 +544,32 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <button class="btn-danger" id="ind-student-del" onclick="deleteIndividualStudent()" style="display:none">Delete</button>
       <button class="btn-cancel" onclick="closeOverlay('modal-ind-student')">Cancel</button>
       <button class="btn-primary" onclick="saveIndividualStudent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- FACTORY RESET CONFIRMATION -->
+<div class="overlay" id="modal-factory-reset">
+  <div class="modal modal-sm">
+    <h2 style="color:#d93025">⚠ Factory Reset</h2>
+    <p style="font-size:14px;color:var(--text);margin-bottom:8px;line-height:1.6">This will permanently delete <strong>all</strong> your data:</p>
+    <ul style="font-size:13px;color:var(--muted);margin:0 0 16px 20px;line-height:2">
+      <li>All batches and students</li>
+      <li>All class schedules</li>
+      <li>All attendance records</li>
+      <li>All This Week data</li>
+      <li>All individual students</li>
+    </ul>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">To confirm, type <strong>RESET</strong> below:</p>
+    <div class="field">
+      <input id="factory-reset-confirm" type="text" placeholder="Type RESET to confirm" oninput="factoryResetCheckInput()"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-factory-reset')">Cancel</button>
+      <button id="factory-reset-btn" onclick="doFactoryReset()" disabled
+        style="background:#d93025;color:#fff;font-size:14px;font-family:'Roboto',sans-serif;font-weight:500;padding:9px 18px;border-radius:var(--radius);border:none;cursor:pointer;opacity:.4;transition:opacity .15s">
+        Delete everything
+      </button>
     </div>
   </div>
 </div>
@@ -2820,6 +2850,45 @@ function setCycleStart(key, val) {
   cloudSave('studentSettings', JSON.stringify(studentSettings));
 }
 
+
+// ── Factory Reset ──
+function openFactoryReset(){
+  document.getElementById('factory-reset-confirm').value='';
+  document.getElementById('factory-reset-btn').disabled=true;
+  document.getElementById('factory-reset-btn').style.opacity='.4';
+  document.getElementById('modal-factory-reset').classList.add('open');
+}
+function factoryResetCheckInput(){
+  const ok=document.getElementById('factory-reset-confirm').value==='RESET';
+  document.getElementById('factory-reset-btn').disabled=!ok;
+  document.getElementById('factory-reset-btn').style.opacity=ok?'1':'.4';
+}
+async function doFactoryReset(){
+  closeOverlay('modal-factory-reset');
+  document.getElementById('sync-status').textContent='Resetting…';
+  // Clear all local state
+  batches=[];classes=[];individualStudents=[];
+  attendance={};studentSettings={};twWeekCache={};twWeekStart=null;twEvents=[];
+  // Save empty values to cloud
+  const keys={
+    batches:'[]',classes:'[]',individualStudents:'[]',
+    attendance:'{}',studentSettings:'{}',
+    twWeekCache:JSON.stringify({cache:{},weekStart:null,season:'summer'}),
+    season:'summer',tz:'EDT',
+  };
+  const saves=Object.entries(keys).map(([k,v])=>cloudSave(k,v));
+  await Promise.all(saves);
+  // Reset UI state
+  season='summer';currentTz='EDT';istOnly=false;
+  document.getElementById('btn-summer').classList.add('active-blue');
+  document.getElementById('btn-winter').classList.remove('active-blue');
+  document.getElementById('tz-label-text').textContent='EDT';
+  const tzWrap=document.getElementById('tz-wrap-el');
+  if(tzWrap)tzWrap.style.display='';
+  document.getElementById('sync-status').textContent='✓ Reset complete';
+  renderTzDropdown();renderSidebar();renderCalendar();
+  showToast('Everything has been reset');
+}
 
 // ── Utilities ──
 function closeOverlay(id){document.getElementById(id).classList.remove('open');}
