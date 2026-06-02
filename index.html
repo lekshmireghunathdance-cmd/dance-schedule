@@ -269,6 +269,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <div id="students-body" style="display:none">
         <div id="student-list"></div>
         <div id="student-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No students yet.</div>
+        <div class="sidebar-add" onclick="openAddIndividualStudent()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add student
+        </div>
       </div>
     </div>
     <div class="sidebar-divider"></div>
@@ -511,6 +515,35 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
 </div>
 
+<!-- ADD / EDIT INDIVIDUAL STUDENT -->
+<div class="overlay" id="modal-ind-student">
+  <div class="modal modal-sm">
+    <h2 id="ind-student-title">Add student</h2>
+    <div class="field"><label>Name</label><input id="ind-student-name" type="text" placeholder="Student name"/></div>
+    <div class="field"><label>Preferred timezone</label>
+      <select id="ind-student-tz">
+        <option value="IST">IST – India Standard Time (default)</option>
+        <option value="Eastern">Eastern (EDT/EST)</option>
+        <option value="Central">Central (CDT/CST)</option>
+        <option value="Pacific">Pacific (PDT/PST)</option>
+        <option value="Australian">Australian (AEDT/AEST)</option>
+        <option value="British">British (BST/GMT)</option>
+      </select>
+    </div>
+    <div class="field"><label>Attendance counting</label>
+      <select id="ind-student-att">
+        <option value="monthly">Monthly</option>
+        <option value="per-8">Every 8 classes</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" id="ind-student-del" onclick="deleteIndividualStudent()" style="display:none">Delete</button>
+      <button class="btn-cancel" onclick="closeOverlay('modal-ind-student')">Cancel</button>
+      <button class="btn-primary" onclick="saveIndividualStudent()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- SYNC SETUP -->
 <div class="overlay" id="modal-setup">
   <div class="modal modal-sm">
@@ -662,7 +695,7 @@ let editClassIdx = null, addClassMode = false;
 let editBatchId = null, addBatchMode = false;
 let detailBatchId = null;
 let detailExtraTzGroups = new Set();
-let batches = [], classes = [];
+let batches = [], classes = [], individualStudents = [];
 let mcShow = 'regular'; // which timing to show on calendar for the class being edited
 
 function setMcShow(v) {
@@ -799,6 +832,91 @@ function renderTzDropdown(){
 function setTz(tz){currentTz=tz;save('tz',tz);document.getElementById('tz-label-text').textContent=tz;renderTzDropdown();document.getElementById('tz-dropdown').classList.remove('open');renderCalendar();}
 function toggleTzDropdown(){document.getElementById('tz-dropdown').classList.toggle('open');}
 document.addEventListener('click',e=>{if(!e.target.closest('.tz-wrap'))document.getElementById('tz-dropdown').classList.remove('open');});
+
+
+// ── Individual students (not part of any batch) ──
+// individualStudents = [{id, name, tzGroup, attModel}]
+// They appear in the sidebar student list alongside batch students
+// They get a virtual "batch" of their own for attendance purposes
+
+const IND_BATCH_PREFIX = 'ind_'; // id prefix to distinguish from real batches
+
+function getIndStudent(id){ return individualStudents.find(s=>s.id===id); }
+
+function openAddIndividualStudent(){
+  document.getElementById('ind-student-title').textContent='Add student';
+  document.getElementById('ind-student-name').value='';
+  document.getElementById('ind-student-tz').value='IST';
+  document.getElementById('ind-student-att').value='monthly';
+  document.getElementById('ind-student-del').style.display='none';
+  document.getElementById('modal-ind-student').classList.add('open');
+  document.getElementById('modal-ind-student').dataset.editId='';
+}
+
+function openEditIndividualStudent(id){
+  const s=getIndStudent(id);if(!s)return;
+  document.getElementById('ind-student-title').textContent='Edit student';
+  document.getElementById('ind-student-name').value=s.name;
+  document.getElementById('ind-student-tz').value=s.tzGroup||'IST';
+  document.getElementById('ind-student-att').value=s.attModel||'monthly';
+  document.getElementById('ind-student-del').style.display='';
+  document.getElementById('modal-ind-student').classList.add('open');
+  document.getElementById('modal-ind-student').dataset.editId=id;
+}
+
+function saveIndividualStudent(){
+  const name=document.getElementById('ind-student-name').value.trim();
+  if(!name){showToast('Please enter a name');return;}
+  const tzGroup=document.getElementById('ind-student-tz').value;
+  const attModel=document.getElementById('ind-student-att').value;
+  const editId=document.getElementById('modal-ind-student').dataset.editId;
+  if(editId){
+    const s=getIndStudent(editId);
+    if(s){s.name=name;s.tzGroup=tzGroup;s.attModel=attModel;}
+  } else {
+    individualStudents.push({id:IND_BATCH_PREFIX+Date.now(),name,tzGroup,attModel});
+  }
+  save('individualStudents',individualStudents);
+  closeOverlay('modal-ind-student');
+  renderSidebar();
+  showToast(editId?'Student updated':'Student added');
+}
+
+function deleteIndividualStudent(){
+  const editId=document.getElementById('modal-ind-student').dataset.editId;
+  if(!editId)return;
+  if(!confirm('Delete this student? Their attendance records will remain.'))return;
+  individualStudents=individualStudents.filter(s=>s.id!==editId);
+  save('individualStudents',individualStudents);
+  closeOverlay('modal-ind-student');
+  renderSidebar();
+  showToast('Student deleted');
+}
+
+// Helper: get a "virtual batch" object for an individual student
+// so they work seamlessly with all batch-expecting code
+function getIndStudentAsBatch(indStudent){
+  return {
+    id: indStudent.id,
+    name: indStudent.name,
+    color: 'c17', // neutral grey
+    students: indStudent.name,
+    tzGroup: indStudent.tzGroup||'IST',
+    attModel: indStudent.attModel||'monthly',
+    isIndividual: true,
+  };
+}
+
+// Override getBatch to also check individualStudents
+const _origGetBatch = getBatch;
+function getBatch(id){
+  const b = batches.find(b=>b.id===id);
+  if(b) return b;
+  const ind = individualStudents.find(s=>s.id===id);
+  if(ind) return getIndStudentAsBatch(ind);
+  return undefined;
+}
+
 
 // ── Sidebar collapsible sections ──
 const sidebarSectionState = { batches: true, students: false };
@@ -1243,14 +1361,18 @@ function mcRemoveAddon(i) {
 // ── Addon picker (shared modal) ──
 function openAddonPicker() {
   const sel = document.getElementById('addon-pick-batch');
-  sel.innerHTML = batches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+  const indOpts = individualStudents.map(s => `<option value="${s.id}">${s.name} (Individual)</option>`).join('');
+  sel.innerHTML = batches.map(b => `<option value="${b.id}">${b.name}</option>`).join('') + indOpts;
   addonPickBatchChanged();
   document.getElementById('modal-addon-pick').classList.add('open');
 }
 function addonPickBatchChanged() {
   const batchId = document.getElementById('addon-pick-batch').value;
   const b = getBatch(batchId);
-  const students = (b?.students || '').split(',').map(s => s.trim()).filter(Boolean);
+  // Individual students show themselves as the only student
+  const students = b?.isIndividual
+    ? [b.name]
+    : (b?.students || '').split(',').map(s => s.trim()).filter(Boolean);
   document.getElementById('addon-pick-student').innerHTML =
     students.map(s => `<option value="${s}">${s}</option>`).join('');
 }
@@ -2754,6 +2876,11 @@ async function initLoad(){
         if(parsed.season) twSeason=parsed.season;
       }
     }catch(e){twWeekCache={};}
+    // Restore individual students
+    try{
+      const ind=data.individualStudents;
+      if(ind) individualStudents=typeof ind==='string'?JSON.parse(ind):ind;
+    }catch(e){individualStudents=[];}
     // Restore attendance
     try{
       const att=data.attendance;
