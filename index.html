@@ -850,8 +850,13 @@ function renderSidebar() {
   if(se) se.style.display = allStudents.length === 0 ? 'block' : 'none';
 }
 
+let currentStudentName = null;
+let currentStudentBatchId = null;
+
 // ── Student detail popup ──
 function openStudentDetail(batchId, studentName) {
+  currentStudentName = studentName;
+  currentStudentBatchId = batchId;
   const b = getBatch(batchId);
   if(!b) return;
   const col = getColor(b.color);
@@ -916,12 +921,13 @@ function openStudentDetail(batchId, studentName) {
         <input type="date" id="student-att-from" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
         <span style="font-size:12px;color:var(--muted)">to</span>
         <input type="date" id="student-att-to" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
-        <button onclick="refreshStudentAtt('${studentName}','${batchId}')" class="header-btn primary" style="padding:5px 12px;font-size:12px">Apply</button>
+        <button onclick="refreshStudentAtt(this)" class="header-btn primary" style="padding:5px 12px;font-size:12px">Apply</button>
       </div>
-      <div id="student-att-body">${buildStudentAttendanceSection(studentName, batchId, null, null)}</div>
+      <div id="student-att-body"></div>
     </div>
-  \`;
-  // Set default period dates (current month)
+  `;
+  document.getElementById('modal-student').classList.add('open');
+  // Set default period dates and render attendance after modal opens
   const now=new Date();
   const mFrom=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
   const mTo=new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10);
@@ -930,9 +936,9 @@ function openStudentDetail(batchId, studentName) {
     const t=document.getElementById('student-att-to');
     if(f)f.value=mFrom;
     if(t)t.value=mTo;
-    refreshStudentAtt('${studentName}','${batchId}');
+    const body=document.getElementById('student-att-body');
+    if(body)body.innerHTML=buildStudentAttendanceSection(currentStudentName,currentStudentBatchId,mFrom,mTo);
   },50);
-  document.getElementById('modal-student').classList.add('open');
 }
 
 // ── This Week season ──
@@ -2616,11 +2622,13 @@ function renderAttSheet() {
 }
 
 // ── Refresh student attendance with period ──
-function refreshStudentAtt(studentName, batchId) {
+function refreshStudentAtt(btn) {
   const from = document.getElementById('student-att-from')?.value;
   const to = document.getElementById('student-att-to')?.value;
   const body = document.getElementById('student-att-body');
-  if (body) body.innerHTML = buildStudentAttendanceSection(studentName, batchId, from, to);
+  if (body && currentStudentName && currentStudentBatchId) {
+    body.innerHTML = buildStudentAttendanceSection(currentStudentName, currentStudentBatchId, from, to);
+  }
 }
 
 // ── Student attendance detail (for student popup) ──
