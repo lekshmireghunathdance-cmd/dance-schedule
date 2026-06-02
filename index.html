@@ -268,9 +268,9 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="sidebar-section">
       <div class="sidebar-label" onclick="toggleSidebarSection('students')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
         <span>Students</span>
-        <svg id="students-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s;transform:rotate(-90deg)"><path d="m6 9 6 6 6-6"/></svg>
+        <svg id="students-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg>
       </div>
-      <div id="students-body" style="display:none">
+      <div id="students-body">
         <div id="student-list"></div>
         <div id="student-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No students yet.</div>
         <div class="sidebar-add" onclick="openAddIndividualStudent()">
@@ -908,7 +908,9 @@ function saveIndividualStudent(){
   }
   save('individualStudents',individualStudents);
   closeOverlay('modal-ind-student');
-  renderSidebar();
+  // Expand the students section so the new student is visible
+  if(!sidebarSectionState.students) toggleSidebarSection('students');
+  else renderSidebar();
   showToast(editId?'Student updated':'Student added');
 }
 
@@ -949,7 +951,7 @@ function getBatch(id){
 
 
 // ── Sidebar collapsible sections ──
-const sidebarSectionState = { batches: true, students: false };
+const sidebarSectionState = { batches: true, students: true };
 function toggleSidebarSection(name) {
   sidebarSectionState[name] = !sidebarSectionState[name];
   const body = document.getElementById(name + '-body');
