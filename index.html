@@ -239,10 +239,6 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
     Sync
   </button>
-  <button class="header-btn" onclick="openFactoryReset()" style="color:#d93025" title="Factory reset">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-    Reset all
-  </button>
   <span id="sync-status" style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
 </header>
 
@@ -268,9 +264,9 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="sidebar-section">
       <div class="sidebar-label" onclick="toggleSidebarSection('students')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
         <span>Students</span>
-        <svg id="students-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg>
+        <svg id="students-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s;transform:rotate(-90deg)"><path d="m6 9 6 6 6-6"/></svg>
       </div>
-      <div id="students-body">
+      <div id="students-body" style="display:none">
         <div id="student-list"></div>
         <div id="student-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No students yet.</div>
         <div class="sidebar-add" onclick="openAddIndividualStudent()">
@@ -548,32 +544,6 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
 </div>
 
-<!-- FACTORY RESET CONFIRMATION -->
-<div class="overlay" id="modal-factory-reset">
-  <div class="modal modal-sm">
-    <h2 style="color:#d93025">⚠ Factory Reset</h2>
-    <p style="font-size:14px;color:var(--text);margin-bottom:8px;line-height:1.6">This will permanently delete <strong>all</strong> your data:</p>
-    <ul style="font-size:13px;color:var(--muted);margin:0 0 16px 20px;line-height:2">
-      <li>All batches and students</li>
-      <li>All class schedules</li>
-      <li>All attendance records</li>
-      <li>All This Week data</li>
-      <li>All individual students</li>
-    </ul>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">To confirm, type <strong>RESET</strong> below:</p>
-    <div class="field">
-      <input id="factory-reset-confirm" type="text" placeholder="Type RESET to confirm" oninput="factoryResetCheckInput()"/>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeOverlay('modal-factory-reset')">Cancel</button>
-      <button id="factory-reset-btn" onclick="doFactoryReset()" disabled
-        style="background:#d93025;color:#fff;font-size:14px;font-family:'Roboto',sans-serif;font-weight:500;padding:9px 18px;border-radius:var(--radius);border:none;cursor:pointer;opacity:.4;transition:opacity .15s">
-        Delete everything
-      </button>
-    </div>
-  </div>
-</div>
-
 <!-- SYNC SETUP -->
 <div class="overlay" id="modal-setup">
   <div class="modal modal-sm">
@@ -713,8 +683,8 @@ const ALL_COLORS = [
 
 // ── Fallback data (recovered from Google Sheet) ──
 // These load instantly if cloud sync fails, so the app is never blank
-const FALLBACK_BATCHES = [{"id":"b_1779945992049","name":"Ohio 1","color":"c1","students":"Ava, Harini","tzGroup":"Eastern"},{"id":"b_1779947401569","name":"Karthika and Lasya","color":"c2","students":"","tzGroup":"Eastern"},{"id":"b_1779947429102","name":"Ohio 2","color":"c3","students":"Sai, Aarohi, Mahati, Kavya, Varshita, Rithika, Nihavsi","tzGroup":"Eastern"},{"id":"b_1779947540597","name":"Ohio 3","color":"c4","students":"Aadya, Akshaya and Aishwarya","tzGroup":"Eastern"},{"id":"b_1779947654464","name":"Ohio 4","color":"c5","students":"Nidhi, Aadya, Aadvi, Risha","tzGroup":"Eastern"},{"id":"b_1779948203548","name":"Ohio 5","color":"c6","students":"Daksha, Nitya, Aditi","tzGroup":"Eastern"},{"id":"b_1779948390181","name":"Ohio 6","color":"c7","students":"Ushika, Josya, Rithanya","tzGroup":"Eastern"},{"id":"b_1779948527368","name":"Kids India","color":"c8","students":"Ameya, Yayati, Anugraha"},{"id":"b_1779948994900","name":"Adults 1","color":"c9","students":"Lakshmi, Joycy"},{"id":"b_1779969803450","name":"New Jersey Kids","color":"c10","students":"Anika, Anvika, Nyasa","tzGroup":"Eastern"},{"id":"b_1779969814017","name":"Adults 2","color":"c11","students":"Swathy, Subhashini"},{"id":"b_1779969825184","name":"Harika","color":"c12","students":"","tzGroup":"Pacific"},{"id":"b_1779969834617","name":"Amrutha","color":"c13","students":""},{"id":"b_1779969838517","name":"Nishna","color":"c14","students":"","tzGroup":"Eastern"},{"id":"b_1779969854447","name":"Adults 3","color":"c15","students":"Vijayalakshmi, Anuhya, Tanoogna"},{"id":"b_1779970215911","name":"Offline class","color":"c19","students":""}];
-const FALLBACK_CLASSES = [{"batchId":"b_1779945992049","day":"Monday","season":"summer","start":"16:00","end":"17:00","tempStart":"17:30","tempEnd":"19:00","tempDay":"Monday","showOnCalendar":"temporary"},{"batchId":"b_1779945992049","day":"Wednesday","season":"summer","start":"16:00","end":"17:00","tempStart":"19:30","tempEnd":"21:00","tempDay":"Wednesday","showOnCalendar":"temporary"},{"batchId":"b_1779945992049","day":"Friday","season":"summer","start":"16:00","end":"17:00","tempStart":"17:30","tempEnd":"18:30","tempDay":"Friday","showOnCalendar":"temporary"},{"batchId":"b_1779945992049","day":"Monday","start":"17:00","end":"18:00","season":"winter"},{"batchId":"b_1779945992049","day":"Wednesday","start":"17:00","end":"18:00","season":"winter"},{"batchId":"b_1779945992049","day":"Friday","start":"17:00","end":"18:00","season":"winter"},{"batchId":"b_1779947401569","day":"Wednesday","start":"05:30","end":"06:30","season":"summer"},{"batchId":"b_1779947401569","day":"Saturday","season":"summer","start":"06:00","end":"07:00","tempStart":"20:00","tempEnd":"21:00","tempDay":"Friday","showOnCalendar":"temporary"},{"batchId":"b_1779947401569","day":"Wednesday","start":"05:30","end":"06:30","season":"winter"},{"batchId":"b_1779947429102","day":"Sunday","start":"20:00","end":"21:00","season":"both"},{"batchId":"b_1779947429102","day":"Saturday","start":"20:00","end":"21:00","season":"summer"},{"batchId":"b_1779947540597","day":"Saturday","start":"18:00","end":"19:00","season":"summer"},{"batchId":"b_1779947540597","day":"Sunday","start":"18:00","end":"19:00","season":"summer"},{"batchId":"b_1779947540597","day":"Sunday","start":"19:00","end":"20:00","season":"winter"},{"batchId":"b_1779947540597","day":"Saturday","start":"19:00","end":"20:00","season":"winter"},{"batchId":"b_1779947654464","day":"Friday","start":"05:00","end":"06:00","season":"summer"},{"batchId":"b_1779947654464","day":"Friday","start":"05:30","end":"06:30","season":"winter"},{"batchId":"b_1779947654464","day":"Sunday","start":"19:00","end":"20:00","season":"summer"},{"batchId":"b_1779948203548","day":"Friday","season":"summer","start":"05:00","end":"06:00","tempStart":"18:00","tempEnd":"19:00","tempDay":"Monday","showOnCalendar":"temporary"},{"batchId":"b_1779948203548","day":"Thursday","season":"summer","start":"05:00","end":"06:00","tempStart":"20:00","tempEnd":"21:00","tempDay":"Wednesday","showOnCalendar":"temporary"},{"batchId":"b_1779948527368","day":"Tuesday","season":"both","start":"17:30","end":"18:30","showOnCalendar":"regular"},{"batchId":"b_1779948527368","day":"Friday","start":"17:30","end":"18:30","season":"both"},{"batchId":"b_1779948390181","day":"Tuesday","season":"summer","start":"06:00","end":"07:00","tempStart":"19:00","tempEnd":"20:00","tempDay":"Tuesday","showOnCalendar":"temporary"},{"batchId":"b_1779948390181","day":"Saturday","season":"summer","start":"05:00","end":"06:00","tempStart":"19:00","tempEnd":"20:00","tempDay":"Saturday","showOnCalendar":"temporary"},{"batchId":"b_1779948390181","day":"Tuesday","start":"06:30","end":"07:30","season":"winter"},{"batchId":"b_1779948390181","day":"Sunday","start":"05:30","end":"06:30","season":"winter"},{"batchId":"b_1779948203548","day":"Thursday","start":"05:30","end":"06:30","season":"winter"},{"batchId":"b_1779948203548","day":"Saturday","season":"winter","start":"05:30","end":"06:30","showOnCalendar":"regular"},{"batchId":"b_1779948994900","day":"Wednesday","start":"11:00","end":"12:00","season":"both"},{"batchId":"b_1779948994900","day":"Friday","start":"11:00","end":"12:00","season":"both"},{"batchId":"b_1779969838517","day":"Monday","start":"20:00","end":"21:00","season":"both"},{"batchId":"b_1779969838517","day":"Tuesday","start":"20:00","end":"21:00","season":"both"},{"batchId":"b_1779969814017","day":"Wednesday","start":"09:30","end":"10:30","season":"both"},{"batchId":"b_1779969814017","day":"Thursday","start":"09:30","end":"10:30","season":"both"},{"batchId":"b_1779969854447","day":"Monday","season":"both","start":"19:00","end":"20:00","showOnCalendar":"regular"},{"batchId":"b_1779969854447","day":"Friday","start":"19:00","end":"20:00","season":"both"},{"batchId":"b_1779969803450","day":"Monday","start":"05:00","end":"06:00","season":"summer"},{"batchId":"b_1779969803450","day":"Tuesday","start":"05:00","end":"06:00","season":"summer"},{"batchId":"b_1779969803450","day":"Thursday","start":"06:00","end":"07:00","season":"summer"},{"batchId":"b_1779969825184","day":"Wednesday","start":"06:30","end":"07:30","season":"both"},{"batchId":"b_1779969825184","day":"Friday","season":"both","start":"06:45","end":"07:45","showOnCalendar":"regular","tempOnly":false},{"batchId":"b_1779970215911","day":"Thursday","start":"18:30","end":"20:00","season":"both"},{"batchId":"b_1779970215911","day":"Saturday","start":"10:00","end":"12:00","season":"both"},{"batchId":"b_1779970215911","day":"Sunday","start":"10:00","end":"12:00","season":"both"},{"batchId":"b_1779947429102","day":"Tuesday","season":"summer","tempStart":"06:00","tempEnd":"07:00","tempDay":"Tuesday","showOnCalendar":"temporary","tempOnly":true},{"batchId":"b_1779969834617","day":"Monday","start":"11:00","end":"12:00","season":"both"},{"batchId":"b_1779969834617","day":"Tuesday","start":"11:00","end":"12:00","season":"both"},{"batchId":"b_1779969803450","day":"Tuesday","start":"05:30","end":"06:30","season":"winter"},{"batchId":"b_1779969803450","day":"Monday","start":"05:30","end":"06:30","season":"winter"},{"batchId":"b_1779947429102","day":"Saturday","start":"20:00","end":"21:00","season":"winter"},{"batchId":"b_1779947654464","day":"Sunday","start":"18:00","end":"19:00","season":"winter"},{"batchId":"b_1779947401569","day":"Sunday","start":"06:30","end":"07:30","season":"winter"},{"batchId":"b_1779969803450","day":"Thursday","season":"winter","start":"06:30","end":"07:30","showOnCalendar":"regular","tempOnly":false}];
+const FALLBACK_BATCHES = [];
+const FALLBACK_CLASSES = [];
 
 // ── State ──
 let season = 'summer'; // from sheet
@@ -745,8 +715,8 @@ function setMcShow(v) {
 
 // ── Cloud ──
 // Once you set up the Cloudflare Worker, replace this URL with your worker URL:
-const HARDCODED_URL = 'https://dance-schedule.lekshmireghunath-dance.workers.dev';
-let SCRIPT_URL = localStorage.getItem('dance_worker_url') || HARDCODED_URL;
+const HARDCODED_URL = ''; // paste your Cloudflare Worker URL here
+let SCRIPT_URL = ''; // set via Sync button or paste HARDCODED_URL above
 
 async function cloudLoad() {
   if(!SCRIPT_URL) return null;
@@ -908,10 +878,10 @@ function saveIndividualStudent(){
   }
   save('individualStudents',individualStudents);
   closeOverlay('modal-ind-student');
-  // Expand the students section so the new student is visible
-  if(!sidebarSectionState.students) toggleSidebarSection('students');
-  else renderSidebar();
-  showToast(editId?'Student updated':'Student added');
+  setTimeout(() => {
+    if(!sidebarSectionState.students){sidebarSectionState.students=true;const b=document.getElementById('students-body');const ch=document.getElementById('students-chevron');if(b)b.style.display='';if(ch)ch.style.transform='';}
+    renderSidebar();
+  }, 50);
 }
 
 function deleteIndividualStudent(){
@@ -951,7 +921,7 @@ function getBatch(id){
 
 
 // ── Sidebar collapsible sections ──
-const sidebarSectionState = { batches: true, students: true };
+const sidebarSectionState = { batches: true, students: false };
 function toggleSidebarSection(name) {
   sidebarSectionState[name] = !sidebarSectionState[name];
   const body = document.getElementById(name + '-body');
@@ -976,8 +946,6 @@ function renderSidebar() {
     </div>`;
   }).join('');
   const e = document.getElementById('batch-empty');
-  if(e) e.style.display = batches.length === 0 ? 'block' : 'none';
-
   // Students — batch students + individual students, all alphabetical
   const allStudents = [];
   batches.forEach(b => {
@@ -1010,7 +978,6 @@ function renderSidebar() {
   }).join('');
   if(se) se.style.display = allStudents.length === 0 ? 'block' : 'none';
 }
-
 
 let currentStudentName = null;
 let currentStudentBatchId = null;
@@ -2864,45 +2831,6 @@ function setCycleStart(key, val) {
   cloudSave('studentSettings', JSON.stringify(studentSettings));
 }
 
-
-// ── Factory Reset ──
-function openFactoryReset(){
-  document.getElementById('factory-reset-confirm').value='';
-  document.getElementById('factory-reset-btn').disabled=true;
-  document.getElementById('factory-reset-btn').style.opacity='.4';
-  document.getElementById('modal-factory-reset').classList.add('open');
-}
-function factoryResetCheckInput(){
-  const ok=document.getElementById('factory-reset-confirm').value==='RESET';
-  document.getElementById('factory-reset-btn').disabled=!ok;
-  document.getElementById('factory-reset-btn').style.opacity=ok?'1':'.4';
-}
-async function doFactoryReset(){
-  closeOverlay('modal-factory-reset');
-  document.getElementById('sync-status').textContent='Resetting…';
-  // Clear all local state
-  batches=[];classes=[];individualStudents=[];
-  attendance={};studentSettings={};twWeekCache={};twWeekStart=null;twEvents=[];
-  // Save empty values to cloud
-  const keys={
-    batches:'[]',classes:'[]',individualStudents:'[]',
-    attendance:'{}',studentSettings:'{}',
-    twWeekCache:JSON.stringify({cache:{},weekStart:null,season:'summer'}),
-    season:'summer',tz:'EDT',
-  };
-  const saves=Object.entries(keys).map(([k,v])=>cloudSave(k,v));
-  await Promise.all(saves);
-  // Reset UI state
-  season='summer';currentTz='EDT';istOnly=false;
-  document.getElementById('btn-summer').classList.add('active-blue');
-  document.getElementById('btn-winter').classList.remove('active-blue');
-  document.getElementById('tz-label-text').textContent='EDT';
-  const tzWrap=document.getElementById('tz-wrap-el');
-  if(tzWrap)tzWrap.style.display='';
-  document.getElementById('sync-status').textContent='✓ Reset complete';
-  renderTzDropdown();renderSidebar();renderCalendar();
-  showToast('Everything has been reset');
-}
 
 // ── Utilities ──
 function closeOverlay(id){document.getElementById(id).classList.remove('open');}
