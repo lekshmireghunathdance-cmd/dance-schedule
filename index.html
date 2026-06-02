@@ -283,7 +283,22 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 <div class="overlay" id="modal-class">
   <div class="modal modal-sm">
     <h2 id="mc-title">Add class</h2>
-    <div class="field"><label>Batch</label><select id="mc-batch"></select></div>
+    <!-- Schedule for: Batch or Student -->
+    <div class="field">
+      <label>Schedule for</label>
+      <div class="pill-group" style="border-radius:var(--radius);width:100%">
+        <button class="pill-btn active-blue" id="mc-scope-batch" onclick="setMcScope('batch')" style="flex:1;border-radius:0">Entire batch</button>
+        <button class="pill-btn" id="mc-scope-student" onclick="setMcScope('student')" style="flex:1;border-radius:0">Individual student</button>
+      </div>
+    </div>
+    <div id="mc-batch-wrap" class="field"><label>Batch</label><select id="mc-batch" onchange="mcBatchChanged()"></select></div>
+    <div id="mc-student-wrap" class="field" style="display:none"><label>Student</label><select id="mc-student"></select></div>
+    <!-- Add-on students -->
+    <div class="field" id="mc-addon-wrap" style="display:none">
+      <label>Add-on students <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(from any batch)</span></label>
+      <div id="mc-addon-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
+      <button type="button" onclick="mcAddAddon()" style="font-size:12px;padding:4px 10px;border:1px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue)">+ Add student</button>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="field"><label>Day</label>
         <select id="mc-day">
@@ -394,6 +409,12 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
         <option value="British">British (BST/GMT)</option>
       </select>
     </div>
+    <div class="field"><label>Attendance counting method</label>
+      <select id="be-att-model">
+        <option value="monthly">Monthly (count resets each month)</option>
+        <option value="per-8">Every 8 classes (count resets after 8 attended)</option>
+      </select>
+    </div>
     <div class="field"><label>Colour</label><div class="color-grid" id="be-color-grid"></div></div>
     <div class="modal-actions">
       <button class="btn-danger" id="be-del" onclick="deleteBatch()">Delete batch</button>
@@ -460,6 +481,12 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="field"><label>Start (IST)</label><input id="twe-start" type="time"/></div>
       <div class="field"><label>End (IST)</label><input id="twe-end" type="time"/></div>
     </div>
+    <!-- Add-on students for this TW event -->
+    <div class="field" style="margin-top:8px">
+      <label>Add-on students</label>
+      <div id="twe-addon-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
+      <button type="button" onclick="tweAddAddon()" style="font-size:12px;padding:4px 10px;border:1px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue)">+ Add student</button>
+    </div>
     <div style="margin-top:12px">
       <button id="twe-att-btn" onclick="closeOverlay('modal-tw-edit');openAttendanceForEvent(twEditId)"
         style="width:100%;padding:10px;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;transition:all .15s">
@@ -498,6 +525,23 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
 </div>
 
+
+<!-- ADDON STUDENT PICKER (shared for class modal and TW edit) -->
+<div class="overlay" id="modal-addon-pick" style="z-index:500">
+  <div class="modal modal-sm">
+    <h2>Add student</h2>
+    <div class="field"><label>Batch</label>
+      <select id="addon-pick-batch" onchange="addonPickBatchChanged()"></select>
+    </div>
+    <div class="field"><label>Student</label>
+      <select id="addon-pick-student"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-addon-pick')">Cancel</button>
+      <button class="btn-primary" id="addon-pick-confirm">Add</button>
+    </div>
+  </div>
+</div>
 
 <!-- ATTENDANCE CLASS POPUP -->
 <div class="overlay" id="modal-att-class">
@@ -865,8 +909,29 @@ function openStudentDetail(batchId, studentName) {
       <tbody>${buildTimingRows('winter')}</tbody>
     </table></div>
     ${!prefGroup ? `<p style="font-size:12px;color:var(--muted);margin-top:8px">Preferred timezone: IST — <a href="#" onclick="closeOverlay('modal-student');openEditBatch('${batchId}');return false;" style="color:var(--blue)">edit batch to add a timezone</a></p>` : ''}
-    <div style="margin-top:16px">${buildStudentAttendanceSection(studentName, batchId)}</div>
-  `;
+    <div style="margin-top:16px">
+      <div class="section-title">📋 Attendance</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--muted);font-weight:500">Period:</label>
+        <input type="date" id="student-att-from" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
+        <span style="font-size:12px;color:var(--muted)">to</span>
+        <input type="date" id="student-att-to" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
+        <button onclick="refreshStudentAtt('${studentName}','${batchId}')" class="header-btn primary" style="padding:5px 12px;font-size:12px">Apply</button>
+      </div>
+      <div id="student-att-body">${buildStudentAttendanceSection(studentName, batchId, null, null)}</div>
+    </div>
+  \`;
+  // Set default period dates (current month)
+  const now=new Date();
+  const mFrom=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  const mTo=new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10);
+  setTimeout(()=>{
+    const f=document.getElementById('student-att-from');
+    const t=document.getElementById('student-att-to');
+    if(f)f.value=mFrom;
+    if(t)t.value=mTo;
+    refreshStudentAtt('${studentName}','${batchId}');
+  },50);
   document.getElementById('modal-student').classList.add('open');
 }
 
@@ -968,13 +1033,17 @@ function renderCalendar(){
       const tzTime=istOnly?fmtTime(dt.start):istToTz(dt.start,currentTz);
       const dayPfx=istOnly?'':tzDayShift(day,dt.start,currentTz);
       const tzStr=istOnly?`${tzTime} IST`:`${dayPfx}${tzTime} ${currentTz}`;
-      const students=(batch.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const isStudentScopeClass = !!c.studentScope;
+      const displayName = isStudentScopeClass ? c.studentScope : batch.name;
+      const subLabel = isStudentScopeClass ? batch.name : (batch.students||'').split(',').map(s=>s.trim()).filter(Boolean).join(', ');
+      const addonLabel = (c.addonStudents||[]).map(a=>a.name).join(', ');
       const typeTag=dt.isTemp?'<span style="font-size:8px;background:#ff980033;border-radius:3px;padding:0 3px;margin-right:2px">TEMP</span>':'';
+      const scopeTag=isStudentScopeClass?'<span style="font-size:8px;background:#e8f0fe;border-radius:3px;padding:0 3px;margin-right:2px;color:#1a73e8">1:1</span>':'';
       let bc;
-      if(ht<22)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${typeTag}${batch.name}</span>`;
-      else if(ht<36)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${typeTag}${batch.name} <span style="opacity:.75;font-size:9px">${tzStr}</span></span>`;
-      else if(ht<52)bc=`<span style="display:block;font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden">${typeTag}${tzStr}</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch.name}</span>`;
-      else{const ss=students.join(', ');bc=`<span style="display:block;font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden">${typeTag}${tzStr}</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch.name}</span>${ss?`<span style="display:block;font-size:9px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px">${ss}</span>`:''}`;}
+      if(ht<22)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${typeTag}${scopeTag}${displayName}</span>`;
+      else if(ht<36)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${typeTag}${scopeTag}${displayName} <span style="opacity:.75;font-size:9px">${tzStr}</span></span>`;
+      else if(ht<52)bc=`<span style="display:block;font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden">${typeTag}${scopeTag}${tzStr}</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${displayName}</span>`;
+      else{const extras=[subLabel,addonLabel].filter(Boolean).join(' + ');bc=`<span style="display:block;font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden">${typeTag}${scopeTag}${tzStr}</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${displayName}</span>${extras?`<span style="display:block;font-size:9px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px">${extras}</span>`:''}`;}
       const tempClass=dt.isTemp?' temporary':'';
       html+=`<div class="cal-event${tempClass}" draggable="true" data-idx="${idx}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column;justify-content:flex-start;" onmousedown="dragMouseDown(event,${idx})" onclick="event.stopPropagation();handleEventClick(event,${idx})" title="${batch.name} | ${dt.start} IST = ${tzStr}${dt.isTemp?' [TEMPORARY]':''}">${bc}</div>`;
     });
@@ -1114,8 +1183,114 @@ function mcTimeChanged(which){
   if(end)parts.push(`End: ${fmtTime(tzToIst(end,tz))} IST`);
   prev.textContent='→ '+parts.join('   ');prev.style.display='block';
 }
+
+// ── Class scope (batch vs individual student) ──
+let mcScope = 'batch';
+let mcAddonStudents = []; // [{name, batchId}]
+let addonPickCallback = null; // function to call when addon is confirmed
+
+function setMcScope(s) {
+  mcScope = s;
+  document.getElementById('mc-scope-batch').classList.toggle('active-blue', s === 'batch');
+  document.getElementById('mc-scope-student').classList.toggle('active-blue', s === 'student');
+  document.getElementById('mc-batch-wrap').style.display = '';
+  document.getElementById('mc-student-wrap').style.display = s === 'student' ? '' : 'none';
+  document.getElementById('mc-addon-wrap').style.display = '';
+  if (s === 'student') mcBatchChanged();
+}
+
+function mcBatchChanged() {
+  const batchId = document.getElementById('mc-batch').value;
+  const b = getBatch(batchId);
+  const students = (b?.students || '').split(',').map(s => s.trim()).filter(Boolean);
+  document.getElementById('mc-student').innerHTML =
+    students.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function mcAddAddon() {
+  addonPickCallback = (name, batchId) => {
+    if (mcAddonStudents.find(a => a.name === name && a.batchId === batchId)) {
+      showToast('Already added'); return;
+    }
+    mcAddonStudents.push({ name, batchId });
+    renderMcAddonList();
+  };
+  openAddonPicker();
+}
+
+function renderMcAddonList() {
+  const list = document.getElementById('mc-addon-list');
+  if (!list) return;
+  list.innerHTML = mcAddonStudents.map((a, i) => {
+    const b = getBatch(a.batchId);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--blue-light);color:var(--blue);padding:3px 8px;border-radius:12px;font-size:12px">
+      ${a.name} <span style="opacity:.6;font-size:10px">(${b?.name||''})</span>
+      <button onclick="mcRemoveAddon(${i})" style="border:none;background:none;cursor:pointer;color:var(--blue);font-size:14px;line-height:1;padding:0 2px">×</button>
+    </span>`;
+  }).join('');
+}
+function mcRemoveAddon(i) {
+  mcAddonStudents.splice(i, 1);
+  renderMcAddonList();
+}
+
+// ── Addon picker (shared modal) ──
+function openAddonPicker() {
+  const sel = document.getElementById('addon-pick-batch');
+  sel.innerHTML = batches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+  addonPickBatchChanged();
+  document.getElementById('modal-addon-pick').classList.add('open');
+}
+function addonPickBatchChanged() {
+  const batchId = document.getElementById('addon-pick-batch').value;
+  const b = getBatch(batchId);
+  const students = (b?.students || '').split(',').map(s => s.trim()).filter(Boolean);
+  document.getElementById('addon-pick-student').innerHTML =
+    students.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+document.getElementById('addon-pick-confirm').addEventListener('click', () => {
+  const batchId = document.getElementById('addon-pick-batch').value;
+  const name = document.getElementById('addon-pick-student').value;
+  if (!name) return;
+  closeOverlay('modal-addon-pick');
+  if (addonPickCallback) addonPickCallback(name, batchId);
+  addonPickCallback = null;
+});
+
+// ── TW addon management ──
+let tweAddonStudents = []; // per-event add-ons stored on the event
+
+function tweAddAddon() {
+  addonPickCallback = (name, batchId) => {
+    if (tweAddonStudents.find(a => a.name === name && a.batchId === batchId)) {
+      showToast('Already added'); return;
+    }
+    tweAddonStudents.push({ name, batchId });
+    renderTweAddonList();
+  };
+  openAddonPicker();
+}
+function renderTweAddonList() {
+  const list = document.getElementById('twe-addon-list');
+  if (!list) return;
+  list.innerHTML = tweAddonStudents.map((a, i) => {
+    const b = getBatch(a.batchId);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--orange-light);color:var(--orange);padding:3px 8px;border-radius:12px;font-size:12px">
+      ${a.name} <span style="opacity:.6;font-size:10px">(${b?.name||''})</span>
+      <button onclick="tweRemoveAddon(${i})" style="border:none;background:none;cursor:pointer;color:var(--orange);font-size:14px;line-height:1;padding:0 2px">×</button>
+    </span>`;
+  }).join('');
+}
+function tweRemoveAddon(i) {
+  tweAddonStudents.splice(i, 1);
+  renderTweAddonList();
+}
+
+// ── Updated openAddClass ──
+
 function openAddClass(prefillDay,prefillStart,prefillEnd){
   addClassMode=true;editClassIdx=null;
+  mcAddonStudents=[];
   document.getElementById('mc-title').textContent='Add class';
   document.getElementById('mc-del').style.display='none';
   populateBatchSelect();
@@ -1131,12 +1306,15 @@ function openAddClass(prefillDay,prefillStart,prefillEnd){
   document.getElementById('mc-regular-preview').style.display='none';
   document.getElementById('mc-temp-preview').style.display='none';
   mcShow='regular';
+  setMcScope('batch');
+  renderMcAddonList();
   setMcType('regular');mcTzChanged('regular');mcTzChanged('temp');
   document.getElementById('modal-class').classList.add('open');
 }
 function openEditClass(idx){
   addClassMode=false;editClassIdx=idx;
   const c=classes[idx];
+  mcAddonStudents=JSON.parse(JSON.stringify(c.addonStudents||[]));
   document.getElementById('mc-title').textContent='Edit class';
   document.getElementById('mc-del').style.display='';
   populateBatchSelect(c.batchId);
@@ -1153,11 +1331,23 @@ function openEditClass(idx){
   document.getElementById('mc-temp-preview').style.display='none';
   const t=c.tempStart?'temporary':'regular';
   mcShow=c.showOnCalendar||'regular';
+  // Set scope
+  const scope=c.studentScope?'student':'batch';
+  setMcScope(scope);
+  if(scope==='student'){
+    // pre-select student
+    setTimeout(()=>{
+      const sel=document.getElementById('mc-student');
+      if(sel) sel.value=c.studentScope||'';
+    },50);
+  }
+  renderMcAddonList();
   setMcType(t);setMcShow(mcShow);mcTzChanged('regular');mcTzChanged('temp');
   document.getElementById('modal-class').classList.add('open');
 }
 function populateBatchSelect(selId){
   document.getElementById('mc-batch').innerHTML=batches.map(b=>`<option value="${b.id}"${b.id===selId?' selected':''}>${b.name}</option>`).join('');
+  mcBatchChanged();
 }
 function saveClass(){
   const regTz=document.getElementById('mc-tz').value;
@@ -1187,6 +1377,8 @@ function saveClass(){
     ?((!hasRegular)?'temporary':mcShow)
     :'regular';
 
+  const isStudentScope = mcScope === 'student';
+  const studentScope = isStudentScope ? document.getElementById('mc-student').value : undefined;
   const obj={
     batchId:document.getElementById('mc-batch').value,
     day:hasRegular?document.getElementById('mc-day').value:(tempDay||document.getElementById('mc-day').value),
@@ -1198,6 +1390,8 @@ function saveClass(){
     tempDay:tempDay||undefined,
     showOnCalendar:showCal,
     tempOnly:mcType==='temporary'&&!hasRegular,
+    studentScope:studentScope,
+    addonStudents:mcAddonStudents.length>0?JSON.parse(JSON.stringify(mcAddonStudents)):undefined,
   };
   if(addClassMode)classes.push(obj);
   else classes[editClassIdx]=obj;
@@ -1231,6 +1425,7 @@ function openNewBatch(){
   document.getElementById('be-name').value='';
   document.getElementById('be-students').value='';
   document.getElementById('be-tz-group').value='IST';
+  document.getElementById('be-att-model').value='monthly';
   renderColorGrid('c1');
   document.getElementById('modal-batch-edit').classList.add('open');
 }
@@ -1242,6 +1437,7 @@ function openEditBatch(id){
   document.getElementById('be-name').value=b.name;
   document.getElementById('be-students').value=b.students||'';
   document.getElementById('be-tz-group').value=b.tzGroup||'IST';
+  document.getElementById('be-att-model').value=b.attModel||'monthly';
   renderColorGrid(b.color);
   document.getElementById('modal-batch-edit').classList.add('open');
 }
@@ -1254,8 +1450,9 @@ function saveBatch(){
   const name=document.getElementById('be-name').value.trim();
   if(!name){showToast('Please enter a batch name');return;}
   const tzGroup=document.getElementById('be-tz-group').value;
-  if(addBatchMode){batches.push({id:'b_'+Date.now(),name,color:getSelectedColor(),students:document.getElementById('be-students').value.trim(),tzGroup});}
-  else{const b=getBatch(editBatchId);b.name=name;b.color=getSelectedColor();b.students=document.getElementById('be-students').value.trim();b.tzGroup=tzGroup;}
+  const attModel=document.getElementById('be-att-model').value;
+  if(addBatchMode){batches.push({id:'b_'+Date.now(),name,color:getSelectedColor(),students:document.getElementById('be-students').value.trim(),tzGroup,attModel});}
+  else{const b=getBatch(editBatchId);b.name=name;b.color=getSelectedColor();b.students=document.getElementById('be-students').value.trim();b.tzGroup=tzGroup;b.attModel=attModel;}
   save('batches',batches);closeOverlay('modal-batch-edit');renderSidebar();renderCalendar();
   showToast(addBatchMode?'Batch created':'Batch updated');
 }
@@ -1757,7 +1954,16 @@ function twPopulateFromCalendar(){
     for(let i=0;i<7;i++){
       const d=addDays(twWeekStart,i);
       if(dateToDay(d)===dt.day){
-        evs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:c.batchId,date:new Date(d),start:dt.start,end:dt.end,isTemp:dt.isTemp});
+        evs.push({
+          id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+          batchId:c.batchId,
+          date:new Date(d),
+          start:dt.start,
+          end:dt.end,
+          isTemp:dt.isTemp,
+          studentScope:c.studentScope,
+          addonStudents:c.addonStudents?JSON.parse(JSON.stringify(c.addonStudents)):undefined,
+        });
         break;
       }
     }
@@ -1826,11 +2032,14 @@ function twRender(){
       const lp=(slot/total)*100,wp=(1/total)*100;
       const ls=`calc(${lp}% + 2px)`,rs=`calc(${100-lp-wp}% + 2px)`;
       const tempTag=e.isTemp?'<span style="font-size:8px;background:#ff980033;border-radius:2px;padding:0 2px;margin-right:2px">TEMP</span>':'';
-      const students=(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const scopeTag=e.studentScope?'<span style="font-size:8px;background:#e8f0fe;border-radius:2px;padding:0 2px;margin-right:2px;color:#1a73e8">1:1</span>':'';
+      const dispName=e.studentScope||batch?.name||'';
+      const addonNames=(e.addonStudents||[]).map(a=>a.name).join(', ');
+      const students=e.studentScope?[e.studentScope]:(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean);
       let bc='';
-      if(ht<22)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${tempTag}${batch?.name||''}</span>`;
-      else if(ht<36)bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${fmtTime(e.start)} IST</span><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch?.name||''}</span>`;
-      else{const ss=students.slice(0,3).join(', ')+(students.length>3?'…':'');bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${fmtTime(e.start)} IST</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch?.name||''}</span>${ss?`<span style="display:block;font-size:9px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ss}</span>`:''}`;}
+      if(ht<22)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${tempTag}${scopeTag}${dispName}</span>`;
+      else if(ht<36)bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${scopeTag}${fmtTime(e.start)} IST</span><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dispName}</span>`;
+      else{const ss=(addonNames?students.slice(0,2).concat([addonNames]):students.slice(0,3)).join(', ');bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${scopeTag}${fmtTime(e.start)} IST</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dispName}</span>${ss?`<span style="display:block;font-size:9px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ss}</span>`:''}`;}
       const hasAtt=!!attendance[e.id];
       const attDot=hasAtt?`<span style="position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#34a853;pointer-events:none" title="Attendance recorded"></span>`:'';
       html+=`<div class="tw-event" data-evid="${e.id}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column" onmousedown="twDragStart(event,'${e.id}')" onclick="event.stopPropagation();twOpenEdit('${e.id}')" title="${batch?.name||''} | ${e.start} IST">${bc}${attDot}</div>`;
@@ -1868,9 +2077,11 @@ function twColHover(e){
 function twColLeave(e){const ind=e.currentTarget.querySelector('.tw-hover-ind');if(ind)ind.style.display='none';}
 function twOpenEdit(evId){
   twEditId=evId;const ev=twEvents.find(x=>x.id===evId);if(!ev)return;
+  tweAddonStudents=JSON.parse(JSON.stringify(ev.addonStudents||[]));
   document.getElementById('twe-batch').innerHTML=batches.map(b=>`<option value="${b.id}"${b.id===ev.batchId?' selected':''}>${b.name}</option>`).join('');
   document.getElementById('twe-date').value=ev.date.toISOString().slice(0,10);
   document.getElementById('twe-start').value=ev.start;document.getElementById('twe-end').value=ev.end;
+  renderTweAddonList();
   // Show attendance badge if already recorded
   const rec = attendance[evId];
   const btn = document.getElementById('twe-att-btn');
@@ -1889,6 +2100,7 @@ function twSaveEdit(){
   const dateVal=document.getElementById('twe-date').value;
   if(dateVal)ev.date=new Date(dateVal+'T12:00:00');
   ev.start=document.getElementById('twe-start').value;ev.end=document.getElementById('twe-end').value;
+  ev.addonStudents=JSON.parse(JSON.stringify(tweAddonStudents));
   twSaveEvents();closeOverlay('modal-tw-edit');twRender();
 }
 function twDeleteEdit(){
@@ -2157,21 +2369,39 @@ function openAttendanceForEvent(evId) {
 
   // Load existing or build fresh student list
   const existing = attendance[evId];
-  const batchStudents = (batch?.students || '').split(',').map(s => s.trim()).filter(Boolean);
+  // Determine which students belong to this class
+  // Could be full batch, a single student (studentScope), plus addon students
+  const batchStudents = [];
+  if (ev.studentScope) {
+    // Individual student class
+    batchStudents.push(ev.studentScope);
+  } else {
+    (batch?.students || '').split(',').map(s => s.trim()).filter(Boolean).forEach(s => batchStudents.push(s));
+  }
+  // Also include addon students on the event
+  const addonStudents = ev.addonStudents || [];
 
-  // Build working list: existing record if available, else batch students
   if (existing) {
     attCurrentStudents = JSON.parse(JSON.stringify(existing.students));
-    // Make sure all current batch students are present (in case batch changed)
+    // Ensure all current batch students are included
     batchStudents.forEach(name => {
-      if (!attCurrentStudents.find(s => s.name === name && s.batchId === ev.batchId)) {
+      if (!attCurrentStudents.find(s => s.name === name && s.batchId === ev.batchId && !s.isGuest)) {
         attCurrentStudents.push({ name, batchId: ev.batchId, isGuest: false, status: 'present', makeupFor: null });
+      }
+    });
+    // Ensure addon students are included
+    addonStudents.forEach(a => {
+      if (!attCurrentStudents.find(s => s.name === a.name && s.batchId === a.batchId)) {
+        attCurrentStudents.push({ name: a.name, batchId: a.batchId, isGuest: true, status: 'present', makeupFor: null });
       }
     });
   } else {
     attCurrentStudents = batchStudents.map(name => ({
       name, batchId: ev.batchId, isGuest: false, status: 'present', makeupFor: null
     }));
+    addonStudents.forEach(a => {
+      attCurrentStudents.push({ name: a.name, batchId: a.batchId, isGuest: true, status: 'present', makeupFor: null });
+    });
   }
 
   renderAttStudentList();
@@ -2385,15 +2615,25 @@ function renderAttSheet() {
   `;
 }
 
+// ── Refresh student attendance with period ──
+function refreshStudentAtt(studentName, batchId) {
+  const from = document.getElementById('student-att-from')?.value;
+  const to = document.getElementById('student-att-to')?.value;
+  const body = document.getElementById('student-att-body');
+  if (body) body.innerHTML = buildStudentAttendanceSection(studentName, batchId, from, to);
+}
+
 // ── Student attendance detail (for student popup) ──
-function buildStudentAttendanceSection(studentName, batchId) {
+function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   const key = batchId + ':' + studentName;
   const ss = studentSettings[key] || {};
   const isPer8 = ss.feeModel === 'per-8';
 
-  // All records for this student, sorted by date
+  // All records for this student in the selected period
   const records = [];
   Object.values(attendance).forEach(rec => {
+    if (fromDate && rec.date < fromDate) return;
+    if (toDate && rec.date > toDate) return;
     rec.students.forEach(s => {
       if (s.name === studentName && s.batchId === batchId) {
         records.push({ date: rec.date, ...s, classLabel: rec.classLabel });
