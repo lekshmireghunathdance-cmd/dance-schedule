@@ -150,6 +150,36 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 .tw-event{position:absolute;border-radius:4px;font-size:10px;font-weight:500;cursor:grab;z-index:2;padding:3px 5px;line-height:1.3;overflow:hidden;border-left:3px solid;transition:box-shadow .15s}
 .tw-event:hover{box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
+
+/* Attendance */
+.att-student-row{display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;flex-wrap:wrap}
+.att-student-row:last-child{border-bottom:none}
+.att-student-name{font-size:13px;font-weight:500;min-width:110px;padding-top:8px;flex-shrink:0}
+.att-status-wrap{display:flex;flex-direction:column;gap:6px;flex:1}
+.att-select{font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif;cursor:pointer;width:100%}
+.att-select.present{border-color:#34a853;background:#e6f4ea;color:#1b5e20}
+.att-select.absent{border-color:#ea4335;background:#fce8e6;color:#b71c1c}
+.att-select.makeup{border-color:#fbbc04;background:#fef7e0;color:#e65100}
+.att-select.additional{border-color:#7c4dff;background:#ede7f6;color:#311b92}
+.att-makeup-select{font-size:11px;padding:5px 8px;border:1px solid #fbbc04;border-radius:var(--radius);background:#fffde7;color:#795548;font-family:'Roboto',sans-serif;width:100%}
+.att-add-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;color:var(--blue);font-size:13px;cursor:pointer;border-radius:var(--radius);border:1px dashed var(--border);background:none;font-family:'Roboto',sans-serif;width:100%;justify-content:center;margin-top:8px;transition:background .15s}
+.att-add-btn:hover{background:var(--blue-light)}
+.att-guest-badge{font-size:10px;background:var(--orange-light);color:var(--orange);padding:1px 6px;border-radius:8px;font-weight:500}
+
+/* Attendance spreadsheet */
+.att-sheet-wrap{overflow:auto;max-height:calc(100vh - 180px)}
+.att-sheet{border-collapse:collapse;font-size:11px;white-space:nowrap}
+.att-sheet th{background:var(--surface);padding:6px 8px;border:1px solid var(--border);position:sticky;top:0;z-index:5;font-weight:500;color:var(--muted)}
+.att-sheet th.student-col{left:0;z-index:6;min-width:130px;text-align:left}
+.att-sheet td{padding:4px 6px;border:1px solid #f0f0f0;text-align:center;min-width:36px}
+.att-sheet td.student-name{position:sticky;left:0;background:var(--surface);font-weight:500;text-align:left;padding:4px 10px;z-index:2;border-right:2px solid var(--border)}
+.att-cell-P{background:#e6f4ea;color:#1b5e20;font-weight:600;border-radius:3px}
+.att-cell-A{background:#fce8e6;color:#b71c1c;font-weight:600;border-radius:3px}
+.att-cell-M{background:#fef7e0;color:#e65100;font-weight:600;border-radius:3px}
+.att-cell-Ad{background:#ede7f6;color:#311b92;font-weight:600;border-radius:3px}
+.att-cell-sched{background:#f1f3f4;color:var(--muted);border-radius:3px}
+.att-cycle-badge{font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 5px;border-radius:8px;display:inline-block;margin-left:4px}
+
 /* Toast */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:#323232;color:#fff;font-size:13px;padding:10px 20px;border-radius:var(--radius);opacity:0;transition:all .25s;z-index:500;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -198,6 +228,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
   <button class="header-btn" id="btn-this-week" onclick="openThisWeek()" style="background:var(--orange-light);color:var(--orange);font-weight:500">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     This week
+  </button>
+  <button class="header-btn" onclick="openAttendanceSheet()" style="background:var(--blue-light);color:var(--blue);font-weight:500">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+    Attendance
   </button>
   <button class="header-btn" onclick="openSetup()">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
@@ -424,6 +458,12 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="field"><label>Start (IST)</label><input id="twe-start" type="time"/></div>
       <div class="field"><label>End (IST)</label><input id="twe-end" type="time"/></div>
     </div>
+    <div style="margin-top:12px">
+      <button id="twe-att-btn" onclick="closeOverlay('modal-tw-edit');openAttendanceForEvent(twEditId)"
+        style="width:100%;padding:10px;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;transition:all .15s">
+        📋 Mark attendance
+      </button>
+    </div>
     <div class="modal-actions">
       <button class="btn-danger" onclick="twDeleteEdit()">Remove</button>
       <button class="btn-cancel" onclick="closeOverlay('modal-tw-edit')">Cancel</button>
@@ -455,6 +495,71 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     </div>
   </div>
 </div>
+
+
+<!-- ATTENDANCE CLASS POPUP -->
+<div class="overlay" id="modal-att-class">
+  <div class="modal modal-lg" style="max-width:560px">
+    <h2 id="att-class-title">Attendance</h2>
+    <div id="att-class-date" style="font-size:13px;color:var(--muted);margin:-12px 0 16px"></div>
+    <div id="att-student-list-wrap"></div>
+    <button class="att-add-btn" onclick="attAddGuest()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      Add student from another batch
+    </button>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-att-class')">Cancel</button>
+      <button class="btn-primary" onclick="saveAttendance()">Save attendance</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD GUEST STUDENT -->
+<div class="overlay" id="modal-att-guest" style="z-index:400">
+  <div class="modal modal-sm">
+    <h2>Add student</h2>
+    <div class="field"><label>Batch</label>
+      <select id="att-guest-batch" onchange="attGuestBatchChanged()"></select>
+    </div>
+    <div class="field"><label>Student</label>
+      <select id="att-guest-student"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-att-guest')">Cancel</button>
+      <button class="btn-primary" onclick="attConfirmGuest()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ATTENDANCE SPREADSHEET -->
+<div class="overlay" id="modal-att-sheet" style="align-items:stretch;padding:0">
+  <div style="background:var(--bg);width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0">
+      <div style="font-family:'Google Sans',sans-serif;font-size:18px;font-weight:500;color:var(--blue)">📊 Attendance</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:12px;color:var(--muted);font-weight:500">From</label>
+        <input type="date" id="att-from" style="font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
+        <label style="font-size:12px;color:var(--muted);font-weight:500">To</label>
+        <input type="date" id="att-to" style="font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--border);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
+        <button class="header-btn primary" onclick="renderAttSheet()">Apply</button>
+      </div>
+      <div style="flex:1"></div>
+      <div style="font-size:11px;color:var(--subtle)">
+        <span class="att-cell-P" style="padding:2px 6px;border-radius:3px">P</span> Present &nbsp;
+        <span class="att-cell-A" style="padding:2px 6px;border-radius:3px">A</span> Absent &nbsp;
+        <span class="att-cell-M" style="padding:2px 6px;border-radius:3px">M</span> Makeup &nbsp;
+        <span class="att-cell-Ad" style="padding:2px 6px;border-radius:3px">Ad</span> Additional &nbsp;
+        <span class="att-cell-sched" style="padding:2px 6px;border-radius:3px">·</span> Scheduled
+      </div>
+      <button class="header-btn" onclick="closeOverlay('modal-att-sheet')" style="color:#d93025">✕ Close</button>
+    </div>
+    <div class="att-sheet-wrap" style="flex:1;padding:16px">
+      <div id="att-sheet-inner"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT ATTENDANCE DETAIL (in student popup) -->
 
 <div class="toast" id="toast"></div>
 
@@ -757,6 +862,7 @@ function openStudentDetail(batchId, studentName) {
       <tbody>${buildTimingRows('winter')}</tbody>
     </table></div>
     ${!prefGroup ? `<p style="font-size:12px;color:var(--muted);margin-top:8px">Preferred timezone: IST — <a href="#" onclick="closeOverlay('modal-student');openEditBatch('${batchId}');return false;" style="color:var(--blue)">edit batch to add a timezone</a></p>` : ''}
+    <div style="margin-top:16px">${buildStudentAttendanceSection(studentName, batchId)}</div>
   `;
   document.getElementById('modal-student').classList.add('open');
 }
@@ -1722,7 +1828,9 @@ function twRender(){
       if(ht<22)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${tempTag}${batch?.name||''}</span>`;
       else if(ht<36)bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${fmtTime(e.start)} IST</span><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch?.name||''}</span>`;
       else{const ss=students.slice(0,3).join(', ')+(students.length>3?'…':'');bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${fmtTime(e.start)} IST</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch?.name||''}</span>${ss?`<span style="display:block;font-size:9px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ss}</span>`:''}`;}
-      html+=`<div class="tw-event" data-evid="${e.id}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column" onmousedown="twDragStart(event,'${e.id}')" onclick="event.stopPropagation();twOpenEdit('${e.id}')" title="${batch?.name||''} | ${e.start} IST">${bc}</div>`;
+      const hasAtt=!!attendance[e.id];
+      const attDot=hasAtt?`<span style="position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#34a853;display:block" title="Attendance recorded"></span>`:'';
+      html+=`<div class="tw-event" data-evid="${e.id}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column;position:relative" onmousedown="twDragStart(event,'${e.id}')" onclick="event.stopPropagation();twOpenEdit('${e.id}')" title="${batch?.name||''} | ${e.start} IST">${bc}${attDot}</div>`;
     });
     html+=`</div>`;
   });
@@ -1760,6 +1868,16 @@ function twOpenEdit(evId){
   document.getElementById('twe-batch').innerHTML=batches.map(b=>`<option value="${b.id}"${b.id===ev.batchId?' selected':''}>${b.name}</option>`).join('');
   document.getElementById('twe-date').value=ev.date.toISOString().slice(0,10);
   document.getElementById('twe-start').value=ev.start;document.getElementById('twe-end').value=ev.end;
+  // Show attendance badge if already recorded
+  const rec = attendance[evId];
+  const btn = document.getElementById('twe-att-btn');
+  if(btn){
+    const total = rec ? rec.students.length : 0;
+    const present = rec ? rec.students.filter(s=>s.status==='present'||s.status==='makeup'||s.status==='additional').length : 0;
+    btn.textContent = rec ? `✓ Attendance (${present}/${total})` : '📋 Mark attendance';
+    btn.style.background = rec ? '#e6f4ea' : 'var(--orange-light)';
+    btn.style.color = rec ? '#1b5e20' : 'var(--orange)';
+  }
   document.getElementById('modal-tw-edit').classList.add('open');
 }
 function twSaveEdit(){
@@ -1960,6 +2078,374 @@ async function downloadThisWeekJpg(){
   finally{btn.textContent='Download JPG';btn.disabled=false;}
 }
 
+
+// ══════════════════════════════════════════════
+// ATTENDANCE SYSTEM
+// ══════════════════════════════════════════════
+// Data structure:
+// attendance = {
+//   "eventId": {          // twEvent id
+//     date: "2026-06-02",
+//     batchId: "b_xxx",
+//     classLabel: "Ohio 1 – Monday",
+//     students: [
+//       { name, batchId, isGuest, status: "present"|"absent"|"makeup"|"additional",
+//         makeupFor: "2026-05-12" (ISO date of missed class, if makeup) }
+//     ]
+//   }
+// }
+// Stored in cloud as key "attendance"
+
+let attendance = {};      // all attendance records keyed by event id
+let attCurrentEventId = null; // event being edited in att popup
+let attCurrentStudents = [];  // working copy for the popup
+
+// ── Per-student fee/attendance settings ──
+// studentSettings = { "batchId:studentName": { feeModel, rate, cycleStart } }
+// feeModel: "monthly-flat" | "monthly-per-class" | "per-8"
+// cycleStart: number (for per-8 only — manual starting count)
+let studentSettings = {};
+
+// ── Load / Save ──
+function saveAttendance() {
+  const wrap = document.getElementById('att-student-list-wrap');
+  if (!wrap) return;
+  const rows = wrap.querySelectorAll('.att-student-row[data-name]');
+  const students = [];
+  rows.forEach(row => {
+    const name = row.dataset.name;
+    const batchId = row.dataset.batchid;
+    const isGuest = row.dataset.guest === 'true';
+    const sel = row.querySelector('.att-select');
+    const status = sel ? sel.value : 'present';
+    let makeupFor = null;
+    if (status === 'makeup') {
+      const ms = row.querySelector('.att-makeup-select');
+      makeupFor = ms ? ms.value : null;
+    }
+    students.push({ name, batchId, isGuest, status, makeupFor });
+  });
+  if (!attCurrentEventId) return;
+  const ev = twEvents.find(e => e.id === attCurrentEventId);
+  const batch = getBatch(ev?.batchId);
+  attendance[attCurrentEventId] = {
+    date: ev ? ev.date.toISOString().slice(0, 10) : '',
+    batchId: ev?.batchId || '',
+    classLabel: (batch?.name || '') + ' – ' + (ev ? fmtDate(ev.date) : ''),
+    students,
+  };
+  cloudSave('attendance', JSON.stringify(attendance));
+  closeOverlay('modal-att-class');
+  showToast('Attendance saved');
+  // Refresh TW render to show attendance badge
+  twRender();
+}
+
+// ── Open attendance popup from TW event ──
+function openAttendanceForEvent(evId) {
+  attCurrentEventId = evId;
+  const ev = twEvents.find(e => e.id === evId);
+  if (!ev) return;
+  const batch = getBatch(ev.batchId);
+  document.getElementById('att-class-title').textContent = 'Attendance — ' + (batch?.name || '');
+  document.getElementById('att-class-date').textContent =
+    ev.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) +
+    ' · ' + fmtTime(ev.start) + ' – ' + fmtTime(ev.end) + ' IST';
+
+  // Load existing or build fresh student list
+  const existing = attendance[evId];
+  const batchStudents = (batch?.students || '').split(',').map(s => s.trim()).filter(Boolean);
+
+  // Build working list: existing record if available, else batch students
+  if (existing) {
+    attCurrentStudents = JSON.parse(JSON.stringify(existing.students));
+    // Make sure all current batch students are present (in case batch changed)
+    batchStudents.forEach(name => {
+      if (!attCurrentStudents.find(s => s.name === name && s.batchId === ev.batchId)) {
+        attCurrentStudents.push({ name, batchId: ev.batchId, isGuest: false, status: 'present', makeupFor: null });
+      }
+    });
+  } else {
+    attCurrentStudents = batchStudents.map(name => ({
+      name, batchId: ev.batchId, isGuest: false, status: 'present', makeupFor: null
+    }));
+  }
+
+  renderAttStudentList();
+  document.getElementById('modal-att-class').classList.add('open');
+}
+
+function renderAttStudentList() {
+  const wrap = document.getElementById('att-student-list-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = attCurrentStudents.map((s, idx) => {
+    const openAbsences = getOpenAbsences(s.name, s.batchId, attCurrentEventId);
+    const makeupOptions = openAbsences.map(d =>
+      `<option value="${d}"${s.makeupFor === d ? ' selected' : ''}>${d}</option>`
+    ).join('');
+    const makeupSel = (s.status === 'makeup' && openAbsences.length > 0)
+      ? `<select class="att-makeup-select" onchange="attMakeupChanged(${idx},this.value)">
+          <option value="">— select missed class date —</option>${makeupOptions}
+         </select>`
+      : (s.status === 'makeup' && openAbsences.length === 0)
+      ? `<div style="font-size:11px;color:var(--muted);padding:4px">No open absences found</div>`
+      : '';
+    const guestBadge = s.isGuest
+      ? `<span class="att-guest-badge">${getBatch(s.batchId)?.name || 'Guest'}</span>` : '';
+    const removeBtn = s.isGuest
+      ? `<button onclick="attRemoveGuest(${idx})" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1" title="Remove">×</button>` : '';
+    return `<div class="att-student-row" data-name="${s.name}" data-batchid="${s.batchId}" data-guest="${s.isGuest}">
+      <div class="att-student-name">${s.name} ${guestBadge}${removeBtn}</div>
+      <div class="att-status-wrap">
+        <select class="att-select ${s.status}" onchange="attStatusChanged(${idx},this)">
+          <option value="present"${s.status==='present'?' selected':''}>✓ Present</option>
+          <option value="absent"${s.status==='absent'?' selected':''}>✗ Absent (counted)</option>
+          <option value="makeup"${s.status==='makeup'?' selected':''}>↺ Makeup</option>
+          <option value="additional"${s.status==='additional'?' selected':''}>+ Additional</option>
+        </select>
+        ${makeupSel}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function attStatusChanged(idx, sel) {
+  attCurrentStudents[idx].status = sel.value;
+  sel.className = 'att-select ' + sel.value;
+  if (sel.value !== 'makeup') attCurrentStudents[idx].makeupFor = null;
+  renderAttStudentList();
+}
+function attMakeupChanged(idx, val) {
+  attCurrentStudents[idx].makeupFor = val;
+}
+function attRemoveGuest(idx) {
+  attCurrentStudents.splice(idx, 1);
+  renderAttStudentList();
+}
+
+// ── Get open absences for a student (absent but no resolved makeup) ──
+function getOpenAbsences(studentName, batchId, excludeEventId) {
+  const absenceDates = [];
+  const resolvedDates = new Set();
+  Object.entries(attendance).forEach(([eid, rec]) => {
+    if (eid === excludeEventId) return;
+    rec.students.forEach(s => {
+      if (s.name === studentName && s.batchId === batchId) {
+        if (s.status === 'absent') absenceDates.push(rec.date);
+        if (s.status === 'makeup' && s.makeupFor) resolvedDates.add(s.makeupFor);
+      }
+    });
+  });
+  return absenceDates.filter(d => !resolvedDates.has(d)).sort();
+}
+
+// ── Guest student picker ──
+function attAddGuest() {
+  const sel = document.getElementById('att-guest-batch');
+  sel.innerHTML = batches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+  attGuestBatchChanged();
+  document.getElementById('modal-att-guest').classList.add('open');
+}
+function attGuestBatchChanged() {
+  const batchId = document.getElementById('att-guest-batch').value;
+  const b = getBatch(batchId);
+  const students = (b?.students || '').split(',').map(s => s.trim()).filter(Boolean);
+  document.getElementById('att-guest-student').innerHTML =
+    students.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+function attConfirmGuest() {
+  const batchId = document.getElementById('att-guest-batch').value;
+  const name = document.getElementById('att-guest-student').value;
+  if (!name) return;
+  // Don't add duplicates
+  if (attCurrentStudents.find(s => s.name === name && s.batchId === batchId)) {
+    showToast('Student already in list'); return;
+  }
+  attCurrentStudents.push({ name, batchId, isGuest: true, status: 'present', makeupFor: null });
+  closeOverlay('modal-att-guest');
+  renderAttStudentList();
+}
+
+// ── Attendance spreadsheet ──
+function openAttendanceSheet() {
+  // Default to current month
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  document.getElementById('att-from').value = from.toISOString().slice(0, 10);
+  document.getElementById('att-to').value = to.toISOString().slice(0, 10);
+  document.getElementById('modal-att-sheet').classList.add('open');
+  renderAttSheet();
+}
+
+function renderAttSheet() {
+  const from = document.getElementById('att-from').value;
+  const to = document.getElementById('att-to').value;
+  if (!from || !to) return;
+  const fromD = new Date(from + 'T00:00:00');
+  const toD = new Date(to + 'T23:59:59');
+
+  // Collect all dates with attendance records in range
+  const datesSet = new Set();
+  const recordsByDate = {}; // date -> [records]
+  Object.values(attendance).forEach(rec => {
+    const d = rec.date;
+    if (d >= from && d <= to) {
+      datesSet.add(d);
+      if (!recordsByDate[d]) recordsByDate[d] = [];
+      recordsByDate[d].push(rec);
+    }
+  });
+  const dates = Array.from(datesSet).sort();
+
+  if (dates.length === 0) {
+    document.getElementById('att-sheet-inner').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--muted)">No attendance records in this period.</div>';
+    return;
+  }
+
+  // Collect all students
+  const studentSet = new Map(); // "batchId:name" -> {name, batchId, batchName}
+  Object.values(attendance).forEach(rec => {
+    if (rec.date >= from && rec.date <= to) {
+      rec.students.forEach(s => {
+        const key = s.batchId + ':' + s.name;
+        if (!studentSet.has(key)) {
+          studentSet.set(key, { name: s.name, batchId: s.batchId, batchName: getBatch(s.batchId)?.name || '' });
+        }
+      });
+    }
+  });
+  const students = Array.from(studentSet.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  // Build lookup: studentKey -> date -> {status, makeupFor}
+  const lookup = {};
+  students.forEach(s => { lookup[s.batchId + ':' + s.name] = {}; });
+  Object.values(attendance).forEach(rec => {
+    if (rec.date < from || rec.date > to) return;
+    rec.students.forEach(s => {
+      const key = s.batchId + ':' + s.name;
+      if (!lookup[key]) lookup[key] = {};
+      lookup[key][rec.date] = { status: s.status, makeupFor: s.makeupFor };
+    });
+  });
+
+  // Build cycle counters
+  const cycleCounters = {};
+  students.forEach(s => {
+    const key = s.batchId + ':' + s.name;
+    const ss = studentSettings[key];
+    if (ss?.feeModel === 'per-8') {
+      cycleCounters[key] = ss.cycleStart || 0;
+    }
+  });
+
+  // Render table
+  const dateHeaders = dates.map(d => {
+    const dt = new Date(d + 'T12:00:00');
+    return `<th title="${d}">${dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}<br><span style="font-weight:400;font-size:9px">${dt.toLocaleDateString('en-GB', { weekday: 'short' })}</span></th>`;
+  }).join('');
+
+  const rows = students.map(s => {
+    const key = s.batchId + ':' + s.name;
+    const ss = studentSettings[key];
+    const isPer8 = ss?.feeModel === 'per-8';
+    let counter = cycleCounters[key] || 0;
+
+    const cells = dates.map(d => {
+      const rec = lookup[key]?.[d];
+      if (!rec) return '<td></td>';
+      const counted = rec.status === 'present' || rec.status === 'makeup' || rec.status === 'additional';
+      if (isPer8 && counted) {
+        counter++;
+        if (counter > 8) counter = 1;
+      }
+      const badge = isPer8 && counted ? `<span style="font-size:9px;display:block;color:var(--blue)">${counter}/8</span>` : '';
+      const cls = { present: 'att-cell-P', absent: 'att-cell-A', makeup: 'att-cell-M', additional: 'att-cell-Ad' }[rec.status] || '';
+      const lbl = { present: 'P', absent: 'A', makeup: 'M', additional: 'Ad' }[rec.status] || '·';
+      const title = rec.makeupFor ? ` title="Makeup for ${rec.makeupFor}"` : '';
+      return `<td><span class="${cls}"${title} style="padding:2px 4px;border-radius:3px;display:inline-block">${lbl}</span>${badge}</td>`;
+    }).join('');
+
+    const batchBadge = `<span style="font-size:10px;color:var(--subtle);display:block">${s.batchName}</span>`;
+    return `<tr><td class="student-name">${s.name}${batchBadge}</td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('att-sheet-inner').innerHTML = `
+    <table class="att-sheet">
+      <thead><tr>
+        <th class="student-col">Student</th>${dateHeaders}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// ── Student attendance detail (for student popup) ──
+function buildStudentAttendanceSection(studentName, batchId) {
+  const key = batchId + ':' + studentName;
+  const ss = studentSettings[key] || {};
+  const isPer8 = ss.feeModel === 'per-8';
+
+  // All records for this student, sorted by date
+  const records = [];
+  Object.values(attendance).forEach(rec => {
+    rec.students.forEach(s => {
+      if (s.name === studentName && s.batchId === batchId) {
+        records.push({ date: rec.date, ...s, classLabel: rec.classLabel });
+      }
+    });
+  });
+  records.sort((a, b) => a.date.localeCompare(b.date));
+
+  if (records.length === 0) {
+    return `<div class="section-title">📋 Attendance</div>
+      <div style="font-size:12px;color:var(--muted);padding:8px 0">No attendance recorded yet.</div>
+      ${isPer8 ? buildCycleStartEditor(key, ss) : ''}`;
+  }
+
+  let counter = ss.cycleStart || 0;
+  const rows = records.map(r => {
+    const counted = r.status === 'present' || r.status === 'makeup' || r.status === 'additional';
+    if (isPer8 && counted) { counter++; if (counter > 8) counter = 1; }
+    const badge = { present: '<span class="att-cell-P" style="padding:2px 6px;border-radius:3px">Present</span>',
+      absent: '<span class="att-cell-A" style="padding:2px 6px;border-radius:3px">Absent</span>',
+      makeup: '<span class="att-cell-M" style="padding:2px 6px;border-radius:3px">Makeup</span>',
+      additional: '<span class="att-cell-Ad" style="padding:2px 6px;border-radius:3px">Additional</span>',
+    }[r.status] || r.status;
+    const cycleStr = isPer8 && counted ? `<span class="att-cycle-badge">Class ${counter} of 8</span>` : '';
+    const makeupNote = r.makeupFor ? `<span style="font-size:10px;color:var(--orange);margin-left:4px">↺ for ${r.makeupFor}</span>` : '';
+    return `<tr>
+      <td style="padding:6px 8px;font-size:12px">${r.date}</td>
+      <td style="padding:6px 8px;font-size:12px;color:var(--muted)">${r.classLabel||''}</td>
+      <td style="padding:6px 8px">${badge}${makeupNote}${cycleStr}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="section-title">📋 Attendance</div>
+    ${isPer8 ? buildCycleStartEditor(key, ss) : ''}
+    <div style="overflow-x:auto"><table class="timing-table">
+      <thead><tr><th>Date</th><th>Class</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+function buildCycleStartEditor(key, ss) {
+  const val = ss.cycleStart || 0;
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;background:var(--blue-light);border-radius:var(--radius)">
+    <span style="font-size:12px;color:var(--blue);font-weight:500">Starting count for per-8 cycle:</span>
+    <input type="number" min="0" max="7" value="${val}" onchange="setCycleStart('${key}',this.value)"
+      style="width:60px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius)"/>
+    <span style="font-size:11px;color:var(--muted)">(0 = fresh start)</span>
+  </div>`;
+}
+function setCycleStart(key, val) {
+  if (!studentSettings[key]) studentSettings[key] = {};
+  studentSettings[key].cycleStart = Math.min(7, Math.max(0, parseInt(val) || 0));
+  cloudSave('studentSettings', JSON.stringify(studentSettings));
+}
+
+
 // ── Utilities ──
 function closeOverlay(id){document.getElementById(id).classList.remove('open');}
 function resetSchedule(){batches=[];classes=[];save('batches',batches);save('classes',classes);renderSidebar();renderCalendar();showToast('Schedule reset');}
@@ -2007,7 +2493,6 @@ async function initLoad(){
       const tw=data.twWeekCache;
       if(tw){
         const parsed=typeof tw==='string'?JSON.parse(tw):tw;
-        // Support both old format (plain object) and new format ({cache, weekStart, season})
         const raw=parsed.cache||parsed;
         Object.keys(raw).forEach(wk=>{
           twWeekCache[wk]=raw[wk].map(e=>({...e,date:new Date(e.date)}));
@@ -2016,6 +2501,16 @@ async function initLoad(){
         if(parsed.season) twSeason=parsed.season;
       }
     }catch(e){twWeekCache={};}
+    // Restore attendance
+    try{
+      const att=data.attendance;
+      if(att) attendance=typeof att==='string'?JSON.parse(att):att;
+    }catch(e){attendance={};}
+    // Restore student settings
+    try{
+      const ss=data.studentSettings;
+      if(ss) studentSettings=typeof ss==='string'?JSON.parse(ss):ss;
+    }catch(e){studentSettings={};}
     if(data.season)season=data.season;
     if(data.tz)currentTz=data.tz;
     document.getElementById('sync-status').textContent='✓ Synced';
