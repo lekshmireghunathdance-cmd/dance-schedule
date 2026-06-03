@@ -2808,7 +2808,7 @@ function getOpenAbsences(studentName, batchId, excludeEventId) {
   Object.entries(attendance).forEach(([eid, rec]) => {
     if (eid === excludeEventId) return;
     rec.students.forEach(s => {
-      if (s.name === studentName && s.batchId === batchId) {
+      if (s.name === studentName) {
         if (s.status === 'absent') absenceDates.push(rec.date);
         if (s.status === 'makeup' && s.makeupFor) resolvedDates.add(s.makeupFor);
       }
@@ -2983,11 +2983,17 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   const isPer8 = (b?.attModel === 'per-8') || (ss.feeModel === 'per-8');
 
   // Build attendance lookup from recorded data
+  // Match by studentName across ALL batchIds — a student can attend as an add-on
+  // under a different batch's event (e.g. Swathy added to Ohio 1 class)
   const attLookup = {}; // date -> record
   Object.values(attendance).forEach(rec => {
     rec.students.forEach(s => {
-      if (s.name === studentName && s.batchId === batchId) {
-        attLookup[rec.date] = { status: s.status, makeupFor: s.makeupFor, classLabel: rec.classLabel };
+      if (s.name === studentName) {
+        // Use the record even if batchId differs (add-on attendance)
+        // Prefer the record where batchId matches exactly if there are multiple on same date
+        if (!attLookup[rec.date] || s.batchId === batchId) {
+          attLookup[rec.date] = { status: s.status, makeupFor: s.makeupFor, classLabel: rec.classLabel, recBatchId: s.batchId };
+        }
       }
     });
   });
@@ -3387,7 +3393,8 @@ function calcStudentFee(studentName, batchId, fromDate, toDate) {
     if (fromDate && rec.date < fromDate) return;
     if (toDate && rec.date > toDate) return;
     rec.students.forEach(s => {
-      if (s.name === studentName && s.batchId === batchId)
+      // Match by name across all batchIds — student may attend as add-on under different batch
+      if (s.name === studentName)
         records.push({ date: rec.date, status: s.status });
     });
   });
