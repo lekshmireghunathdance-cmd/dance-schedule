@@ -1224,11 +1224,15 @@ function openStudentDetail(batchId, studentName) {
     <div style="margin-top:16px">
       <div class="section-title">📋 Attendance</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <label style="font-size:12px;color:var(--muted);font-weight:500">Period:</label>
-        <input type="date" id="student-att-from" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
-        <span style="font-size:12px;color:var(--muted)">to</span>
-        <input type="date" id="student-att-to" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"/>
-        <button onclick="refreshStudentAtt(this)" class="header-btn primary" style="padding:5px 12px;font-size:12px">Apply</button>
+        <label style="font-size:12px;color:var(--muted);font-weight:500">Month:</label>
+        <select id="student-att-month" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">
+          <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+          <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+          <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select>
+        <select id="student-att-year" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif"></select>
+        <button onclick="refreshStudentAtt()" class="header-btn primary" style="padding:5px 12px;font-size:12px">Apply</button>
       </div>
       <div id="student-att-body"></div>
     </div>
@@ -1237,17 +1241,18 @@ function openStudentDetail(batchId, studentName) {
   document.getElementById('modal-student').classList.add('open');
   // Set default period dates and render attendance after modal opens
   const now=new Date();
-  const mFrom=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
-  const mTo=new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10);
   setTimeout(()=>{
-    const f=document.getElementById('student-att-from');
-    const t=document.getElementById('student-att-to');
-    if(f)f.value=mFrom;
-    if(t)t.value=mTo;
-    const body=document.getElementById('student-att-body');
-    if(body)body.innerHTML=buildStudentAttendanceSection(currentStudentName,currentStudentBatchId,mFrom,mTo);
-    const feeBody=document.getElementById('student-fee-body');
-    if(feeBody)feeBody.innerHTML=buildStudentFeeSection(currentStudentName,currentStudentBatchId,mFrom,mTo);
+    // Populate year dropdown
+    const yrSel=document.getElementById('student-att-year');
+    if(yrSel){
+      yrSel.innerHTML='';
+      for(let y=now.getFullYear()-2;y<=now.getFullYear()+1;y++){
+        yrSel.innerHTML+=`<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
+      }
+    }
+    const mSel=document.getElementById('student-att-month');
+    if(mSel) mSel.value=now.getMonth()+1;
+    refreshStudentAtt();
   },50);
 }
 
@@ -2955,9 +2960,12 @@ function renderAttSheet() {
 }
 
 // ── Refresh student attendance with period ──
-function refreshStudentAtt(btn) {
-  const from = document.getElementById('student-att-from')?.value;
-  const to = document.getElementById('student-att-to')?.value;
+function refreshStudentAtt() {
+  const month = parseInt(document.getElementById('student-att-month')?.value||new Date().getMonth()+1);
+  const year = parseInt(document.getElementById('student-att-year')?.value||new Date().getFullYear());
+  const from = year+'-'+String(month).padStart(2,'0')+'-01';
+  const lastDay = new Date(year,month,0).getDate();
+  const to = year+'-'+String(month).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
   const body = document.getElementById('student-att-body');
   if (body && currentStudentName && currentStudentBatchId) {
     body.innerHTML = buildStudentAttendanceSection(currentStudentName, currentStudentBatchId, from, to);
@@ -2970,61 +2978,110 @@ function refreshStudentAtt(btn) {
 function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   const key = batchId + ':' + studentName;
   const ss = studentSettings[key] || {};
-  const isPer8 = ss.feeModel === 'per-8';
+  // isPer8 checks both attModel on batch and feeModel
+  const b = getBatch(batchId);
+  const isPer8 = (b?.attModel === 'per-8') || (ss.feeModel === 'per-8');
 
-  // All records for this student in the selected period
-  const records = [];
+  // Build attendance lookup from recorded data
+  const attLookup = {}; // date -> record
   Object.values(attendance).forEach(rec => {
-    if (fromDate && rec.date < fromDate) return;
-    if (toDate && rec.date > toDate) return;
     rec.students.forEach(s => {
       if (s.name === studentName && s.batchId === batchId) {
-        records.push({ date: rec.date, ...s, classLabel: rec.classLabel });
+        attLookup[rec.date] = { status: s.status, makeupFor: s.makeupFor, classLabel: rec.classLabel };
       }
     });
   });
-  records.sort((a, b) => a.date.localeCompare(b.date));
 
-  if (records.length === 0) {
-    return `<div class="section-title">📋 Attendance</div>
-      <div style="font-size:12px;color:var(--muted);padding:8px 0">No attendance recorded yet.</div>
-      ${isPer8 ? buildCycleStartEditor(key, ss) : ''}`;
+  // Build set of ALL scheduled dates for this student in range
+  // Pull from twWeekCache — every week that has events for this student
+  const scheduledDates = new Set();
+  Object.values(twWeekCache).forEach(weekEvs => {
+    if (!Array.isArray(weekEvs)) return;
+    weekEvs.forEach(ev => {
+      // Match by batchId OR if this student is an addon
+      const isMainStudent = ev.batchId === batchId && (
+        !ev.studentScope || ev.studentScope === studentName
+      );
+      const isAddon = (ev.addonStudents||[]).some(a => a.name === studentName && a.batchId === batchId);
+      if (!isMainStudent && !isAddon) return;
+      const d = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
+      if (fromDate && d < fromDate) return;
+      if (toDate && d > toDate) return;
+      scheduledDates.add(d);
+    });
+  });
+  // Also add any dates that have recorded attendance (in case TW cache was cleared)
+  Object.keys(attLookup).forEach(d => {
+    if ((!fromDate || d >= fromDate) && (!toDate || d <= toDate)) scheduledDates.add(d);
+  });
+
+  const allDates = Array.from(scheduledDates).sort();
+
+  if (allDates.length === 0) {
+    return `${isPer8 ? buildCycleStartEditor(key, ss) : ''}
+      <div style="font-size:12px;color:var(--muted);padding:8px 0">No classes scheduled or recorded this period.</div>`;
   }
 
-  let counter = ss.cycleStart || 0;
-  const rows = records.map(r => {
-    const counted = r.status === 'present' || r.status === 'makeup' || r.status === 'additional';
-    if (isPer8 && counted) { counter++; if (counter > 8) counter = 1; }
-    const badge = { present: '<span class="att-cell-P" style="padding:2px 6px;border-radius:3px">Present</span>',
-      absent: '<span class="att-cell-A" style="padding:2px 6px;border-radius:3px">Absent (counted)</span>',
-      'absent-nc': '<span class="att-cell-NC" style="padding:2px 6px;border-radius:3px">Absent (not counted)</span>',
-      makeup: '<span class="att-cell-M" style="padding:2px 6px;border-radius:3px">Makeup</span>',
-      additional: '<span class="att-cell-Ad" style="padding:2px 6px;border-radius:3px">Additional</span>',
-    }[r.status] || r.status;
-    const cycleStr = isPer8 && counted ? `<span class="att-cycle-badge">Class ${counter} of 8</span>` : '';
-    const makeupNote = r.makeupFor ? `<span style="font-size:10px;color:var(--orange);margin-left:4px">↺ for ${r.makeupFor}</span>` : '';
-    return `<tr>
-      <td style="padding:6px 8px;font-size:12px">${r.date}</td>
-      <td style="padding:6px 8px;font-size:12px;color:var(--muted)">${r.classLabel||''}</td>
-      <td style="padding:6px 8px">${badge}${makeupNote}${cycleStr}</td>
+  // Build cycle counter from cycleStart
+  let counter = parseInt(ss.cycleStart) || 0;
+
+  const statusBadge = {
+    present: '<span class="att-cell-P" style="padding:2px 8px;border-radius:3px;font-size:11px">Present</span>',
+    absent: '<span class="att-cell-A" style="padding:2px 8px;border-radius:3px;font-size:11px">Absent</span>',
+    'absent-nc': '<span class="att-cell-NC" style="padding:2px 8px;border-radius:3px;font-size:11px">Absent (N/C)</span>',
+    makeup: '<span class="att-cell-M" style="padding:2px 8px;border-radius:3px;font-size:11px">Makeup</span>',
+    additional: '<span class="att-cell-Ad" style="padding:2px 8px;border-radius:3px;font-size:11px">Additional</span>',
+  };
+
+  const per8Header = isPer8 ? '<th style="text-align:center">Class</th>' : '';
+
+  const rows = allDates.map((d, i) => {
+    const rec = attLookup[d];
+    const status = rec?.status || null;
+    const counted = status && ['present','makeup','additional'].includes(status);
+    if (isPer8 && counted) { counter++; if (counter > 8) counter = 0; }
+
+    const statusCell = status
+      ? (statusBadge[status] || status) + (rec?.makeupFor ? `<span style="font-size:10px;color:var(--orange);margin-left:4px">↺ ${rec.makeupFor}</span>` : '')
+      : '<span style="font-size:11px;color:var(--subtle)">— Scheduled</span>';
+
+    const cycleCell = isPer8
+      ? `<td style="padding:6px 8px;text-align:center">${counted ? `<span class="att-cycle-badge">${counter}/8</span>` : ''}</td>`
+      : '';
+
+    const label = rec?.classLabel || (b?.name ? b.name + ' – ' + d : d);
+    const rowBg = !status ? 'background:#fafafa' : '';
+
+    return `<tr style="${rowBg}">
+      <td style="padding:6px 8px;font-size:12px;white-space:nowrap">${d}</td>
+      <td style="padding:6px 8px;font-size:12px;color:var(--muted)">${label}</td>
+      ${cycleCell}
+      <td style="padding:6px 8px">${statusCell}</td>
     </tr>`;
   }).join('');
 
-  return `<div class="section-title">📋 Attendance</div>
-    ${isPer8 ? buildCycleStartEditor(key, ss) : ''}
+  const per8Col = isPer8 ? '<th style="text-align:center">Class</th>' : '';
+
+  return `${isPer8 ? buildCycleStartEditor(key, ss) : ''}
     <div style="overflow-x:auto"><table class="timing-table">
-      <thead><tr><th>Date</th><th>Class</th><th>Status</th></tr></thead>
+      <thead><tr><th>Date</th><th>Class</th>${per8Col}<th>Status</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
 }
 
 function buildCycleStartEditor(key, ss) {
   const val = ss.cycleStart || 0;
-  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;background:var(--blue-light);border-radius:var(--radius)">
-    <span style="font-size:12px;color:var(--blue);font-weight:500">Starting count for per-8 cycle:</span>
-    <input type="number" min="0" max="7" value="${val}" onchange="setCycleStart('${key}',this.value)"
-      style="width:60px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius)"/>
-    <span style="font-size:11px;color:var(--muted)">(0 = fresh start)</span>
+  const lastAtt = ss.lastAttended || '';
+  const lastSpan = lastAtt ? `<span style="font-size:11px;color:var(--muted);margin-left:4px">(last attended: ${lastAtt})</span>` : '';
+  return `<div style="background:var(--blue-light);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--blue);font-weight:500">Per-8 cycle — starting at class</span>
+      <input type="number" min="0" max="8" value="${val}" data-cskey="${key}"
+        onchange="setCycleStart(this.dataset.cskey, this.value)"
+        style="width:52px;font-size:13px;padding:3px 6px;border:1px solid #90caf9;border-radius:var(--radius);background:#fff"/>
+      <span style="font-size:12px;color:var(--blue)">of 8</span>
+      ${lastSpan}
+    </div>
   </div>`;
 }
 function setCycleStart(key, val) {
