@@ -182,6 +182,22 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 .att-cell-sched{background:#f1f3f4;color:var(--muted);border-radius:3px}
 .att-cycle-badge{font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 5px;border-radius:8px;display:inline-block;margin-left:4px}
 
+
+/* Timing editor */
+.timing-slot{display:grid;grid-template-columns:1fr 80px 1fr 1fr 32px;gap:6px;align-items:center;margin-bottom:6px}
+.timing-slot input,.timing-slot select{font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif;width:100%}
+.timing-slot .del-slot{width:28px;height:28px;border:none;background:none;cursor:pointer;color:#d93025;font-size:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.timing-slot .del-slot:hover{background:#fce8e6}
+.add-slot-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;color:var(--blue);font-size:12px;cursor:pointer;border:1px dashed var(--border);border-radius:var(--radius);background:none;font-family:'Roboto',sans-serif;transition:background .15s;width:100%;justify-content:center;margin-top:4px}
+.add-slot-btn:hover{background:var(--blue-light)}
+.timing-section{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px}
+.timing-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.timing-section.summer .timing-section-title{color:#e65100}
+.timing-section.winter .timing-section-title{color:#1565c0}
+.timing-section.temp .timing-section-title{color:var(--orange)}
+.timing-slot-header{display:grid;grid-template-columns:1fr 80px 1fr 1fr 32px;gap:6px;margin-bottom:4px}
+.timing-slot-header span{font-size:10px;color:var(--subtle);font-weight:500;text-transform:uppercase;letter-spacing:.3px}
+
 /* Toast */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:#323232;color:#fff;font-size:13px;padding:10px 20px;border-radius:var(--radius);opacity:0;transition:all .25s;z-index:500;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -416,30 +432,47 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 <div class="overlay" id="modal-class">
   <div class="modal modal-sm">
     <h2 id="mc-title">Add class</h2>
-    <!-- Schedule for: Batch or Student -->
-    <div class="field">
-      <label>Schedule for</label>
-      <div class="pill-group" style="border-radius:var(--radius);width:100%">
-        <button class="pill-btn active-blue" id="mc-scope-batch" onclick="setMcScope('batch')" style="flex:1;border-radius:0">Entire batch</button>
-        <button class="pill-btn" id="mc-scope-student" onclick="setMcScope('student')" style="flex:1;border-radius:0">Individual student</button>
-      </div>
-    </div>
-    <div id="mc-batch-wrap" class="field"><label>Batch</label><select id="mc-batch" onchange="mcBatchChanged()"></select></div>
-    <div id="mc-student-wrap" class="field" style="display:none"><label>Student</label><select id="mc-student"></select></div>
-    <!-- Add-on students -->
-    <div class="field" id="mc-addon-wrap" style="display:none">
-      <label>Add-on students <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(from any batch)</span></label>
-      <div id="mc-addon-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
-      <button type="button" onclick="mcAddAddon()" style="font-size:12px;padding:4px 10px;border:1px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue)">+ Add student</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="field"><label>Day</label>
-        <select id="mc-day">
-          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
-          <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+
+    <!-- Schedule for -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="field" style="margin-bottom:0">
+        <label>Schedule for</label>
+        <select id="mc-scope-sel" onchange="mcScopeSelChanged()">
+          <option value="batch">Batch</option>
+          <option value="student">Student</option>
         </select>
       </div>
-      <div class="field"><label>Season</label>
+      <div class="field" style="margin-bottom:0">
+        <label id="mc-target-label">Batch</label>
+        <select id="mc-target"></select>
+      </div>
+    </div>
+
+    <!-- REGULAR -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Regular</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div class="field" style="margin-bottom:0"><label>Day</label>
+          <select id="mc-day">
+            <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+            <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>Time in</label>
+          <select id="mc-tz" onchange="mcTzChanged('regular')">
+            <option value="IST">IST</option><option value="EDT">EDT</option><option value="EST">EST</option>
+            <option value="CDT">CDT</option><option value="CST">CST</option><option value="PDT">PDT</option>
+            <option value="PST">PST</option><option value="AEDT">AEDT</option><option value="AEST">AEST</option>
+            <option value="BST">BST</option><option value="GMT">GMT</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div class="field" style="margin-bottom:0"><label id="mc-start-label">Start</label><input id="mc-start" type="time" oninput="mcTimeChanged('regular')"/></div>
+        <div class="field" style="margin-bottom:0"><label id="mc-end-label">End</label><input id="mc-end" type="time" oninput="mcTimeChanged('regular')"/></div>
+      </div>
+      <div class="ist-preview" id="mc-regular-preview"></div>
+      <div class="field" style="margin-bottom:0"><label>Season</label>
         <select id="mc-season">
           <option value="both">Both seasons</option>
           <option value="summer">Summer only</option>
@@ -447,66 +480,49 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
         </select>
       </div>
     </div>
-    <!-- Timing type selector -->
-    <div class="field">
-      <label>Timing type</label>
-      <div class="pill-group" style="border-radius:var(--radius);overflow:hidden;width:100%">
-        <button class="pill-btn active-blue" id="mc-type-regular" onclick="setMcType('regular')" style="flex:1;border-radius:0">Regular</button>
-        <button class="pill-btn" id="mc-type-temporary" onclick="setMcType('temporary')" style="flex:1;border-radius:0">Temporary</button>
-      </div>
-    </div>
-    <!-- Regular timing -->
-    <div class="section-box" id="mc-regular-box">
-      <div class="section-box-title">Regular timing</div>
-      <div class="field" style="margin-bottom:6px"><label>Enter time in</label><select id="mc-tz" onchange="mcTzChanged('regular')">
-        <option value="IST">IST</option><option value="EDT">EDT</option><option value="EST">EST</option>
-        <option value="CDT">CDT</option><option value="CST">CST</option><option value="PDT">PDT</option>
-        <option value="PST">PST</option><option value="AEDT">AEDT</option><option value="AEST">AEST</option>
-        <option value="BST">BST</option><option value="GMT">GMT</option>
-      </select></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field" style="margin-bottom:0"><label id="mc-start-label">Start</label><input id="mc-start" type="time" oninput="mcTimeChanged('regular')"/></div>
-        <div class="field" style="margin-bottom:0"><label id="mc-end-label">End</label><input id="mc-end" type="time" oninput="mcTimeChanged('regular')"/></div>
-      </div>
-      <div class="ist-preview" id="mc-regular-preview"></div>
-    </div>
-    <!-- Temporary timing (shown when type=temporary) -->
-    <div id="mc-temp-section" style="display:none">
-      <div class="section-box orange">
-        <div class="section-box-title orange">Temporary timing</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
-          <div class="field" style="margin-bottom:0"><label>Day</label>
-            <select id="mc-temp-day">
-              <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
-              <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
-            </select>
-          </div>
-          <div class="field" style="margin-bottom:0"><label>Enter time in</label>
-            <select id="mc-temp-tz" onchange="mcTzChanged('temp')">
-              <option value="IST">IST</option><option value="EDT">EDT</option><option value="EST">EST</option>
-              <option value="CDT">CDT</option><option value="CST">CST</option><option value="PDT">PDT</option>
-              <option value="PST">PST</option><option value="AEDT">AEDT</option><option value="AEST">AEST</option>
-              <option value="BST">BST</option><option value="GMT">GMT</option>
-            </select>
-          </div>
+
+    <!-- TEMPORARY -->
+    <div style="background:#fff8f0;border:1px solid #ffcc80;border-radius:var(--radius);padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Temporary</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div class="field" style="margin-bottom:0"><label>Day</label>
+          <select id="mc-temp-day">
+            <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+            <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+          </select>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="field" style="margin-bottom:0"><label id="mc-temp-start-label">Start</label><input id="mc-temp-start" type="time" oninput="mcTimeChanged('temp')"/></div>
-          <div class="field" style="margin-bottom:0"><label id="mc-temp-end-label">End</label><input id="mc-temp-end" type="time" oninput="mcTimeChanged('temp')"/></div>
-        </div>
-        <div class="ist-preview" id="mc-temp-preview"></div>
-      </div>
-      <div class="field">
-        <label>Show on calendar</label>
-        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
-          <button id="mc-show-regular" onclick="setMcShow('regular')" style="flex:1;padding:9px;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);transition:all .15s">Regular timing</button>
-          <button id="mc-show-temporary" onclick="setMcShow('temporary')" style="flex:1;padding:9px;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);transition:all .15s;border-left:1px solid var(--border)">Temporary timing</button>
+        <div class="field" style="margin-bottom:0"><label>Time in</label>
+          <select id="mc-temp-tz" onchange="mcTzChanged('temp')">
+            <option value="IST">IST</option><option value="EDT">EDT</option><option value="EST">EST</option>
+            <option value="CDT">CDT</option><option value="CST">CST</option><option value="PDT">PDT</option>
+            <option value="PST">PST</option><option value="AEDT">AEDT</option><option value="AEST">AEST</option>
+            <option value="BST">BST</option><option value="GMT">GMT</option>
+          </select>
         </div>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px;line-height:1.6">Both timings are shown in the batch detail popup. The regular timing is optional — leave it empty if this class only exists during the break period.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div class="field" style="margin-bottom:0"><label id="mc-temp-start-label">Start</label><input id="mc-temp-start" type="time" oninput="mcTimeChanged('temp')"/></div>
+        <div class="field" style="margin-bottom:0"><label id="mc-temp-end-label">End</label><input id="mc-temp-end" type="time" oninput="mcTimeChanged('temp')"/></div>
+      </div>
+      <div class="ist-preview" id="mc-temp-preview"></div>
+      <div class="field" style="margin-bottom:10px"><label>Season</label>
+        <select id="mc-temp-season">
+          <option value="both">Both seasons</option>
+          <option value="summer">Summer only</option>
+          <option value="winter">Winter only</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Show in calendar</label>
+        <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <button id="mc-show-regular" onclick="setMcShow('regular')" style="flex:1;padding:8px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue);transition:all .15s">Regular</button>
+          <button id="mc-show-temporary" onclick="setMcShow('temporary')" style="flex:1;padding:8px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);transition:all .15s;border-left:1px solid var(--border)">Temporary</button>
+        </div>
+      </div>
     </div>
+
     <div class="modal-actions">
-      <button class="btn-danger" id="mc-del" onclick="deleteClass()">Delete</button>
+      <button class="btn-danger" id="mc-del" onclick="deleteClass()" style="display:none">Delete</button>
       <button class="btn-cancel" onclick="closeOverlay('modal-class')">Cancel</button>
       <button class="btn-primary" onclick="saveClass()">Save</button>
     </div>
@@ -528,39 +544,72 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 
 <!-- NEW / EDIT BATCH -->
 <div class="overlay" id="modal-batch-edit">
-  <div class="modal modal-sm">
+  <div class="modal" style="width:560px">
     <h2 id="be-title">New batch</h2>
-    <div class="field"><label>Batch name</label><input id="be-name" type="text" placeholder="e.g. Batch 1"/></div>
-    <div class="field"><label>Students (comma separated)</label><textarea id="be-students" placeholder="Ava, Harini, ..."></textarea></div>
-    <div class="field"><label>Preferred timezone (shown in timing popup)</label>
-      <select id="be-tz-group">
-        <option value="IST">IST – India Standard Time (default)</option>
-        <option value="Eastern">Eastern (EDT/EST)</option>
-        <option value="Central">Central (CDT/CST)</option>
-        <option value="Pacific">Pacific (PDT/PST)</option>
-        <option value="Australian">Australian (AEDT/AEST)</option>
-        <option value="British">British (BST/GMT)</option>
-      </select>
-    </div>
-    <div class="field"><label>Fee model</label>
-      <select id="be-att-model" onchange="beeFeeModelChanged()">
-        <option value="monthly-all">Monthly — pay for all classes attended</option>
-        <option value="monthly-cap8">Monthly — capped at 8 classes</option>
-        <option value="upfront-8">Pay 8 classes upfront each month</option>
-        <option value="per-8">Pay after every 8 classes (flat per block)</option>
-      </select>
-    </div>
-    <div class="field" id="be-rate-wrap">
-      <label id="be-rate-label">Rate</label>
-      <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
-        <input id="be-rate" type="number" min="0" step="0.01" placeholder="e.g. 350"/>
-        <select id="be-currency">
-          <option value="USD">USD</option>
-          <option value="INR">INR</option>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Batch name</label><input id="be-name" type="text" placeholder="e.g. Ohio 1"/></div>
+      <div class="field"><label>Preferred timezone</label>
+        <select id="be-tz-group">
+          <option value="IST">IST – India</option>
+          <option value="Eastern">Eastern (EDT/EST)</option>
+          <option value="Central">Central (CDT/CST)</option>
+          <option value="Pacific">Pacific (PDT/PST)</option>
+          <option value="Australian">Australian (AEDT/AEST)</option>
+          <option value="British">British (BST/GMT)</option>
         </select>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px" id="be-rate-hint"></div>
     </div>
+    <div class="field"><label>Students (comma separated)</label><textarea id="be-students" placeholder="Ava, Harini, ..." style="min-height:44px"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 80px;gap:8px;margin-bottom:12px">
+      <div class="field" style="margin-bottom:0"><label>Fee model</label>
+        <select id="be-att-model" onchange="beeFeeModelChanged()">
+          <option value="monthly-all">Monthly — all classes</option>
+          <option value="monthly-cap8">Monthly — capped at 8</option>
+          <option value="upfront-8">Pay 8 upfront</option>
+          <option value="per-8">Per 8-class block</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>Currency</label>
+        <select id="be-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+      </div>
+    </div>
+    <div class="field">
+      <label id="be-rate-label">Per class rate</label>
+      <input id="be-rate" type="number" min="0" step="0.01" placeholder="e.g. 350"/>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px" id="be-rate-hint"></div>
+    </div>
+
+    <!-- SUMMER TIMINGS -->
+    <div class="timing-section summer">
+      <div class="timing-section-title">☀ Summer timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="be-summer-slots"></div>
+      <button class="add-slot-btn" onclick="beAddSlot('summer')">+ Add summer slot</button>
+    </div>
+
+    <!-- WINTER TIMINGS -->
+    <div class="timing-section winter">
+      <div class="timing-section-title">❄ Winter timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="be-winter-slots"></div>
+      <button class="add-slot-btn" onclick="beAddSlot('winter')">+ Add winter slot</button>
+    </div>
+
+    <!-- TEMPORARY TIMINGS -->
+    <div class="timing-section temp">
+      <div class="timing-section-title">⏱ Temporary timings <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(during break periods)</span></div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="be-temp-slots"></div>
+      <button class="add-slot-btn" onclick="beAddSlot('temp')">+ Add temporary slot</button>
+      <div class="field" style="margin-top:10px;margin-bottom:0" id="be-show-cal-wrap" style="display:none">
+        <label>Show on calendar</label>
+        <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <button id="be-show-regular" onclick="beSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
+          <button id="be-show-temporary" onclick="beSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
+        </div>
+      </div>
+    </div>
+
     <div class="field"><label>Colour</label><div class="color-grid" id="be-color-grid"></div></div>
     <div class="modal-actions">
       <button class="btn-danger" id="be-del" onclick="deleteBatch()">Delete batch</button>
@@ -621,14 +670,32 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 <div class="overlay" id="modal-tw-edit">
   <div class="modal modal-sm">
     <h2>Edit class</h2>
-    <div class="field"><label>Batch</label><select id="twe-batch"></select></div>
+    <!-- Schedule for toggle -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="field" style="margin-bottom:0">
+        <label>For</label>
+        <select id="twe-scope-sel" onchange="tweScopeChanged()">
+          <option value="batch">Batch</option>
+          <option value="student">Individual student</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label id="twe-target-label">Batch</label>
+        <select id="twe-batch" onchange="tweBatchChanged()"></select>
+      </div>
+    </div>
+    <!-- Student picker (shown when scope = student) -->
+    <div class="field" id="twe-student-wrap" style="display:none">
+      <label>Student</label>
+      <select id="twe-student"></select>
+    </div>
     <div class="field"><label>Date</label><input id="twe-date" type="date"/></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="field"><label>Start (IST)</label><input id="twe-start" type="time"/></div>
       <div class="field"><label>End (IST)</label><input id="twe-end" type="time"/></div>
     </div>
-    <!-- Add-on students for this TW event -->
-    <div class="field" style="margin-top:8px">
+    <!-- Add-on students -->
+    <div class="field" style="margin-top:4px">
       <label>Add-on students</label>
       <div id="twe-addon-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
       <button type="button" onclick="tweAddAddon()" style="font-size:12px;padding:4px 10px;border:1px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue)">+ Add student</button>
@@ -659,37 +726,70 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 
 <!-- ADD / EDIT INDIVIDUAL STUDENT -->
 <div class="overlay" id="modal-ind-student">
-  <div class="modal modal-sm">
+  <div class="modal" style="width:560px">
     <h2 id="ind-student-title">Add student</h2>
-    <div class="field"><label>Name</label><input id="ind-student-name" type="text" placeholder="Student name"/></div>
-    <div class="field"><label>Preferred timezone</label>
-      <select id="ind-student-tz">
-        <option value="IST">IST – India Standard Time (default)</option>
-        <option value="Eastern">Eastern (EDT/EST)</option>
-        <option value="Central">Central (CDT/CST)</option>
-        <option value="Pacific">Pacific (PDT/PST)</option>
-        <option value="Australian">Australian (AEDT/AEST)</option>
-        <option value="British">British (BST/GMT)</option>
-      </select>
-    </div>
-    <div class="field"><label>Fee model</label>
-      <select id="ind-student-att" onchange="indFeeModelChanged()">
-        <option value="monthly-all">Monthly — pay for all classes attended</option>
-        <option value="monthly-cap8">Monthly — capped at 8 classes</option>
-        <option value="upfront-8">Pay 8 classes upfront each month</option>
-        <option value="per-8">Pay after every 8 classes (flat per block)</option>
-      </select>
-    </div>
-    <div class="field" id="ind-rate-wrap">
-      <label>Rate</label>
-      <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
-        <input id="ind-student-rate" type="number" min="0" step="0.01" placeholder="e.g. 20"/>
-        <select id="ind-student-currency">
-          <option value="USD">USD</option>
-          <option value="INR">INR</option>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Name</label><input id="ind-student-name" type="text" placeholder="Student name"/></div>
+      <div class="field"><label>Preferred timezone</label>
+        <select id="ind-student-tz">
+          <option value="IST">IST – India</option>
+          <option value="Eastern">Eastern (EDT/EST)</option>
+          <option value="Central">Central (CDT/CST)</option>
+          <option value="Pacific">Pacific (PDT/PST)</option>
+          <option value="Australian">Australian (AEDT/AEST)</option>
+          <option value="British">British (BST/GMT)</option>
         </select>
       </div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 80px;gap:8px;margin-bottom:12px">
+      <div class="field" style="margin-bottom:0"><label>Fee model</label>
+        <select id="ind-student-att" onchange="indFeeModelChanged()">
+          <option value="monthly-all">Monthly — all classes</option>
+          <option value="monthly-cap8">Monthly — capped at 8</option>
+          <option value="upfront-8">Pay 8 upfront</option>
+          <option value="per-8">Per 8-class block</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>Currency</label>
+        <select id="ind-student-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+      </div>
+    </div>
+    <div class="field">
+      <label id="ind-rate-label">Per class rate</label>
+      <input id="ind-student-rate" type="number" min="0" step="0.01" placeholder="e.g. 350"/>
+    </div>
+
+    <!-- SUMMER TIMINGS -->
+    <div class="timing-section summer">
+      <div class="timing-section-title">☀ Summer timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="ind-summer-slots"></div>
+      <button class="add-slot-btn" onclick="indAddSlot('summer')">+ Add summer slot</button>
+    </div>
+
+    <!-- WINTER TIMINGS -->
+    <div class="timing-section winter">
+      <div class="timing-section-title">❄ Winter timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="ind-winter-slots"></div>
+      <button class="add-slot-btn" onclick="indAddSlot('winter')">+ Add winter slot</button>
+    </div>
+
+    <!-- TEMPORARY TIMINGS -->
+    <div class="timing-section temp">
+      <div class="timing-section-title">⏱ Temporary timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="ind-temp-slots"></div>
+      <button class="add-slot-btn" onclick="indAddSlot('temp')">+ Add temporary slot</button>
+      <div class="field" style="margin-top:10px;margin-bottom:0">
+        <label>Show on calendar</label>
+        <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <button id="ind-show-regular" onclick="indSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
+          <button id="ind-show-temporary" onclick="indSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-danger" id="ind-student-del" onclick="deleteIndividualStudent()" style="display:none">Delete</button>
       <button class="btn-cancel" onclick="closeOverlay('modal-ind-student')">Cancel</button>
@@ -1020,6 +1120,11 @@ function openAddIndividualStudent(){
   document.getElementById('ind-student-att').value='monthly-all';
   document.getElementById('ind-student-rate').value='';
   document.getElementById('ind-student-currency').value='INR';
+  indShowOnCalendar='regular';
+  document.getElementById('ind-summer-slots').innerHTML='';
+  document.getElementById('ind-winter-slots').innerHTML='';
+  document.getElementById('ind-temp-slots').innerHTML='';
+  indSetShow('regular');
   document.getElementById('ind-student-del').style.display='none';
   document.getElementById('modal-ind-student').classList.add('open');
   document.getElementById('modal-ind-student').dataset.editId='';
@@ -1033,6 +1138,11 @@ function openEditIndividualStudent(id){
   document.getElementById('ind-student-att').value=s.attModel||'monthly-all';
   document.getElementById('ind-student-rate').value=s.rate||'';
   document.getElementById('ind-student-currency').value=s.currency||'INR';
+  indShowOnCalendar=s.showOnCalendar||'regular';
+  renderSlotsToContainer('ind-summer-slots',(s.timings||[]).filter(t=>t.season==='summer'));
+  renderSlotsToContainer('ind-winter-slots',(s.timings||[]).filter(t=>t.season==='winter'));
+  renderSlotsToContainer('ind-temp-slots',s.tempTimings||[]);
+  indSetShow(indShowOnCalendar);
   document.getElementById('ind-student-del').style.display='';
   document.getElementById('modal-ind-student').classList.add('open');
   document.getElementById('modal-ind-student').dataset.editId=id;
@@ -1045,12 +1155,16 @@ function saveIndividualStudent(){
   const attModel=document.getElementById('ind-student-att').value;
   const rate=document.getElementById('ind-student-rate').value.trim();
   const currency=document.getElementById('ind-student-currency').value;
+  const summerSlots=getSlotsFromContainer('ind-summer-slots').map(s=>({...s,season:'summer'}));
+  const winterSlots=getSlotsFromContainer('ind-winter-slots').map(s=>({...s,season:'winter'}));
+  const tempSlots=getSlotsFromContainer('ind-temp-slots');
+  const timings=[...summerSlots,...winterSlots];
   const editId=document.getElementById('modal-ind-student').dataset.editId;
   if(editId){
     const s=getIndStudent(editId);
-    if(s){s.name=name;s.tzGroup=tzGroup;s.attModel=attModel;s.rate=rate;s.currency=currency;}
+    if(s){s.name=name;s.tzGroup=tzGroup;s.attModel=attModel;s.rate=rate;s.currency=currency;s.timings=timings;s.tempTimings=tempSlots;s.showOnCalendar=indShowOnCalendar;}
   } else {
-    individualStudents.push({id:IND_BATCH_PREFIX+Date.now(),name,tzGroup,attModel,rate,currency});
+    individualStudents.push({id:IND_BATCH_PREFIX+Date.now(),name,tzGroup,attModel,rate,currency,timings,tempTimings:tempSlots,showOnCalendar:indShowOnCalendar});
   }
   save('individualStudents',individualStudents);
   closeOverlay('modal-ind-student');
@@ -1083,6 +1197,9 @@ function getIndStudentAsBatch(indStudent){
     attModel: indStudent.attModel||'monthly-all',
     rate: indStudent.rate||'',
     currency: indStudent.currency||'INR',
+    timings: indStudent.timings||[],
+    tempTimings: indStudent.tempTimings||[],
+    showOnCalendar: indStudent.showOnCalendar||'regular',
     isIndividual: true,
   };
 }
@@ -1283,7 +1400,8 @@ function getDisplayTime(c){
 }
 
 function renderCalendar(){
-  const visible=classes.filter(c=>c.season==='both'||c.season===season);
+  const allClasses=getClassesFromTimings();
+  const visible=allClasses.filter(c=>c.season==='both'||c.season===season);
   let html=`<div class="cal-grid" style="grid-template-columns:52px ${istOnly?'':'52px '}repeat(7,minmax(88px,1fr))">`;
   html+=`<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--subtle);display:flex;align-items:flex-end;justify-content:flex-end;padding:0 5px 6px;border-right:1px solid var(--border)">IST</div>`;
   if(!istOnly) html+=`<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--blue);display:flex;align-items:flex-end;justify-content:flex-start;padding:0 5px 6px;border-right:1px solid var(--border)">${currentTz}</div>`;
@@ -1317,7 +1435,7 @@ function renderCalendar(){
     }
     // Build events with display times
     const events=dayCls.map(c=>{
-      const idx=classes.indexOf(c);
+      const idx=allClasses.indexOf(c);
       const dt=getDisplayTime(c);
       const sm=minsFromStart(dt.start),em=minsFromStart(dt.end);
       const batch=getBatch(c.batchId);
@@ -1376,8 +1494,24 @@ function renderCalendar(){
 
 // ── Drag and drop (day + time) ──
 let dragState=null;
-function dragMouseDown(e,idx){if(e.button!==0)return;dragState={idx,startX:e.clientX,startY:e.clientY,ghost:null,moved:false,origDay:classes[idx].day};}
-function handleEventClick(e,idx){if(dragState&&dragState.moved)return;openEditClass(idx);}
+function dragMouseDown(e,idx){
+  if(e.button!==0)return;
+  const allClasses=getClassesFromTimings();
+  const c=allClasses[idx];
+  if(c&&c._fromTimings)return; // don't drag timing-derived classes from main cal
+  dragState={idx,startX:e.clientX,startY:e.clientY,ghost:null,moved:false,origDay:c?.day};
+}
+function handleEventClick(e,idx){
+  if(dragState&&dragState.moved)return;
+  const allClasses=getClassesFromTimings();
+  const c=allClasses[idx];
+  if(c&&c._fromTimings){
+    // From batch/student timings — open detail popup, not edit
+    openDetail(c.batchId);
+  } else {
+    openEditClass(idx);
+  }
+}
 function createGhost(idx,x,y){
   const c=classes[idx];const batch=getBatch(c.batchId);const col=getColor(batch.color);
   const dt=getDisplayTime(c);
@@ -1410,7 +1544,8 @@ document.addEventListener('mouseup',e=>{
   if(dragState.moved){
     const target=document.elementFromPoint(e.clientX,e.clientY);
     const colEl=target?target.closest('.cal-col'):null;
-    const c=classes[dragState.idx];
+    const _allCls=getClassesFromTimings();
+    const c=_allCls[dragState.idx];
     let changed=false;
     // Day change
     if(colEl&&colEl.dataset.day){
@@ -1474,16 +1609,8 @@ function calColHover(e){
 function calColLeave(e){const d=e.currentTarget.dataset.day;const i=document.getElementById('hover-'+d);if(i)i.style.display='none';}
 
 // ── Add / Edit class ──
-let mcType='regular';
-function setMcType(t){
-  mcType=t;
-  document.getElementById('mc-type-regular').classList.toggle('active-blue',t==='regular');
-  document.getElementById('mc-type-temporary').classList.toggle('active-orange',t==='temporary');
-  document.getElementById('mc-temp-section').style.display=t==='temporary'?'block':'none';
-  document.querySelector('#mc-regular-box .section-box-title').textContent=t==='temporary'?'Regular timing (usual schedule)':'Regular timing';
-  if(t==='regular') setMcShow('regular');
-  else setMcShow(mcShow==='temporary'?'temporary':'regular');
-}
+let mcType='regular'; // kept for compat
+function setMcType(t){ mcType=t; } // no-op, new modal doesn't use this
 function mcTzChanged(which){
   const prefix=which==='temp'?'mc-temp-':'mc-';
   const tz=document.getElementById(prefix+'tz').value;
@@ -1505,28 +1632,34 @@ function mcTimeChanged(which){
   prev.textContent='→ '+parts.join('   ');prev.style.display='block';
 }
 
-// ── Class scope (batch vs individual student) ──
+// ── Class modal scope ──
 let mcScope = 'batch';
-let mcAddonStudents = []; // [{name, batchId}]
-let addonPickCallback = null; // function to call when addon is confirmed
+let addonPickCallback = null;
 
-function setMcScope(s) {
-  mcScope = s;
-  document.getElementById('mc-scope-batch').classList.toggle('active-blue', s === 'batch');
-  document.getElementById('mc-scope-student').classList.toggle('active-blue', s === 'student');
-  document.getElementById('mc-batch-wrap').style.display = '';
-  document.getElementById('mc-student-wrap').style.display = s === 'student' ? '' : 'none';
-  document.getElementById('mc-addon-wrap').style.display = '';
-  if (s === 'student') mcBatchChanged();
+function mcScopeSelChanged() {
+  mcScope = document.getElementById('mc-scope-sel').value;
+  const lbl = document.getElementById('mc-target-label');
+  const sel = document.getElementById('mc-target');
+  if (mcScope === 'batch') {
+    lbl.textContent = 'Batch';
+    sel.innerHTML = batches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+  } else {
+    lbl.textContent = 'Student';
+    // All students: batch students + individual students
+    const opts = [];
+    batches.forEach(b => {
+      (b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name => {
+        opts.push(`<option value="${b.id}|${name}">${name} (${b.name})</option>`);
+      });
+    });
+    individualStudents.forEach(s => {
+      opts.push(`<option value="${s.id}|${s.name}">${s.name} (Individual)</option>`);
+    });
+    sel.innerHTML = opts.join('');
+  }
 }
 
-function mcBatchChanged() {
-  const batchId = document.getElementById('mc-batch').value;
-  const b = getBatch(batchId);
-  const students = (b?.students || '').split(',').map(s => s.trim()).filter(Boolean);
-  document.getElementById('mc-student').innerHTML =
-    students.map(s => `<option value="${s}">${s}</option>`).join('');
-}
+function mcBatchChanged() {} // kept for compatibility
 
 function mcAddAddon() {
   addonPickCallback = (name, batchId) => {
@@ -1582,6 +1715,26 @@ document.getElementById('addon-pick-confirm').addEventListener('click', () => {
   addonPickCallback = null;
 });
 
+
+// ── TW Edit scope helpers ──
+function tweScopeChanged() {
+  const scope = document.getElementById('twe-scope-sel').value;
+  const lbl = document.getElementById('twe-target-label');
+  const batchSel = document.getElementById('twe-batch');
+  const studentWrap = document.getElementById('twe-student-wrap');
+  lbl.textContent = scope === 'batch' ? 'Batch' : 'Batch';
+  studentWrap.style.display = scope === 'student' ? '' : 'none';
+  tweBatchChanged();
+}
+function tweBatchChanged() {
+  const scope = document.getElementById('twe-scope-sel').value;
+  if (scope !== 'student') return;
+  const batchId = document.getElementById('twe-batch').value;
+  const b = getBatch(batchId);
+  const students = b?.isIndividual ? [b.name] : (b?.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+  document.getElementById('twe-student').innerHTML = students.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+
 // ── TW addon management ──
 let tweAddonStudents = []; // per-event add-ons stored on the event
 
@@ -1615,108 +1768,112 @@ function tweRemoveAddon(i) {
 
 function openAddClass(prefillDay,prefillStart,prefillEnd){
   addClassMode=true;editClassIdx=null;
-  mcAddonStudents=[];
   document.getElementById('mc-title').textContent='Add class';
   document.getElementById('mc-del').style.display='none';
-  populateBatchSelect();
+  document.getElementById('mc-scope-sel').value='batch';
+  mcScopeSelChanged();
   document.getElementById('mc-day').value=prefillDay||'Monday';
   document.getElementById('mc-season').value=season;
   document.getElementById('mc-tz').value='IST';
-  document.getElementById('mc-start').value=prefillStart||'09:00';
-  document.getElementById('mc-end').value=prefillEnd||'10:00';
+  document.getElementById('mc-start').value=prefillStart||'';
+  document.getElementById('mc-end').value=prefillEnd||'';
   document.getElementById('mc-temp-day').value=prefillDay||'Monday';
   document.getElementById('mc-temp-tz').value='IST';
+  document.getElementById('mc-temp-season').value=season;
   document.getElementById('mc-temp-start').value='';
   document.getElementById('mc-temp-end').value='';
   document.getElementById('mc-regular-preview').style.display='none';
   document.getElementById('mc-temp-preview').style.display='none';
   mcShow='regular';
-  setMcScope('batch');
-  renderMcAddonList();
-  setMcType('regular');mcTzChanged('regular');mcTzChanged('temp');
+  setMcShow('regular');
+  mcTzChanged('regular');mcTzChanged('temp');
   document.getElementById('modal-class').classList.add('open');
 }
 function openEditClass(idx){
   addClassMode=false;editClassIdx=idx;
   const c=classes[idx];
-  mcAddonStudents=JSON.parse(JSON.stringify(c.addonStudents||[]));
   document.getElementById('mc-title').textContent='Edit class';
   document.getElementById('mc-del').style.display='';
-  populateBatchSelect(c.batchId);
+  // Set scope
+  if(c.studentScope){
+    document.getElementById('mc-scope-sel').value='student';
+    mcScopeSelChanged();
+    // Select the right student
+    setTimeout(()=>{
+      const sel=document.getElementById('mc-target');
+      if(sel) sel.value=c.batchId+'|'+c.studentScope;
+    },30);
+  } else {
+    document.getElementById('mc-scope-sel').value='batch';
+    mcScopeSelChanged();
+    setTimeout(()=>{
+      const sel=document.getElementById('mc-target');
+      if(sel) sel.value=c.batchId;
+    },30);
+  }
   document.getElementById('mc-day').value=c.day;
-  document.getElementById('mc-season').value=c.season;
+  document.getElementById('mc-season').value=c.season||'both';
   document.getElementById('mc-tz').value='IST';
   document.getElementById('mc-start').value=c.start||'';
   document.getElementById('mc-end').value=c.end||'';
   document.getElementById('mc-temp-day').value=c.tempDay||c.day;
   document.getElementById('mc-temp-tz').value='IST';
+  document.getElementById('mc-temp-season').value=c.tempSeason||c.season||'both';
   document.getElementById('mc-temp-start').value=c.tempStart||'';
   document.getElementById('mc-temp-end').value=c.tempEnd||'';
   document.getElementById('mc-regular-preview').style.display='none';
   document.getElementById('mc-temp-preview').style.display='none';
-  const t=c.tempStart?'temporary':'regular';
   mcShow=c.showOnCalendar||'regular';
-  // Set scope
-  const scope=c.studentScope?'student':'batch';
-  setMcScope(scope);
-  if(scope==='student'){
-    // pre-select student
-    setTimeout(()=>{
-      const sel=document.getElementById('mc-student');
-      if(sel) sel.value=c.studentScope||'';
-    },50);
-  }
-  renderMcAddonList();
-  setMcType(t);setMcShow(mcShow);mcTzChanged('regular');mcTzChanged('temp');
+  setMcShow(mcShow);mcTzChanged('regular');mcTzChanged('temp');
   document.getElementById('modal-class').classList.add('open');
 }
-function populateBatchSelect(selId){
-  document.getElementById('mc-batch').innerHTML=batches.map(b=>`<option value="${b.id}"${b.id===selId?' selected':''}>${b.name}</option>`).join('');
-  mcBatchChanged();
-}
+function populateBatchSelect(selId){ mcScopeSelChanged(); } // legacy shim
 function saveClass(){
   const regTz=document.getElementById('mc-tz').value;
   const regStart=document.getElementById('mc-start').value;
   const regEnd=document.getElementById('mc-end').value;
-  let tempStart=null,tempEnd=null,tempDay=null;
+  const tempTz=document.getElementById('mc-temp-tz').value;
+  const tempStartRaw=document.getElementById('mc-temp-start').value;
+  const tempEndRaw=document.getElementById('mc-temp-end').value;
+  const tempDay=document.getElementById('mc-temp-day').value;
 
-  if(mcType==='temporary'){
-    const tTz=document.getElementById('mc-temp-tz').value;
-    const ts=document.getElementById('mc-temp-start').value;
-    const te=document.getElementById('mc-temp-end').value;
-    if(ts&&te){tempStart=tzToIst(ts,tTz);tempEnd=tzToIst(te,tTz);}
-    tempDay=document.getElementById('mc-temp-day').value;
-    // For temporary type: must have at least the temporary timing filled
-    if(!tempStart&&!regStart){showToast('Please enter at least the temporary timing');return;}
-  } else {
-    // Regular type: regular timing is required
-    if(!regStart||!regEnd){showToast('Please set start and end times');return;}
-  }
+  // At least one of regular or temporary must be filled
+  if(!regStart&&!tempStartRaw){showToast('Please enter at least a regular or temporary time');return;}
 
   const hasRegular=!!(regStart&&regEnd);
+  const hasTemp=!!(tempStartRaw&&tempEndRaw);
   const istStart=hasRegular?tzToIst(regStart,regTz):null;
   const istEnd=hasRegular?tzToIst(regEnd,regTz):null;
+  const istTempStart=hasTemp?tzToIst(tempStartRaw,tempTz):null;
+  const istTempEnd=hasTemp?tzToIst(tempEndRaw,tempTz):null;
 
-  // If temporary-only (no regular), force showOnCalendar=temporary
-  const showCal=mcType==='temporary'
-    ?((!hasRegular)?'temporary':mcShow)
-    :'regular';
+  // Show on calendar: only relevant if both regular and temp exist
+  const showCal=hasTemp?(hasRegular?mcShow:'temporary'):'regular';
 
-  const isStudentScope = mcScope === 'student';
-  const studentScope = isStudentScope ? document.getElementById('mc-student').value : undefined;
+  // Resolve scope — batchId and optional studentScope
+  const scopeSel=document.getElementById('mc-scope-sel').value;
+  const targetVal=document.getElementById('mc-target').value;
+  let batchId, studentScope;
+  if(scopeSel==='student'){
+    const parts=targetVal.split('|');
+    batchId=parts[0]; studentScope=parts[1];
+  } else {
+    batchId=targetVal; studentScope=undefined;
+  }
+
   const obj={
-    batchId:document.getElementById('mc-batch').value,
-    day:hasRegular?document.getElementById('mc-day').value:(tempDay||document.getElementById('mc-day').value),
+    batchId,
+    day:document.getElementById('mc-day').value,
     season:document.getElementById('mc-season').value,
     start:istStart||undefined,
     end:istEnd||undefined,
-    tempStart:tempStart||undefined,
-    tempEnd:tempEnd||undefined,
-    tempDay:tempDay||undefined,
+    tempStart:istTempStart||undefined,
+    tempEnd:istTempEnd||undefined,
+    tempDay:hasTemp?tempDay:undefined,
+    tempSeason:hasTemp?document.getElementById('mc-temp-season').value:undefined,
     showOnCalendar:showCal,
-    tempOnly:mcType==='temporary'&&!hasRegular,
-    studentScope:studentScope,
-    addonStudents:mcAddonStudents.length>0?JSON.parse(JSON.stringify(mcAddonStudents)):undefined,
+    tempOnly:!hasRegular&&hasTemp,
+    studentScope,
   };
   if(addClassMode)classes.push(obj);
   else classes[editClassIdx]=obj;
@@ -1753,7 +1910,12 @@ function openNewBatch(){
   document.getElementById('be-att-model').value='monthly-all';
   document.getElementById('be-rate').value='';
   document.getElementById('be-currency').value='INR';
+  beShowOnCalendar='regular';
   beeFeeModelChanged();
+  document.getElementById('be-summer-slots').innerHTML='';
+  document.getElementById('be-winter-slots').innerHTML='';
+  document.getElementById('be-temp-slots').innerHTML='';
+  beSetShow('regular');
   renderColorGrid('c1');
   document.getElementById('modal-batch-edit').classList.add('open');
 }
@@ -1785,8 +1947,12 @@ function saveBatch(){
   const attModel=document.getElementById('be-att-model').value;
   const rate=document.getElementById('be-rate').value.trim();
   const currency=document.getElementById('be-currency').value;
-  if(addBatchMode){batches.push({id:'b_'+Date.now(),name,color:getSelectedColor(),students:document.getElementById('be-students').value.trim(),tzGroup,attModel,rate,currency});}
-  else{const b=getBatch(editBatchId);b.name=name;b.color=getSelectedColor();b.students=document.getElementById('be-students').value.trim();b.tzGroup=tzGroup;b.attModel=attModel;b.rate=rate;b.currency=currency;}
+  const summerSlots=getSlotsFromContainer('be-summer-slots').map(s=>({...s,season:'summer'}));
+  const winterSlots=getSlotsFromContainer('be-winter-slots').map(s=>({...s,season:'winter'}));
+  const tempSlots=getSlotsFromContainer('be-temp-slots');
+  const timings=[...summerSlots,...winterSlots];
+  if(addBatchMode){batches.push({id:'b_'+Date.now(),name,color:getSelectedColor(),students:document.getElementById('be-students').value.trim(),tzGroup,attModel,rate,currency,timings,tempTimings:tempSlots,showOnCalendar:beShowOnCalendar});}
+  else{const b=getBatch(editBatchId);b.name=name;b.color=getSelectedColor();b.students=document.getElementById('be-students').value.trim();b.tzGroup=tzGroup;b.attModel=attModel;b.rate=rate;b.currency=currency;b.timings=timings;b.tempTimings=tempSlots;b.showOnCalendar=beShowOnCalendar;}
   save('batches',batches);closeOverlay('modal-batch-edit');renderSidebar();renderCalendar();
   showToast(addBatchMode?'Batch created':'Batch updated');
 }
@@ -2289,7 +2455,8 @@ function twRefreshFromCalendar(){
   twPopulateFromCalendar();twRender();showToast('Refreshed from calendar');
 }
 function twPopulateFromCalendar(){
-  const visible=classes.filter(c=>c.season==='both'||c.season===twSeason);
+  const allClasses=getClassesFromTimings();
+  const visible=allClasses.filter(c=>c.season==='both'||c.season===twSeason);
   const evs=[];
   visible.forEach(c=>{
     const dt=getDisplayTime(c);
@@ -3011,36 +3178,67 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   const relevantClasses = classes.filter(c => {
     if (c.batchId !== batchId) return false;
     if (c.season !== 'both' && c.season !== season) return false;
-    // Must apply to this student
     if (c.studentScope && c.studentScope !== studentName) return false;
     return true;
   });
 
+  // Determine the preferred TZ for this batch/student to calculate date shift
+  const tzGroup = b?.tzGroup || 'IST';
+  const prefTz = (tzGroup === 'IST') ? null : (TZ_GROUPS.find(g => g.label === tzGroup)?.[season] || null);
+
   if (fromDate && toDate) {
     const start = new Date(fromDate + 'T00:00:00');
     const end = new Date(toDate + 'T23:59:59');
-    // Walk every day in the month
+    // Walk every day in the selected month (in the student's local timezone)
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dayName = dayNames[d.getDay()];
       const dateStr = d.toISOString().slice(0,10);
       relevantClasses.forEach(c => {
         const dt = getDisplayTime(c);
-        if (dt.day === dayName) scheduledDates.add(dateStr);
+        if (!dt.start) return;
+        // The class is stored in IST. Work out what day it falls on in the preferred TZ.
+        // tzDayShift returns '' / 'Fri ' / 'Mon ' etc for the day-before/after shift.
+        let classDay = dt.day;
+        if (prefTz) {
+          const shift = tzDayShift(dt.day, dt.start, prefTz);
+          if (shift) {
+            // Shift is a 3-letter day abbreviation e.g. "Fri "
+            const shiftedDayAbbr = shift.trim();
+            classDay = DAYS.find(dy => dy.slice(0,3) === shiftedDayAbbr) || dt.day;
+          }
+        }
+        const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+        if (classDay === dayName) scheduledDates.add(dateStr);
       });
     }
   }
 
   // 2. Also add dates from This Week cache (one-off additions, moved classes)
+  // TW event dates are stored as the actual calendar date (already accounts for timezone)
   Object.values(twWeekCache).forEach(weekEvs => {
     if (!Array.isArray(weekEvs)) return;
     weekEvs.forEach(ev => {
       const isMainStudent = ev.batchId === batchId && (!ev.studentScope || ev.studentScope === studentName);
       const isAddon = (ev.addonStudents||[]).some(a => a.name === studentName && a.batchId === batchId);
       if (!isMainStudent && !isAddon) return;
-      const d = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
-      if (fromDate && d < fromDate) return;
-      if (toDate && d > toDate) return;
-      scheduledDates.add(d);
+      // Convert IST event date to preferred TZ date if needed
+      let evDateStr = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
+      if (prefTz && ev.start) {
+        const tzMins = toMins(ev.start) + (TZ_OFFSETS[prefTz] || 0);
+        if (tzMins < 0) {
+          // Day before in local TZ — subtract one day from the date
+          const dt2 = new Date(evDateStr + 'T12:00:00');
+          dt2.setDate(dt2.getDate() - 1);
+          evDateStr = dt2.toISOString().slice(0,10);
+        } else if (tzMins >= 1440) {
+          // Day after in local TZ — add one day
+          const dt2 = new Date(evDateStr + 'T12:00:00');
+          dt2.setDate(dt2.getDate() + 1);
+          evDateStr = dt2.toISOString().slice(0,10);
+        }
+      }
+      if (fromDate && evDateStr < fromDate) return;
+      if (toDate && evDateStr > toDate) return;
+      scheduledDates.add(evDateStr);
     });
   });
 
@@ -3326,6 +3524,183 @@ function renderManageBody() {
       </div>`;
     }).join('');
   }
+}
+
+
+
+// ══════════════════════════════════════════════
+// TIMING SLOT SYSTEM
+// ══════════════════════════════════════════════
+// A timing slot: { season:'summer'|'winter'|'temp', day, tz, start, end }
+// Stored on batch/student as:
+//   timings: [{season, day, startIST, endIST}]  (summer + winter)
+//   tempTimings: [{day, startIST, endIST}]
+//   showOnCalendar: 'regular'|'temporary'
+
+const TZ_OPTIONS = `<option value="IST">IST</option><option value="EDT">EDT</option>
+  <option value="EST">EST</option><option value="CDT">CDT</option><option value="CST">CST</option>
+  <option value="PDT">PDT</option><option value="PST">PST</option><option value="AEDT">AEDT</option>
+  <option value="AEST">AEST</option><option value="BST">BST</option><option value="GMT">GMT</option>`;
+
+const DAY_OPTIONS = `<option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+  <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>`;
+
+function makeSlotRow(slot, idx, prefix) {
+  const s = slot || {};
+  return `<div class="timing-slot" data-idx="${idx}">
+    <select class="slot-day" onchange="slotPreview(this)">${DAY_OPTIONS.replace(`<option>${s.day||'Monday'}</option>`,`<option selected>${s.day||'Monday'}</option>`)}</select>
+    <select class="slot-tz" onchange="slotPreview(this)">${TZ_OPTIONS.replace(`<option value="${s.tz||'IST'}">`,`<option value="${s.tz||'IST'}" selected>`)}</select>
+    <input class="slot-start" type="time" value="${s.start||''}" oninput="slotPreview(this)"/>
+    <input class="slot-end" type="time" value="${s.end||''}"/>
+    <button class="del-slot" onclick="this.closest('.timing-slot').remove()">×</button>
+  </div>`;
+}
+
+function slotPreview(el) {
+  // Show IST equivalent below if non-IST tz selected
+  const row = el.closest('.timing-slot');
+  const tz = row.querySelector('.slot-tz').value;
+  const start = row.querySelector('.slot-start').value;
+  if (tz !== 'IST' && start) {
+    const istTime = tzToIst(start, tz);
+    row.dataset.istPreview = fmtTime(istTime) + ' IST';
+  } else {
+    row.dataset.istPreview = '';
+  }
+}
+
+function getSlotsFromContainer(containerId) {
+  const slots = [];
+  document.querySelectorAll('#' + containerId + ' .timing-slot').forEach(row => {
+    const day = row.querySelector('.slot-day').value;
+    const tz = row.querySelector('.slot-tz').value;
+    const start = row.querySelector('.slot-start').value;
+    const end = row.querySelector('.slot-end').value;
+    if (start && end) {
+      slots.push({ day, startIST: tzToIst(start, tz), endIST: tzToIst(end, tz) });
+    }
+  });
+  return slots;
+}
+
+function renderSlotsToContainer(containerId, slots) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = (slots || []).map((s, i) => {
+    // Convert IST back to IST for display (stored as IST)
+    const displaySlot = { day: s.day, tz: 'IST', start: s.startIST, end: s.endIST };
+    return makeSlotRow(displaySlot, i);
+  }).join('');
+}
+
+// ── Batch timing slot helpers ──
+let beShowOnCalendar = 'regular';
+function beAddSlot(season) {
+  const containerId = season === 'summer' ? 'be-summer-slots' : season === 'winter' ? 'be-winter-slots' : 'be-temp-slots';
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const idx = el.querySelectorAll('.timing-slot').length;
+  el.insertAdjacentHTML('beforeend', makeSlotRow({}, idx));
+  if (season === 'temp') document.getElementById('be-show-cal-wrap') && (document.getElementById('be-show-cal-wrap').style.display = '');
+}
+function beSetShow(v) {
+  beShowOnCalendar = v;
+  document.getElementById('be-show-regular').style.background = v === 'regular' ? 'var(--blue-light)' : 'none';
+  document.getElementById('be-show-regular').style.color = v === 'regular' ? 'var(--blue)' : 'var(--muted)';
+  document.getElementById('be-show-temporary').style.background = v === 'temporary' ? 'var(--orange-light)' : 'none';
+  document.getElementById('be-show-temporary').style.color = v === 'temporary' ? 'var(--orange)' : 'var(--muted)';
+}
+
+// ── Individual student timing slot helpers ──
+let indShowOnCalendar = 'regular';
+function indAddSlot(season) {
+  const containerId = season === 'summer' ? 'ind-summer-slots' : season === 'winter' ? 'ind-winter-slots' : 'ind-temp-slots';
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const idx = el.querySelectorAll('.timing-slot').length;
+  el.insertAdjacentHTML('beforeend', makeSlotRow({}, idx));
+}
+function indSetShow(v) {
+  indShowOnCalendar = v;
+  document.getElementById('ind-show-regular').style.background = v === 'regular' ? 'var(--blue-light)' : 'none';
+  document.getElementById('ind-show-regular').style.color = v === 'regular' ? 'var(--blue)' : 'var(--muted)';
+  document.getElementById('ind-show-temporary').style.background = v === 'temporary' ? 'var(--orange-light)' : 'none';
+  document.getElementById('ind-show-temporary').style.color = v === 'temporary' ? 'var(--orange)' : 'var(--muted)';
+}
+
+// ══════════════════════════════════════════════
+// CALENDAR RENDERING FROM TIMINGS
+// ══════════════════════════════════════════════
+// Convert batch/student timings into class-like objects for rendering
+function getClassesFromTimings() {
+  const result = [];
+
+  // From batches
+  batches.forEach(b => {
+    const showCal = b.showOnCalendar || 'regular';
+    // Regular timings (summer + winter)
+    (b.timings || []).forEach(t => {
+      result.push({
+        batchId: b.id,
+        day: t.day,
+        season: t.season,
+        start: t.startIST,
+        end: t.endIST,
+        showOnCalendar: showCal,
+        _fromTimings: true,
+      });
+    });
+    // Temp timings
+    (b.tempTimings || []).forEach(t => {
+      result.push({
+        batchId: b.id,
+        day: t.day,
+        season: 'both',
+        start: showCal === 'temporary' ? undefined : undefined,
+        end: showCal === 'temporary' ? undefined : undefined,
+        tempStart: t.startIST,
+        tempEnd: t.endIST,
+        tempDay: t.day,
+        showOnCalendar: showCal,
+        tempOnly: showCal === 'temporary',
+        _fromTimings: true,
+      });
+    });
+  });
+
+  // From individual students (via virtual batch)
+  individualStudents.forEach(s => {
+    const showCal = s.showOnCalendar || 'regular';
+    (s.timings || []).forEach(t => {
+      result.push({
+        batchId: s.id,
+        day: t.day,
+        season: t.season,
+        start: t.startIST,
+        end: t.endIST,
+        showOnCalendar: showCal,
+        _fromTimings: true,
+      });
+    });
+    (s.tempTimings || []).forEach(t => {
+      result.push({
+        batchId: s.id,
+        day: t.day,
+        season: 'both',
+        tempStart: t.startIST,
+        tempEnd: t.endIST,
+        tempDay: t.day,
+        showOnCalendar: showCal,
+        tempOnly: showCal === 'temporary',
+        _fromTimings: true,
+      });
+    });
+  });
+
+  // Also include one-off classes from the classes array
+  classes.forEach(c => { result.push({ ...c, _fromTimings: false }); });
+
+  return result;
 }
 
 
