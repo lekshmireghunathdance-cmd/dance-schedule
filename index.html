@@ -598,15 +598,24 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <!-- TEMPORARY TIMINGS -->
     <div class="timing-section temp">
       <div class="timing-section-title">⏱ Temporary timings <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(during break periods)</span></div>
+      <div class="field" style="margin-bottom:8px">
+        <label>Temporary applies to</label>
+        <select id="be-temp-season">
+          <option value="both">Both seasons</option>
+          <option value="summer">Summer only</option>
+          <option value="winter">Winter only</option>
+        </select>
+      </div>
       <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
       <div id="be-temp-slots"></div>
       <button class="add-slot-btn" onclick="beAddSlot('temp')">+ Add temporary slot</button>
-      <div class="field" style="margin-top:10px;margin-bottom:0" id="be-show-cal-wrap" style="display:none">
+      <div class="field" style="margin-top:10px;margin-bottom:0">
         <label>Show on calendar</label>
         <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
           <button id="be-show-regular" onclick="beSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
           <button id="be-show-temporary" onclick="beSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
         </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">For seasons not covered by temporary timings, regular timing is always shown.</div>
       </div>
     </div>
 
@@ -778,6 +787,14 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <!-- TEMPORARY TIMINGS -->
     <div class="timing-section temp">
       <div class="timing-section-title">⏱ Temporary timings</div>
+      <div class="field" style="margin-bottom:8px">
+        <label>Temporary applies to</label>
+        <select id="ind-temp-season">
+          <option value="both">Both seasons</option>
+          <option value="summer">Summer only</option>
+          <option value="winter">Winter only</option>
+        </select>
+      </div>
       <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
       <div id="ind-temp-slots"></div>
       <button class="add-slot-btn" onclick="indAddSlot('temp')">+ Add temporary slot</button>
@@ -787,6 +804,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
           <button id="ind-show-regular" onclick="indSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
           <button id="ind-show-temporary" onclick="indSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
         </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">For seasons not covered by temporary timings, regular timing is always shown.</div>
       </div>
     </div>
 
@@ -1124,6 +1142,7 @@ function openAddIndividualStudent(){
   document.getElementById('ind-summer-slots').innerHTML='';
   document.getElementById('ind-winter-slots').innerHTML='';
   document.getElementById('ind-temp-slots').innerHTML='';
+  document.getElementById('ind-temp-season').value='both';
   indSetShow('regular');
   document.getElementById('ind-student-del').style.display='none';
   document.getElementById('modal-ind-student').classList.add('open');
@@ -1142,6 +1161,7 @@ function openEditIndividualStudent(id){
   renderSlotsToContainer('ind-summer-slots',(s.timings||[]).filter(t=>t.season==='summer'));
   renderSlotsToContainer('ind-winter-slots',(s.timings||[]).filter(t=>t.season==='winter'));
   renderSlotsToContainer('ind-temp-slots',s.tempTimings||[]);
+  document.getElementById('ind-temp-season').value=s.tempSeason||'both';
   indSetShow(indShowOnCalendar);
   document.getElementById('ind-student-del').style.display='';
   document.getElementById('modal-ind-student').classList.add('open');
@@ -1158,13 +1178,14 @@ function saveIndividualStudent(){
   const summerSlots=getSlotsFromContainer('ind-summer-slots').map(s=>({...s,season:'summer'}));
   const winterSlots=getSlotsFromContainer('ind-winter-slots').map(s=>({...s,season:'winter'}));
   const tempSlots=getSlotsFromContainer('ind-temp-slots');
+  const tempSeason=document.getElementById('ind-temp-season').value;
   const timings=[...summerSlots,...winterSlots];
   const editId=document.getElementById('modal-ind-student').dataset.editId;
   if(editId){
     const s=getIndStudent(editId);
-    if(s){s.name=name;s.tzGroup=tzGroup;s.attModel=attModel;s.rate=rate;s.currency=currency;s.timings=timings;s.tempTimings=tempSlots;s.showOnCalendar=indShowOnCalendar;}
+    if(s){s.name=name;s.tzGroup=tzGroup;s.attModel=attModel;s.rate=rate;s.currency=currency;s.timings=timings;s.tempTimings=tempSlots;s.tempSeason=tempSeason;s.showOnCalendar=indShowOnCalendar;}
   } else {
-    individualStudents.push({id:IND_BATCH_PREFIX+Date.now(),name,tzGroup,attModel,rate,currency,timings,tempTimings:tempSlots,showOnCalendar:indShowOnCalendar});
+    individualStudents.push({id:IND_BATCH_PREFIX+Date.now(),name,tzGroup,attModel,rate,currency,timings,tempTimings:tempSlots,tempSeason,showOnCalendar:indShowOnCalendar});
   }
   save('individualStudents',individualStudents);
   closeOverlay('modal-ind-student');
@@ -1915,6 +1936,7 @@ function openNewBatch(){
   document.getElementById('be-summer-slots').innerHTML='';
   document.getElementById('be-winter-slots').innerHTML='';
   document.getElementById('be-temp-slots').innerHTML='';
+  document.getElementById('be-temp-season').value='both';
   beSetShow('regular');
   renderColorGrid('c1');
   document.getElementById('modal-batch-edit').classList.add('open');
@@ -1950,9 +1972,10 @@ function saveBatch(){
   const summerSlots=getSlotsFromContainer('be-summer-slots').map(s=>({...s,season:'summer'}));
   const winterSlots=getSlotsFromContainer('be-winter-slots').map(s=>({...s,season:'winter'}));
   const tempSlots=getSlotsFromContainer('be-temp-slots');
+  const tempSeason=document.getElementById('be-temp-season').value;
   const timings=[...summerSlots,...winterSlots];
-  if(addBatchMode){batches.push({id:'b_'+Date.now(),name,color:getSelectedColor(),students:document.getElementById('be-students').value.trim(),tzGroup,attModel,rate,currency,timings,tempTimings:tempSlots,showOnCalendar:beShowOnCalendar});}
-  else{const b=getBatch(editBatchId);b.name=name;b.color=getSelectedColor();b.students=document.getElementById('be-students').value.trim();b.tzGroup=tzGroup;b.attModel=attModel;b.rate=rate;b.currency=currency;b.timings=timings;b.tempTimings=tempSlots;b.showOnCalendar=beShowOnCalendar;}
+  if(addBatchMode){batches.push({id:'b_'+Date.now(),name,color:getSelectedColor(),students:document.getElementById('be-students').value.trim(),tzGroup,attModel,rate,currency,timings,tempTimings:tempSlots,tempSeason,showOnCalendar:beShowOnCalendar});}
+  else{const b=getBatch(editBatchId);b.name=name;b.color=getSelectedColor();b.students=document.getElementById('be-students').value.trim();b.tzGroup=tzGroup;b.attModel=attModel;b.rate=rate;b.currency=currency;b.timings=timings;b.tempTimings=tempSlots;b.tempSeason=tempSeason;b.showOnCalendar=beShowOnCalendar;}
   save('batches',batches);closeOverlay('modal-batch-edit');renderSidebar();renderCalendar();
   showToast(addBatchMode?'Batch created':'Batch updated');
 }
@@ -3638,29 +3661,26 @@ function getClassesFromTimings() {
   // From batches
   batches.forEach(b => {
     const showCal = b.showOnCalendar || 'regular';
-    // Regular timings (summer + winter)
+    const tempSeason = b.tempSeason || 'both'; // which seasons the temp timing applies to
+    // Regular timings — always included; season is per-slot
     (b.timings || []).forEach(t => {
+      // For seasons where temp is active and showCal=temporary, this regular timing
+      // is still added but showOnCalendar will be 'temporary' so it won't display
+      // unless it's the non-temp season
+      const thisShowCal = (showCal === 'temporary' && (tempSeason === 'both' || tempSeason === t.season))
+        ? 'temporary' : 'regular';
       result.push({
-        batchId: b.id,
-        day: t.day,
-        season: t.season,
-        start: t.startIST,
-        end: t.endIST,
-        showOnCalendar: showCal,
-        _fromTimings: true,
+        batchId: b.id, day: t.day, season: t.season,
+        start: t.startIST, end: t.endIST,
+        showOnCalendar: thisShowCal, _fromTimings: true,
       });
     });
-    // Temp timings
+    // Temp timings — scoped to tempSeason
     (b.tempTimings || []).forEach(t => {
       result.push({
-        batchId: b.id,
-        day: t.day,
-        season: 'both',
-        start: showCal === 'temporary' ? undefined : undefined,
-        end: showCal === 'temporary' ? undefined : undefined,
-        tempStart: t.startIST,
-        tempEnd: t.endIST,
-        tempDay: t.day,
+        batchId: b.id, day: t.day,
+        season: tempSeason, // only show in the relevant season(s)
+        tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
         showOnCalendar: showCal,
         tempOnly: showCal === 'temporary',
         _fromTimings: true,
@@ -3671,25 +3691,21 @@ function getClassesFromTimings() {
   // From individual students (via virtual batch)
   individualStudents.forEach(s => {
     const showCal = s.showOnCalendar || 'regular';
+    const tempSeason = s.tempSeason || 'both';
     (s.timings || []).forEach(t => {
+      const thisShowCal = (showCal === 'temporary' && (tempSeason === 'both' || tempSeason === t.season))
+        ? 'temporary' : 'regular';
       result.push({
-        batchId: s.id,
-        day: t.day,
-        season: t.season,
-        start: t.startIST,
-        end: t.endIST,
-        showOnCalendar: showCal,
-        _fromTimings: true,
+        batchId: s.id, day: t.day, season: t.season,
+        start: t.startIST, end: t.endIST,
+        showOnCalendar: thisShowCal, _fromTimings: true,
       });
     });
     (s.tempTimings || []).forEach(t => {
       result.push({
-        batchId: s.id,
-        day: t.day,
-        season: 'both',
-        tempStart: t.startIST,
-        tempEnd: t.endIST,
-        tempDay: t.day,
+        batchId: s.id, day: t.day,
+        season: tempSeason,
+        tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
         showOnCalendar: showCal,
         tempOnly: showCal === 'temporary',
         _fromTimings: true,
