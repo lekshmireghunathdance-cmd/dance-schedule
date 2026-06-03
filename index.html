@@ -376,7 +376,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     </div>
 
     <div class="field">
-      <label>Per class rate</label>
+      <label id="asb-rate-label">Per class rate</label>
       <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
         <input id="asb-rate" type="number" min="0" step="0.01" placeholder="e.g. 20"/>
         <select id="asb-currency">
@@ -551,9 +551,9 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       </select>
     </div>
     <div class="field" id="be-rate-wrap">
-      <label>Rate</label>
+      <label id="be-rate-label">Rate</label>
       <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
-        <input id="be-rate" type="number" min="0" step="0.01" placeholder="e.g. 20"/>
+        <input id="be-rate" type="number" min="0" step="0.01" placeholder="e.g. 350"/>
         <select id="be-currency">
           <option value="USD">USD</option>
           <option value="INR">INR</option>
@@ -2993,15 +2993,42 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   });
 
   // Build set of ALL scheduled dates for this student in range
-  // Pull from twWeekCache — every week that has events for this student
+  // Strategy:
+  //   1. Project recurring main calendar classes across every week of the month
+  //   2. Overlay This Week cache (adds one-off sessions, respects moved/removed events)
+  //   3. Also include any attendance records (covers edge cases)
+
   const scheduledDates = new Set();
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  // 1. Project main calendar classes for this student across all weeks of the month
+  const relevantClasses = classes.filter(c => {
+    if (c.batchId !== batchId) return false;
+    if (c.season !== 'both' && c.season !== season) return false;
+    // Must apply to this student
+    if (c.studentScope && c.studentScope !== studentName) return false;
+    return true;
+  });
+
+  if (fromDate && toDate) {
+    const start = new Date(fromDate + 'T00:00:00');
+    const end = new Date(toDate + 'T23:59:59');
+    // Walk every day in the month
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dayName = dayNames[d.getDay()];
+      const dateStr = d.toISOString().slice(0,10);
+      relevantClasses.forEach(c => {
+        const dt = getDisplayTime(c);
+        if (dt.day === dayName) scheduledDates.add(dateStr);
+      });
+    }
+  }
+
+  // 2. Also add dates from This Week cache (one-off additions, moved classes)
   Object.values(twWeekCache).forEach(weekEvs => {
     if (!Array.isArray(weekEvs)) return;
     weekEvs.forEach(ev => {
-      // Match by batchId OR if this student is an addon
-      const isMainStudent = ev.batchId === batchId && (
-        !ev.studentScope || ev.studentScope === studentName
-      );
+      const isMainStudent = ev.batchId === batchId && (!ev.studentScope || ev.studentScope === studentName);
       const isAddon = (ev.addonStudents||[]).some(a => a.name === studentName && a.batchId === batchId);
       if (!isMainStudent && !isAddon) return;
       const d = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
@@ -3010,7 +3037,8 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       scheduledDates.add(d);
     });
   });
-  // Also add any dates that have recorded attendance (in case TW cache was cleared)
+
+  // 3. Also add any dates with recorded attendance
   Object.keys(attLookup).forEach(d => {
     if ((!fromDate || d >= fromDate) && (!toDate || d <= toDate)) scheduledDates.add(d);
   });
@@ -3146,14 +3174,25 @@ function asbFeeModelChanged() {
   const model = document.getElementById('asb-fee-model').value;
   const sec = document.getElementById('asb-monthly-section');
   const lbl = document.getElementById('asb-monthly-label');
+  const rateLbl = document.getElementById('asb-rate-label');
+  const rateInput = document.getElementById('asb-rate');
+  // Monthly section visibility
   if (model === 'monthly-all' || model === 'monthly-cap8') {
     sec.style.display = '';
-    lbl.textContent = 'Calculate from';
+    if(lbl) lbl.textContent = 'Calculate from';
   } else if (model === 'upfront-8') {
     sec.style.display = '';
-    lbl.textContent = 'Count from';
+    if(lbl) lbl.textContent = 'Count from';
   } else {
-    sec.style.display = 'none'; // per-8: no popup needed
+    sec.style.display = 'none';
+  }
+  // Rate label and placeholder
+  if (model === 'per-8' || model === 'upfront-8') {
+    if(rateLbl) rateLbl.textContent = 'Per block rate (for 8 classes)';
+    if(rateInput) rateInput.placeholder = 'e.g. 2800';
+  } else {
+    if(rateLbl) rateLbl.textContent = 'Per class rate';
+    if(rateInput) rateInput.placeholder = 'e.g. 350';
   }
 }
 
@@ -3305,13 +3344,19 @@ function saveSettings() {
 function beeFeeModelChanged() {
   const model = document.getElementById('be-att-model').value;
   const hint = document.getElementById('be-rate-hint');
+  const rateLbl = document.getElementById('be-rate-label');
   const hints = {
-    'monthly-all':'Rate per class. Total = rate × classes attended this month.',
-    'monthly-cap8':'Rate per class. Total = rate × min(attended,8) per month.',
-    'upfront-8':'Flat amount for 8 classes. Paid at month start. Unused carry over.',
+    'monthly-all':'Per class. Total = rate × classes attended this month.',
+    'monthly-cap8':'Per class. Total = rate × min(attended,8) per month.',
+    'upfront-8':'Flat amount per 8-class block. Fee stays fixed regardless of attendance.',
     'per-8':'Flat amount per 8-class block. Charged each time 8 classes are completed.',
   };
   if (hint) hint.textContent = hints[model] || '';
+  if (rateLbl) {
+    rateLbl.textContent = (model === 'per-8' || model === 'upfront-8')
+      ? 'Per block rate (for 8 classes)'
+      : 'Per class rate';
+  }
 }
 function indFeeModelChanged() {}
 
@@ -3358,9 +3403,9 @@ function calcStudentFee(studentName, batchId, fromDate, toDate) {
     amountDue = rate*billable;
     details = attended+' attended, billed '+billable+' × '+fmtAmount(rate,currency)+(attended>8?' (capped)':'');
   } else if (model==='upfront-8') {
-    amountDue = rate;
+    amountDue = rate; // flat block rate, fixed regardless of attendance
     const used=Math.min(attended,8), carry=8-used;
-    details = 'Upfront '+fmtAmount(rate,currency)+' for 8. Used: '+used+(carry>0?', carry over: '+carry:'');
+    details = 'Block rate: '+fmtAmount(rate,currency)+'. Used '+used+' of 8'+(carry>0?' ('+carry+' carry over)':'');
   } else if (model==='per-8') {
     const key=batchId+':'+studentName, ss=studentSettings[key]||{};
     let counter=ss.cycleStart||0, blocks=0;
