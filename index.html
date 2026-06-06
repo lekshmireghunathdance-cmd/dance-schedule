@@ -76,7 +76,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 .cal-col:hover{background:rgba(26,115,232,.03)}
 .hour-line{position:absolute;left:0;right:0;border-top:1px solid #f0f0f0;pointer-events:none}
 .hour-line.solid{border-top:1px solid var(--border);pointer-events:none}
-.cal-event{position:absolute;border-radius:4px;font-size:11px;font-weight:500;cursor:grab;z-index:2;padding:3px 5px;line-height:1.3;overflow:hidden;transition:filter .15s,box-shadow .15s;border-left:3px solid}
+.cal-event{position:absolute;border-radius:4px;font-size:11px;font-weight:500;cursor:default;z-index:2;padding:3px 5px;line-height:1.3;overflow:hidden;transition:filter .15s,box-shadow .15s;border-left:3px solid}
 .cal-event:hover{filter:brightness(.93);box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .cal-event.temporary{border-style:dashed;border-left-style:solid}
 .cal-hover-indicator{position:absolute;left:2px;right:2px;background:rgba(26,115,232,.12);border-left:3px solid var(--blue);border-radius:4px;pointer-events:none;z-index:1;display:none}
@@ -236,14 +236,12 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     </button>
     <div class="tz-dropdown" id="tz-dropdown"></div>
   </div>
-  <button class="header-btn primary" onclick="openAddClass()">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-    Add class
-  </button>
+
   <button class="header-btn" onclick="if(confirm('Reset to original schedule? All changes will be lost.'))resetSchedule()">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
     Reset
   </button>
+
   <button class="header-btn" id="btn-this-week" onclick="openThisWeek()" style="background:var(--orange-light);color:var(--orange);font-weight:500">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     This week
@@ -414,31 +412,130 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="field"><label>Category</label>
       <select id="as-category" onchange="asCategoryChanged()">
         <option value="ohio-standard">Type A — Ohio Standard</option>
+        <option value="monthly-block">Type B — Monthly Block</option>
+        <option value="true-per-class">Type C — True Per-Class</option>
+        <option value="rolling-cycle">Type D — Rolling Fee Cycle</option>
       </select>
-      <div id="as-cat-desc" class="cat-desc" style="margin-top:6px;font-size:11px;color:var(--muted);background:var(--bg);border-radius:var(--radius);padding:6px 10px;line-height:1.5">Monthly billing, capped at 8 classes. Regular, missed and additional classes all count. Makeup = 0.</div>
+      <div id="as-cat-desc" class="cat-desc" style="margin-top:6px;font-size:11px;color:var(--muted);background:var(--bg);border-radius:var(--radius);padding:6px 10px;line-height:1.5"></div>
     </div>
-    <!-- Type A fields -->
-    <div id="as-type-a-fields">
+
+    <!-- TYPE A — Ohio Standard -->
+    <div id="as-fields-a" style="display:none">
       <div class="field">
         <label>Attendance &amp; fee period starts from</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <select id="as-period-month">
-            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
-            <option value="4">April</option><option value="5">May</option><option value="6" selected>June</option>
+          <select id="as-a-period-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
             <option value="7">July</option><option value="8">August</option><option value="9">September</option>
-            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-          </select>
-          <select id="as-period-year"></select>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-a-period-year"></select>
         </div>
       </div>
       <div class="field">
         <label>Per class fee rate</label>
         <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
-          <input id="as-rate" type="number" min="0" step="0.01" placeholder="e.g. 400"/>
-          <select id="as-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+          <input id="as-a-rate" type="number" min="0" step="0.01" placeholder="e.g. 400"/>
+          <select id="as-a-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Last fee paid for</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-a-paid-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-a-paid-year"></select>
         </div>
       </div>
     </div>
+
+    <!-- TYPE B — Monthly Block -->
+    <div id="as-fields-b" style="display:none">
+      <div class="field">
+        <label>Per month fee</label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-b-rate" type="number" min="0" step="0.01" placeholder="e.g. 3000"/>
+          <select id="as-b-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Attendance &amp; fee period starts from</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-b-period-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-b-period-year"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Last fee paid for</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-b-paid-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-b-paid-year"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPE C — True Per-Class -->
+    <div id="as-fields-c" style="display:none">
+      <div class="field">
+        <label>Per class fee</label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-c-rate" type="number" min="0" step="0.01" placeholder="e.g. 500"/>
+          <select id="as-c-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Attendance &amp; fee period starts from</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-c-period-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-c-period-year"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Last fee paid for</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-c-paid-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-c-paid-year"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPE D — Rolling Fee Cycle -->
+    <div id="as-fields-d" style="display:none">
+      <div class="field">
+        <label>Per period fee (per 8 classes)</label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-d-rate" type="number" min="0" step="0.01" placeholder="e.g. 2800"/>
+          <select id="as-d-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Last fee paid for</label>
+        <input id="as-d-paid-date" type="date" style="width:100%"/>
+      </div>
+      <div class="field">
+        <label>Current fee period started on</label>
+        <input id="as-d-cycle-start" type="date" style="width:100%"/>
+      </div>
+      <div class="field">
+        <label>First class count <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(where in the 8-class cycle does this student start?)</span></label>
+        <input id="as-d-first-count" type="number" min="1" max="8" value="1" style="width:80px"/>
+        <span style="font-size:12px;color:var(--muted);margin-left:8px">of 8</span>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeOverlay('modal-add-student-1')">Cancel</button>
       <button class="btn-primary" id="as-next-btn" onclick="asStep2OrSave()">Save and next →</button>
@@ -1548,7 +1645,7 @@ function renderCalendar(){
       const dt=getDisplayTime(c);
       return dt.day===day;
     });
-    html+=`<div class="cal-col" style="height:${GRID_H}px" data-day="${day}" onclick="calColClick(event,'${day}')" onmousemove="calColHover(event)" onmouseleave="calColLeave(event)">`;
+    html+=`<div class="cal-col" style="height:${GRID_H}px" data-day="${day}" onmousemove="calColHover(event)" onmouseleave="calColLeave(event)">`;
     html+=`<div class="cal-hover-indicator" id="hover-${day}"></div>`;
     for(let h=0;h<=END_H-START_H;h++){
       html+=`<div class="hour-line solid" style="top:${h*60*PX_PER_MIN}px"></div>`;
@@ -1616,22 +1713,11 @@ function renderCalendar(){
 // ── Drag and drop (day + time) ──
 let dragState=null;
 function dragMouseDown(e,idx){
-  if(e.button!==0)return;
-  const allClasses=getClassesFromTimings();
-  const c=allClasses[idx];
-  if(c&&c._fromTimings)return; // don't drag timing-derived classes from main cal
-  dragState={idx,startX:e.clientX,startY:e.clientY,ghost:null,moved:false,origDay:c?.day};
+  // Drag disabled on main calendar — edit timings via batch/student setup
 }
 function handleEventClick(e,idx){
-  if(dragState&&dragState.moved)return;
-  const allClasses=getClassesFromTimings();
-  const c=allClasses[idx];
-  if(c&&c._fromTimings){
-    // From batch/student timings — open detail popup, not edit
-    openDetail(c.batchId);
-  } else {
-    openEditClass(idx);
-  }
+  // Main calendar blocks are display-only — no popup
+  // Edit timings via batch/student setup instead
 }
 function createGhost(idx,x,y){
   const c=classes[idx];const batch=getBatch(c.batchId);const col=getColor(batch.color);
@@ -1713,14 +1799,7 @@ function pxToIst(offsetY){
   const totalMin=START_H*60+Math.min(snapped,TOTAL_MINS-60);
   return minsToIstStr(totalMin);
 }
-function calColClick(e,day){
-  if(dragState&&dragState.moved)return;
-  const rect=e.currentTarget.getBoundingClientRect();
-  const start=pxToIst(e.clientY-rect.top);
-  const sm=toMins(start);
-  const end=minsToIstStr(Math.min(sm+60,END_H*60));
-  openAddClass(day,start,end);
-}
+function calColClick(e,day){ /* disabled */ }
 function calColHover(e){
   const col=e.currentTarget;const day=col.dataset.day;
   const ind=document.getElementById('hover-'+day);if(!ind)return;
@@ -1794,8 +1873,8 @@ function mcAddAddon() {
 }
 
 function renderMcAddonList() {
-  const list = document.getElementById('mc-addon-list');
-  if (!list) return;
+  const list = document.getElementById('mc-addon-list'); if (!list) return;
+  if (!list) return; // modal no longer has this element
   list.innerHTML = mcAddonStudents.map((a, i) => {
     const b = getBatch(a.batchId);
     return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--blue-light);color:var(--blue);padding:3px 8px;border-radius:12px;font-size:12px">
@@ -2041,8 +2120,8 @@ function openNewBatch(){
   renderColorGrid('c1');
   document.getElementById('modal-batch-edit').classList.add('open');
 }
-function openEditBatch(id){ openAddBatch(id); return;
-// legacy below:
+function openEditBatch(id){ openAddBatch(id); return; }
+function _legacyOpenEditBatch(id){
 
   addBatchMode=false;editBatchId=id;
   const b=getBatch(id);
@@ -2238,7 +2317,7 @@ function renderDetailContent(){
 
 // ── Download Week as JPG (1080×1350, IST only, Calibri font) ──
 async function downloadWeekJpg(){
-  const btn=document.getElementById('btn-download-week');
+  const btn=document.getElementById('btn-download-week'); // optional button
   if(btn){btn.textContent='Preparing…';btn.disabled=true;}
 
   // Yield to browser so UI doesn't freeze
@@ -2436,7 +2515,7 @@ async function downloadWeekJpg(){
     console.error('Download failed:',e);
     showToast('Download failed: '+e.message);
   } finally {
-    const btn=document.getElementById('btn-download-week');
+    const btn=document.getElementById('btn-download-week'); // optional
     if(btn){btn.textContent='Download week';btn.disabled=false;}
   }
 }
@@ -2699,7 +2778,7 @@ function twColClick(e,dateStr){
   const raw=Math.round((twOffsetY(e,e.currentTarget)/TW_PX_PM)/15)*15;
   const startMin=TW_START_H*60+Math.min(raw,TW_TOTAL_MINS-60);
   const endMin=Math.min(startMin+60,TW_END_H*60);
-  if(!batches.length){showToast('Add a batch first');return;}
+  if(!batches.length && !individualStudents.length){showToast('Add a batch or student first');return;}
   const newEv={id:'tw_'+Date.now(),batchId:batches[0].id,date:new Date(dateStr+'T12:00:00'),start:minsToIstStr(startMin),end:minsToIstStr(endMin),isTemp:false};
   twEvents.push(newEv);twSaveEvents();twRender();twOpenEdit(newEv.id);
 }
@@ -2889,7 +2968,7 @@ async function downloadThisWeekJpg(){
     // Events
     days.forEach((d,di)=>{
       const dateStr=d.toISOString().slice(0,10);
-      const dayEvs=twEvents.filter(e=>e.date.toISOString().slice(0,10)===dateStr);
+      const dayEvs=twEvents.filter(e=>localDateStr(e.date)===dateStr);
       const evs=dayEvs.map(e=>{const sm=toMins(e.start),em=toMins(e.end);return{e,sm,em};}).sort((a,b)=>a.sm-b.sm);
       const slots=[];
       const assigned=evs.map(({sm,em})=>{const s=slots.findIndex(e=>e<=sm);if(s===-1){slots.push(em);return slots.length-1;}slots[s]=em;return s;});
@@ -2986,7 +3065,7 @@ function saveAttendance() {
   const ev = twEvents.find(e => e.id === attCurrentEventId);
   const batch = getBatch(ev?.batchId);
   attendance[attCurrentEventId] = {
-    date: ev ? ev.date.toISOString().slice(0, 10) : '',
+    date: ev ? localDateStr(ev.date) : '',
     batchId: ev?.batchId || '',
     classLabel: (batch?.name || '') + ' – ' + (ev ? fmtDate(ev.date) : ''),
     twStart: ev?.start || '',
@@ -3276,7 +3355,19 @@ function refreshStudentAtt() {
 // ── Student attendance detail (for student popup) ──
 function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   const b = getBatch(batchId);
-  const attModel = b?.attModel || 'monthly-cap8';
+  // Resolve attendance model from studentSettings category or batch attModel
+  const _ssKey = batchId + ':' + studentName;
+  const _ss = studentSettings[_ssKey] || {};
+  const _category = _ss.category || b?.attModel || 'monthly-cap8';
+  // Map category names to internal model keys
+  const attModel = {
+    'ohio-standard': 'monthly-cap8',
+    'monthly-block': 'monthly-block',
+    'true-per-class': 'true-per-class',
+    'rolling-cycle': 'rolling-cycle',
+    'monthly-cap8': 'monthly-cap8',
+    'monthly-all': 'monthly-all',
+  }[_category] || 'monthly-cap8';
 
   // ── Build attendance lookup from This Week records ──
   // Key: date (IST) → {status, makeupFor, classLabel, twStart, isAddon}
@@ -3328,7 +3419,12 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
       relevantCalClasses.forEach(c => {
         const dt = getDisplayTime(c);
-        if (dt.day === dayName) scheduledDates.add(dateStr);
+        if (!dt.start) return;
+        // For attendance, use the IST class day directly (not the display day which may be shifted for temp)
+        // Use c.day (the regular day) to project dates — temp timings shift the display but attendance
+        // should be tracked against the regular schedule day
+        const classDay = c.day; // always the base day from the timing slot
+        if (classDay === dayName) scheduledDates.add(dateStr);
       });
     }
   }
@@ -3449,8 +3545,8 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   }).join('');
 
   // ── Fee summary ──
-  const rate = parseFloat(b?.rate) || 0;
-  const currency = b?.currency || 'INR';
+  const rate = parseFloat(_feeSettings.rate || b?.rate) || 0;
+  const currency = _feeSettings.currency || b?.currency || 'INR';
   const cap = attModel === 'monthly-cap8' ? 8 : 999;
   const countedClasses = Math.min(runningCount, cap);
   const feeAmount = countedClasses * rate;
@@ -3513,144 +3609,6 @@ function setCycleStart(key, val) {
 // UNIFIED ADD STUDENT / BATCH
 // ══════════════════════════════════════════════
 let asbType = 'student'; // 'student' | 'batch'
-
-function openAddStudentBatch() {
-  asbType = 'student';
-  // Populate year dropdown
-  const yr = document.getElementById('asb-fee-year');
-  const now = new Date();
-  yr.innerHTML = '';
-  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 2; y++) {
-    yr.innerHTML += `<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
-  }
-  // Default month to current
-  document.getElementById('asb-fee-month').value = now.getMonth() + 1;
-  // Reset fields
-  document.getElementById('asb-student-name').value = '';
-  document.getElementById('asb-batch-name').value = '';
-  document.getElementById('asb-batch-students').value = '';
-  document.getElementById('asb-tz').value = 'IST';
-  document.getElementById('asb-att-model').value = 'monthly-all';
-  document.getElementById('asb-fee-model').value = 'monthly-all';
-  document.getElementById('asb-rate').value = '';
-  document.getElementById('asb-currency').value = 'INR';
-  document.getElementById('asb-per8-last-date').value = '';
-  document.getElementById('asb-per8-class-num').value = '1';
-  document.getElementById('asb-title').textContent = 'Add student / batch';
-  asbSetType('student');
-  asbAttModelChanged();
-  asbFeeModelChanged();
-  renderColorGrid_asb('c1');
-  document.getElementById('modal-add-sb').classList.add('open');
-}
-
-function asbSetType(t) {
-  asbType = t;
-  document.getElementById('asb-type-student').classList.toggle('active-blue', t === 'student');
-  document.getElementById('asb-type-batch').classList.toggle('active-blue', t === 'batch');
-  document.getElementById('asb-student-name-wrap').style.display = t === 'student' ? '' : 'none';
-  document.getElementById('asb-batch-wrap').style.display = t === 'batch' ? '' : 'none';
-  document.getElementById('asb-color-wrap').style.display = t === 'batch' ? '' : 'none';
-}
-
-function asbAttModelChanged() {
-  const model = document.getElementById('asb-att-model').value;
-  document.getElementById('asb-per8-section').style.display = model === 'per-8' ? '' : 'none';
-}
-
-function asbFeeModelChanged() {
-  const model = document.getElementById('asb-fee-model').value;
-  const sec = document.getElementById('asb-monthly-section');
-  const lbl = document.getElementById('asb-monthly-label');
-  const rateLbl = document.getElementById('asb-rate-label');
-  const rateInput = document.getElementById('asb-rate');
-  // Monthly section visibility
-  if (model === 'monthly-all' || model === 'monthly-cap8') {
-    sec.style.display = '';
-    if(lbl) lbl.textContent = 'Calculate from';
-  } else if (model === 'upfront-8') {
-    sec.style.display = '';
-    if(lbl) lbl.textContent = 'Count from';
-  } else {
-    sec.style.display = 'none';
-  }
-  // Rate label and placeholder
-  if (model === 'per-8' || model === 'upfront-8') {
-    if(rateLbl) rateLbl.textContent = 'Per block rate (for 8 classes)';
-    if(rateInput) rateInput.placeholder = 'e.g. 2800';
-  } else {
-    if(rateLbl) rateLbl.textContent = 'Per class rate';
-    if(rateInput) rateInput.placeholder = 'e.g. 350';
-  }
-}
-
-function renderColorGrid_asb(selId) {
-  document.getElementById('asb-color-grid').innerHTML = ALL_COLORS.map(c =>
-    `<div class="color-swatch${c.id===selId?' selected':''}" style="background:${c.border}" onclick="selectColor_asb('${c.id}')" data-cid="${c.id}"></div>`
-  ).join('');
-}
-function selectColor_asb(cid) {
-  document.querySelectorAll('#asb-color-grid .color-swatch').forEach(el => el.classList.toggle('selected', el.dataset.cid === cid));
-}
-function getSelectedColor_asb() {
-  const el = document.querySelector('#asb-color-grid .color-swatch.selected');
-  return el ? el.dataset.cid : 'c1';
-}
-
-function asbSave() {
-  const tz = document.getElementById('asb-tz').value;
-  const attModel = document.getElementById('asb-att-model').value;
-  const feeModel = document.getElementById('asb-fee-model').value;
-  const rate = document.getElementById('asb-rate').value.trim();
-  const currency = document.getElementById('asb-currency').value;
-  // Fee period start
-  const feeMonth = document.getElementById('asb-fee-month').value;
-  const feeYear = document.getElementById('asb-fee-year').value;
-  const feeFrom = (feeModel !== 'per-8') ? (feeYear + '-' + String(feeMonth).padStart(2,'0') + '-01') : null;
-
-  if (asbType === 'student') {
-    const name = document.getElementById('asb-student-name').value.trim();
-    if (!name) { showToast('Please enter a student name'); return; }
-    const id = IND_BATCH_PREFIX + Date.now();
-    const student = { id, name, tzGroup: tz, attModel, rate, currency, feeFrom };
-    // Per-8 starting point
-    if (attModel === 'per-8') {
-      const lastDate = document.getElementById('asb-per8-last-date').value;
-      const classNum = parseInt(document.getElementById('asb-per8-class-num').value) || 1;
-      const key = id + ':' + name;
-      if (!studentSettings[key]) studentSettings[key] = {};
-      studentSettings[key].cycleStart = classNum;
-      studentSettings[key].lastAttended = lastDate;
-      save('studentSettings', studentSettings);
-    }
-    individualStudents.push(student);
-    save('individualStudents', individualStudents);
-    closeOverlay('modal-add-sb');
-    setTimeout(() => {
-      if (!sidebarSectionState.students) {
-        sidebarSectionState.students = true;
-        const b = document.getElementById('students-body');
-        const ch = document.getElementById('students-chevron');
-        if (b) b.style.display = '';
-        if (ch) ch.style.transform = '';
-      }
-      renderSidebar();
-    }, 50);
-    showToast('Student added');
-
-  } else {
-    const name = document.getElementById('asb-batch-name').value.trim();
-    if (!name) { showToast('Please enter a batch name'); return; }
-    const students = document.getElementById('asb-batch-students').value.trim();
-    const color = getSelectedColor_asb();
-    batches.push({ id: 'b_' + Date.now(), name, color, students, tzGroup: tz, attModel, rate, currency, feeFrom });
-    save('batches', batches);
-    closeOverlay('modal-add-sb');
-    renderSidebar();
-    renderCalendar();
-    showToast('Batch added');
-  }
-}
 
 // ══════════════════════════════════════════════
 // MANAGE ALL MODAL
@@ -3785,7 +3743,7 @@ function beAddSlot(season) {
   if (!el) return;
   const idx = el.querySelectorAll('.timing-slot').length;
   el.insertAdjacentHTML('beforeend', makeSlotRow({}, idx));
-  if (season === 'temp') document.getElementById('be-show-cal-wrap') && (document.getElementById('be-show-cal-wrap').style.display = '');
+  // be-show-cal-wrap removed — show-on-calendar toggle always visible in new modal
 }
 function beSetShow(v) {
   beShowOnCalendar = v;
@@ -3823,7 +3781,9 @@ function getClassesFromTimings() {
   batches.forEach(b => {
     const showCal = b.showOnCalendar || 'regular';
     const tempSeason = b.tempSeason || 'both';
-    const hasTempSlots = (b.tempTimings || []).length > 0;
+    const hasTempSlots = Array.isArray(b.tempTimings) && b.tempTimings.length > 0;
+    if (!Array.isArray(b.timings)) b.timings = [];
+    if (!Array.isArray(b.tempTimings)) b.tempTimings = [];
 
     // Regular timings — skip if temporary is being shown for that season
     (b.timings || []).forEach(t => {
@@ -4018,14 +3978,30 @@ function openAddStudentFlow(batchId, studentName) {
   bSel.innerHTML = '<option value="">No batch (individual student)</option>' +
     batches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
 
-  // Populate year dropdown
-  const yrSel = document.getElementById('as-period-year');
+  // Populate all year dropdowns
   const now = new Date();
-  yrSel.innerHTML = '';
-  for (let y=now.getFullYear()-1;y<=now.getFullYear()+2;y++) {
-    yrSel.innerHTML+=`<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
-  }
-  document.getElementById('as-period-month').value = now.getMonth()+1;
+  const curY = now.getFullYear();
+  const curM = now.getMonth()+1;
+  ['as-a-period-year','as-a-paid-year','as-b-period-year','as-b-paid-year',
+   'as-c-period-year','as-c-paid-year'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '';
+    for (let y=curY-2;y<=curY+2;y++) el.innerHTML+=`<option value="${y}"${y===curY?' selected':''}>${y}</option>`;
+  });
+  // Set default months to current
+  ['as-a-period-month','as-a-paid-month','as-b-period-month','as-b-paid-month',
+   'as-c-period-month','as-c-paid-month'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = curM;
+  });
+  // Set default dates for Type D
+  const todayStr = localDateStr(new Date());
+  ['as-d-paid-date','as-d-cycle-start'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = todayStr;
+  });
+  document.getElementById('as-d-first-count') && (document.getElementById('as-d-first-count').value='1');
 
   if (batchId && studentName) {
     // Setup from blue dot
@@ -4044,9 +4020,7 @@ function openAddStudentFlow(batchId, studentName) {
   }
 
   document.getElementById('as-category').value = 'ohio-standard';
-  document.getElementById('as-rate').value = '';
-  document.getElementById('as-currency').value = 'INR';
-  asCategoryChanged();
+      asCategoryChanged();
   asBatchChanged();
   document.getElementById('modal-add-student-1').classList.add('open');
 }
@@ -4063,28 +4037,63 @@ function openEditIndStudentFlow(id) {
   bSel.value = '';
   bSel.disabled = false;
 
-  const yrSel = document.getElementById('as-period-year');
-  const now = new Date();
-  yrSel.innerHTML = '';
-  for (let y=now.getFullYear()-1;y<=now.getFullYear()+2;y++) {
-    yrSel.innerHTML+=`<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
-  }
+  // Populate all year dropdowns for the edit modal
+  const _now = new Date();
+  const _curY = _now.getFullYear();
+  ['as-a-period-year','as-a-paid-year','as-b-period-year','as-b-paid-year',
+   'as-c-period-year','as-c-paid-year'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '';
+    for (let y=_curY-2;y<=_curY+2;y++) el.innerHTML+=`<option value="${y}"${y===_curY?' selected':''}>${y}</option>`;
+  });
 
   document.getElementById('as-title').textContent = 'Edit student';
   document.getElementById('as-name').value = s.name;
   document.getElementById('as-name').readOnly = false;
   document.getElementById('as-category').value = s.category || 'ohio-standard';
-  document.getElementById('as-rate').value = s.rate || '';
-  document.getElementById('as-currency').value = s.currency || 'INR';
-
+    
   const key = s.id+':'+s.name;
   const ss = studentSettings[key]||{};
-  if (ss.periodMonth) document.getElementById('as-period-month').value=ss.periodMonth;
-  if (ss.periodYear) document.getElementById('as-period-year').value=ss.periodYear;
-
+  if (ss.periodMonth)   if (ss.periodYear) 
   asCategoryChanged();
   asBatchChanged();
   document.getElementById('modal-add-student-1').classList.add('open');
+}
+
+
+function asGetCategoryFields() {
+  const cat = document.getElementById('as-category').value;
+  const fields = { category: cat };
+  if (cat==='ohio-standard') {
+    fields.rate = document.getElementById('as-a-rate').value.trim();
+    fields.currency = document.getElementById('as-a-currency').value;
+    fields.periodMonth = document.getElementById('as-a-period-month').value;
+    fields.periodYear = document.getElementById('as-a-period-year').value;
+    fields.lastPaidMonth = document.getElementById('as-a-paid-month').value;
+    fields.lastPaidYear = document.getElementById('as-a-paid-year').value;
+  } else if (cat==='monthly-block') {
+    fields.rate = document.getElementById('as-b-rate').value.trim();
+    fields.currency = document.getElementById('as-b-currency').value;
+    fields.periodMonth = document.getElementById('as-b-period-month').value;
+    fields.periodYear = document.getElementById('as-b-period-year').value;
+    fields.lastPaidMonth = document.getElementById('as-b-paid-month').value;
+    fields.lastPaidYear = document.getElementById('as-b-paid-year').value;
+  } else if (cat==='true-per-class') {
+    fields.rate = document.getElementById('as-c-rate').value.trim();
+    fields.currency = document.getElementById('as-c-currency').value;
+    fields.periodMonth = document.getElementById('as-c-period-month').value;
+    fields.periodYear = document.getElementById('as-c-period-year').value;
+    fields.lastPaidMonth = document.getElementById('as-c-paid-month').value;
+    fields.lastPaidYear = document.getElementById('as-c-paid-year').value;
+  } else if (cat==='rolling-cycle') {
+    fields.rate = document.getElementById('as-d-rate').value.trim();
+    fields.currency = document.getElementById('as-d-currency').value;
+    fields.lastPaidDate = document.getElementById('as-d-paid-date').value;
+    fields.cycleStartDate = document.getElementById('as-d-cycle-start').value;
+    fields.firstClassCount = parseInt(document.getElementById('as-d-first-count').value)||1;
+  }
+  return fields;
 }
 
 function asBatchChanged() {
@@ -4103,11 +4112,19 @@ function asBatchChanged() {
 function asCategoryChanged() {
   const cat = document.getElementById('as-category').value;
   const descs = {
-    'ohio-standard': 'Monthly billing, capped at 8 classes. Regular, missed and additional classes all count (max 8). Makeup = 0 count.',
+    'ohio-standard':  'Monthly, capped at 8. Regular + missed + additional count. Makeup = 0. Pay at month end.',
+    'monthly-block':  'Fixed monthly fee paid upfront. Attendance tracked but no class count for billing. Cancelled classes must be made up.',
+    'true-per-class': 'Pay per class attended. No cap. Regular + additional count. Pay at month end.',
+    'rolling-cycle':  'Pay after every 8 classes attended, regardless of month. Cycle resets day after 8th class.',
   };
   document.getElementById('as-cat-desc').textContent = descs[cat] || '';
-  // Show/hide category-specific fields
-  document.getElementById('as-type-a-fields').style.display = cat==='ohio-standard' ? '' : 'none';
+  ['a','b','c','d'].forEach(t => {
+    const el = document.getElementById('as-fields-'+t);
+    if (el) el.style.display = 'none';
+  });
+  const map = {'ohio-standard':'a','monthly-block':'b','true-per-class':'c','rolling-cycle':'d'};
+  const show = map[cat];
+  if (show) document.getElementById('as-fields-'+show).style.display = '';
 }
 
 function asStep2OrSave() {
@@ -4158,22 +4175,47 @@ function asSaveStudent() {
   const name = document.getElementById('as-name').value.trim();
   if (!name) { showToast('Please enter a name'); return; }
   const batchId = document.getElementById('as-batch').value;
-  const category = document.getElementById('as-category').value;
-  const rate = document.getElementById('as-rate').value.trim();
-  const currency = document.getElementById('as-currency').value;
-  const periodMonth = document.getElementById('as-period-month').value;
-  const periodYear = document.getElementById('as-period-year').value;
+  const catFields = asGetCategoryFields();
+  const category = catFields.category;
+  const rate = catFields.rate || '';
+  const currency = catFields.currency || 'INR';
+  const periodMonth = catFields.periodMonth || '';
+  const periodYear = catFields.periodYear || '';
 
   if (batchId) {
-    // Batch student — store settings under batchId:name
     const key = batchId+':'+name;
     if (!studentSettings[key]) studentSettings[key]={};
-    studentSettings[key].category=category;
-    studentSettings[key].rate=rate;
-    studentSettings[key].currency=currency;
-    studentSettings[key].periodMonth=periodMonth;
-    studentSettings[key].periodYear=periodYear;
-    studentSettings[key].needsSetup=false;
+    studentSettings[key].category = category;
+    studentSettings[key].needsSetup = false;
+    // Collect category-specific fields
+    if (category==='ohio-standard') {
+      studentSettings[key].rate = document.getElementById('as-a-rate').value.trim();
+      studentSettings[key].currency = document.getElementById('as-a-currency').value;
+      studentSettings[key].periodMonth = document.getElementById('as-a-period-month').value;
+      studentSettings[key].periodYear = document.getElementById('as-a-period-year').value;
+      studentSettings[key].lastPaidMonth = document.getElementById('as-a-paid-month').value;
+      studentSettings[key].lastPaidYear = document.getElementById('as-a-paid-year').value;
+    } else if (category==='monthly-block') {
+      studentSettings[key].rate = document.getElementById('as-b-rate').value.trim();
+      studentSettings[key].currency = document.getElementById('as-b-currency').value;
+      studentSettings[key].periodMonth = document.getElementById('as-b-period-month').value;
+      studentSettings[key].periodYear = document.getElementById('as-b-period-year').value;
+      studentSettings[key].lastPaidMonth = document.getElementById('as-b-paid-month').value;
+      studentSettings[key].lastPaidYear = document.getElementById('as-b-paid-year').value;
+    } else if (category==='true-per-class') {
+      studentSettings[key].rate = document.getElementById('as-c-rate').value.trim();
+      studentSettings[key].currency = document.getElementById('as-c-currency').value;
+      studentSettings[key].periodMonth = document.getElementById('as-c-period-month').value;
+      studentSettings[key].periodYear = document.getElementById('as-c-period-year').value;
+      studentSettings[key].lastPaidMonth = document.getElementById('as-c-paid-month').value;
+      studentSettings[key].lastPaidYear = document.getElementById('as-c-paid-year').value;
+    } else if (category==='rolling-cycle') {
+      studentSettings[key].rate = document.getElementById('as-d-rate').value.trim();
+      studentSettings[key].currency = document.getElementById('as-d-currency').value;
+      studentSettings[key].lastPaidDate = document.getElementById('as-d-paid-date').value;
+      studentSettings[key].cycleStartDate = document.getElementById('as-d-cycle-start').value;
+      studentSettings[key].firstClassCount = parseInt(document.getElementById('as-d-first-count').value)||1;
+    }
     save('studentSettings',studentSettings);
     closeOverlay('modal-add-student-1');
     renderSidebar();
@@ -4184,11 +4226,12 @@ function asSaveStudent() {
 function asSave() {
   // Individual student — save with timings
   const name = document.getElementById('as-name').value.trim();
-  const category = document.getElementById('as-category').value;
-  const rate = document.getElementById('as-rate').value.trim();
-  const currency = document.getElementById('as-currency').value;
-  const periodMonth = document.getElementById('as-period-month').value;
-  const periodYear = document.getElementById('as-period-year').value;
+  const catFields = asGetCategoryFields();
+  const category = catFields.category;
+  const rate = catFields.rate || '';
+  const currency = catFields.currency || 'INR';
+  const periodMonth = catFields.periodMonth || '';
+  const periodYear = catFields.periodYear || '';
   const summerSlots=getSlotsFromContainer('as-summer-slots').map(s=>({...s,season:'summer'}));
   const winterSlots=getSlotsFromContainer('as-winter-slots').map(s=>({...s,season:'winter'}));
   const tempSlots=getSlotsFromContainer('as-temp-slots');
@@ -4216,7 +4259,7 @@ function asSave() {
       tzGroup:'IST',attModel:'monthly-cap8',
     });
     const key=id+':'+name;
-    studentSettings[key]={periodMonth,periodYear,category,rate,currency};
+    studentSettings[key]={...catFields};
     save('studentSettings',studentSettings);
   }
   save('individualStudents',individualStudents);
@@ -4332,7 +4375,9 @@ function calcStudentFee(studentName, batchId, fromDate, toDate) {
 
 function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
   const b = getBatch(batchId);
-  if (!b || !b.rate) return '';
+  const _bsfKey = batchId+':'+studentName;
+  const _bsfSS = studentSettings[_bsfKey]||{};
+  if (!b || (!_bsfSS.rate && !b.rate)) return '';
   const fee = calcStudentFee(studentName, batchId, fromDate, toDate);
   if (!fee) return '';
   const labels = {'monthly-all':'Monthly (all classes)','monthly-cap8':'Monthly (capped at 8)','upfront-8':'Pay 8 upfront','per-8':'Per 8-class block'};
@@ -4347,7 +4392,9 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
 
 function buildBatchFeeSection(batchId, fromDate, toDate) {
   const b = getBatch(batchId);
-  if (!b || !b.rate) return '';
+  const _bsfKey = batchId+':'+studentName;
+  const _bsfSS = studentSettings[_bsfKey]||{};
+  if (!b || (!_bsfSS.rate && !b.rate)) return '';
   const students = (b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
   if (!students.length) return '';
   const labels = {'monthly-all':'Monthly — all','monthly-cap8':'Monthly — capped at 8','upfront-8':'Pay 8 upfront','per-8':'Per 8-class block'};
@@ -4489,6 +4536,7 @@ async function initLoad(){
     renderSidebar();renderCalendar();
   }
 }
+
 
 // Boot
 document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
