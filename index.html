@@ -2870,7 +2870,13 @@ function saveAttendance() {
     let makeupFor = null;
     if (status === 'makeup') {
       const ms = row.querySelector('.att-makeup-select');
-      makeupFor = ms ? ms.value : null;
+      const makeupDate = ms ? ms.value : null;
+      if (makeupDate) {
+        // Find the attendance record for that date to get its time
+        const missedRec = Object.values(attendance).find(r => r.date === makeupDate);
+        const missedTime = missedRec?.twStart ? ' ' + fmtTime(missedRec.twStart) + ' IST' : '';
+        makeupFor = makeupDate + missedTime;
+      }
     }
     students.push({ name, batchId, isGuest, status, makeupFor });
   });
@@ -2881,6 +2887,7 @@ function saveAttendance() {
     date: ev ? ev.date.toISOString().slice(0, 10) : '',
     batchId: ev?.batchId || '',
     classLabel: (batch?.name || '') + ' – ' + (ev ? fmtDate(ev.date) : ''),
+    twStart: ev?.start || '',
     students,
   };
   cloudSave('attendance', JSON.stringify(attendance));
@@ -3166,163 +3173,209 @@ function refreshStudentAtt() {
 
 // ── Student attendance detail (for student popup) ──
 function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
-  const key = batchId + ':' + studentName;
-  const ss = studentSettings[key] || {};
-  // isPer8 checks both attModel on batch and feeModel
   const b = getBatch(batchId);
-  const isPer8 = (b?.attModel === 'per-8') || (ss.feeModel === 'per-8');
+  const attModel = b?.attModel || 'monthly-cap8';
 
-  // Build attendance lookup from recorded data
-  // Match by studentName across ALL batchIds — a student can attend as an add-on
-  // under a different batch's event (e.g. Swathy added to Ohio 1 class)
-  const attLookup = {}; // date -> record
+  // ── Build attendance lookup from This Week records ──
+  // Key: date (IST) → {status, makeupFor, classLabel, twStart, isAddon}
+  // Collect ALL records for this student by name (across all batches)
+  const attByDate = {}; // IST date string → attendance record
+
   Object.values(attendance).forEach(rec => {
     rec.students.forEach(s => {
-      if (s.name === studentName) {
-        // Use the record even if batchId differs (add-on attendance)
-        // Prefer the record where batchId matches exactly if there are multiple on same date
-        if (!attLookup[rec.date] || s.batchId === batchId) {
-          attLookup[rec.date] = { status: s.status, makeupFor: s.makeupFor, classLabel: rec.classLabel, recBatchId: s.batchId };
-        }
+      if (s.name !== studentName) return;
+      const d = rec.date;
+      if (fromDate && d < fromDate) return;
+      if (toDate && d > toDate) return;
+      // Prefer own-batch record over guest record
+      if (!attByDate[d] || s.batchId === batchId) {
+        attByDate[d] = {
+          status: s.status,
+          makeupFor: s.makeupFor || null,
+          classLabel: rec.classLabel || '',
+          twStart: rec.twStart || '',
+          isAddon: s.batchId !== batchId,
+          recBatchId: s.batchId,
+        };
       }
     });
   });
 
-  // Build set of ALL scheduled dates for this student in range
-  // Strategy:
-  //   1. Project recurring main calendar classes across every week of the month
-  //   2. Overlay This Week cache (adds one-off sessions, respects moved/removed events)
-  //   3. Also include any attendance records (covers edge cases)
-
+  // ── Build scheduled dates from batch timings + This Week cache ──
+  // Dates are always IST calendar dates (5am IST June 1 = June 1)
   const scheduledDates = new Set();
-  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-  // 1. Project main calendar classes for this student across all weeks of the month
-  const relevantClasses = classes.filter(c => {
+  // 1. Project batch timings across all days of the month
+  const allCalClasses = getClassesFromTimings();
+  const relevantCalClasses = allCalClasses.filter(c => {
     if (c.batchId !== batchId) return false;
     if (c.season !== 'both' && c.season !== season) return false;
     if (c.studentScope && c.studentScope !== studentName) return false;
     return true;
   });
 
-  // Determine the preferred TZ for this batch/student to calculate date shift
-  const tzGroup = b?.tzGroup || 'IST';
-  const prefTz = (tzGroup === 'IST') ? null : (TZ_GROUPS.find(g => g.label === tzGroup)?.[season] || null);
-
   if (fromDate && toDate) {
     const start = new Date(fromDate + 'T00:00:00');
     const end = new Date(toDate + 'T23:59:59');
-    // Walk every day in the selected month (in the student's local timezone)
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().slice(0,10);
-      relevantClasses.forEach(c => {
+      const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+      relevantCalClasses.forEach(c => {
         const dt = getDisplayTime(c);
-        if (!dt.start) return;
-        // The class is stored in IST. Work out what day it falls on in the preferred TZ.
-        // tzDayShift returns '' / 'Fri ' / 'Mon ' etc for the day-before/after shift.
-        let classDay = dt.day;
-        if (prefTz) {
-          const shift = tzDayShift(dt.day, dt.start, prefTz);
-          if (shift) {
-            // Shift is a 3-letter day abbreviation e.g. "Fri "
-            const shiftedDayAbbr = shift.trim();
-            classDay = DAYS.find(dy => dy.slice(0,3) === shiftedDayAbbr) || dt.day;
-          }
-        }
-        const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
-        if (classDay === dayName) scheduledDates.add(dateStr);
+        if (dt.day === dayName) scheduledDates.add(dateStr);
       });
     }
   }
 
-  // 2. Also add dates from This Week cache (one-off additions, moved classes)
-  // TW event dates are stored as the actual calendar date (already accounts for timezone)
+  // 2. Add dates from This Week cache for this student (including as addon)
   Object.values(twWeekCache).forEach(weekEvs => {
     if (!Array.isArray(weekEvs)) return;
     weekEvs.forEach(ev => {
-      const isMainStudent = ev.batchId === batchId && (!ev.studentScope || ev.studentScope === studentName);
-      const isAddon = (ev.addonStudents||[]).some(a => a.name === studentName && a.batchId === batchId);
-      if (!isMainStudent && !isAddon) return;
-      // Convert IST event date to preferred TZ date if needed
-      let evDateStr = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
-      if (prefTz && ev.start) {
-        const tzMins = toMins(ev.start) + (TZ_OFFSETS[prefTz] || 0);
-        if (tzMins < 0) {
-          // Day before in local TZ — subtract one day from the date
-          const dt2 = new Date(evDateStr + 'T12:00:00');
-          dt2.setDate(dt2.getDate() - 1);
-          evDateStr = dt2.toISOString().slice(0,10);
-        } else if (tzMins >= 1440) {
-          // Day after in local TZ — add one day
-          const dt2 = new Date(evDateStr + 'T12:00:00');
-          dt2.setDate(dt2.getDate() + 1);
-          evDateStr = dt2.toISOString().slice(0,10);
-        }
-      }
-      if (fromDate && evDateStr < fromDate) return;
-      if (toDate && evDateStr > toDate) return;
-      scheduledDates.add(evDateStr);
+      const isMain = ev.batchId === batchId && (!ev.studentScope || ev.studentScope === studentName);
+      const isAddon = (ev.addonStudents||[]).some(a => a.name === studentName);
+      if (!isMain && !isAddon) return;
+      const evDate = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
+      if (fromDate && evDate < fromDate) return;
+      if (toDate && evDate > toDate) return;
+      scheduledDates.add(evDate);
     });
   });
 
-  // 3. Also add any dates with recorded attendance
-  Object.keys(attLookup).forEach(d => {
-    if ((!fromDate || d >= fromDate) && (!toDate || d <= toDate)) scheduledDates.add(d);
-  });
+  // 3. Add any dates with recorded attendance (makeup/additional in other batches)
+  Object.keys(attByDate).forEach(d => scheduledDates.add(d));
 
   const allDates = Array.from(scheduledDates).sort();
 
   if (allDates.length === 0) {
-    return `${isPer8 ? buildCycleStartEditor(key, ss) : ''}
-      <div style="font-size:12px;color:var(--muted);padding:8px 0">No classes scheduled or recorded this period.</div>`;
+    return '<div style="font-size:12px;color:var(--muted);padding:8px 0">No classes scheduled or recorded this period.</div>';
   }
 
-  // Build cycle counter from cycleStart
-  let counter = parseInt(ss.cycleStart) || 0;
+  // ── Build table rows ──
+  // For Ohio Standard (monthly-cap8):
+  //   Regular  → counts +1 (scheduled class, attended or not)
+  //   Missed   → counts +1 (absent from scheduled class)
+  //   Makeup   → counts 0
+  //   Additional → counts +1
+  // Cap at 8, fee = capped × rate
 
-  const statusBadge = {
-    present: '<span class="att-cell-P" style="padding:2px 8px;border-radius:3px;font-size:11px">Present</span>',
-    absent: '<span class="att-cell-A" style="padding:2px 8px;border-radius:3px;font-size:11px">Absent</span>',
-    'absent-nc': '<span class="att-cell-NC" style="padding:2px 8px;border-radius:3px;font-size:11px">Absent (N/C)</span>',
-    makeup: '<span class="att-cell-M" style="padding:2px 8px;border-radius:3px;font-size:11px">Makeup</span>',
-    additional: '<span class="att-cell-Ad" style="padding:2px 8px;border-radius:3px;font-size:11px">Additional</span>',
-  };
+  let runningCount = 0;
 
-  const per8Header = isPer8 ? '<th style="text-align:center">Class</th>' : '';
+  const rows = allDates.map(d => {
+    const rec = attByDate[d];
+    const hasAtt = !!rec;
+    const status = rec?.status || null; // present|absent|makeup|additional|absent-nc
 
-  const rows = allDates.map((d, i) => {
-    const rec = attLookup[d];
-    const status = rec?.status || null;
-    const counted = status && ['present','makeup','additional'].includes(status);
-    if (isPer8 && counted) { counter++; if (counter > 8) counter = 0; }
+    // Determine Type column
+    let type = 'Regular';
+    let typeStyle = 'color:var(--muted)';
+    let makeupNote = '';
 
-    const statusCell = status
-      ? (statusBadge[status] || status) + (rec?.makeupFor ? `<span style="font-size:10px;color:var(--orange);margin-left:4px">↺ ${rec.makeupFor}</span>` : '')
-      : '<span style="font-size:11px;color:var(--subtle)">— Scheduled</span>';
+    if (hasAtt) {
+      if (status === 'absent' || status === 'absent-nc') {
+        type = status === 'absent' ? 'Missed' : 'Absent (N/C)';
+        typeStyle = status === 'absent' ? 'color:#b71c1c;font-weight:500' : 'color:var(--subtle)';
+      } else if (status === 'makeup') {
+        type = 'Makeup';
+        typeStyle = 'color:#e65100;font-weight:500';
+        if (rec.makeupFor) {
+          makeupNote = `<div style="font-size:10px;color:var(--orange);margin-top:2px">for ${rec.makeupFor}</div>`;
+        }
+      } else if (status === 'additional') {
+        type = 'Additional';
+        typeStyle = 'color:#311b92;font-weight:500';
+      } else if (status === 'present') {
+        type = 'Regular';
+        typeStyle = 'color:var(--muted)';
+      }
+    }
 
-    const cycleCell = isPer8
-      ? `<td style="padding:6px 8px;text-align:center">${counted ? `<span class="att-cycle-badge">${counter}/8</span>` : ''}</td>`
-      : '';
+    // Determine Attendance column
+    let attCell = '<span style="font-size:11px;color:var(--subtle)">—</span>';
+    if (hasAtt) {
+      const attMap = {
+        present: '<span class="att-cell-P" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>',
+        absent: '<span class="att-cell-A" style="padding:2px 7px;border-radius:3px;font-size:11px">Absent</span>',
+        'absent-nc': '<span class="att-cell-NC" style="padding:2px 7px;border-radius:3px;font-size:11px">Absent (N/C)</span>',
+        makeup: '<span class="att-cell-M" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>',
+        additional: '<span class="att-cell-Ad" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>',
+      };
+      attCell = attMap[status] || '—';
+    }
 
-    const label = rec?.classLabel || (b?.name ? b.name + ' – ' + d : d);
-    const rowBg = !status ? 'background:#fafafa' : '';
+    // Count logic for Ohio Standard
+    let countCell = '';
+    let counted = false;
+    if (attModel === 'monthly-cap8' || attModel === 'monthly-all') {
+      if (!hasAtt) {
+        // Not yet recorded — don't count yet, show dash
+        countCell = '<span style="color:var(--subtle);font-size:11px">—</span>';
+      } else if (status === 'makeup' || status === 'absent-nc') {
+        countCell = ''; // empty for makeup, absent-nc
+      } else if (status === 'present' || status === 'absent' || status === 'additional') {
+        runningCount++;
+        counted = true;
+        const cap = attModel === 'monthly-cap8' ? 8 : 999;
+        if (runningCount <= cap) {
+          countCell = `<span style="font-size:12px;font-weight:600;color:var(--blue)">${runningCount}</span>`;
+        } else {
+          countCell = `<span style="font-size:11px;color:var(--subtle)">${runningCount} (over cap)</span>`;
+        }
+      }
+    }
+
+    // Class label
+    const label = rec?.classLabel || (b?.name ? b.name + ' – ' + d : '—');
+
+    // Date display
+    const dateObj = new Date(d + 'T12:00:00');
+    const dateLabel = dateObj.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) + ', ' + d;
+
+    const rowBg = !hasAtt ? 'background:#fafafa' : '';
 
     return `<tr style="${rowBg}">
-      <td style="padding:6px 8px;font-size:12px;white-space:nowrap">${d}</td>
-      <td style="padding:6px 8px;font-size:12px;color:var(--muted)">${label}</td>
-      ${cycleCell}
-      <td style="padding:6px 8px">${statusCell}</td>
+      <td style="padding:6px 10px;font-size:12px;white-space:nowrap">${dateLabel}</td>
+      <td style="padding:6px 10px;font-size:12px"><span style="${typeStyle}">${type}</span>${makeupNote}</td>
+      <td style="padding:6px 10px;font-size:12px">${attCell}</td>
+      <td style="padding:6px 10px;font-size:12px;text-align:center">${countCell}</td>
     </tr>`;
   }).join('');
 
-  const per8Col = isPer8 ? '<th style="text-align:center">Class</th>' : '';
+  // ── Fee summary ──
+  const rate = parseFloat(b?.rate) || 0;
+  const currency = b?.currency || 'INR';
+  const cap = attModel === 'monthly-cap8' ? 8 : 999;
+  const countedClasses = Math.min(runningCount, cap);
+  const feeAmount = countedClasses * rate;
+  const feeHtml = rate ? `
+    <div style="margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">💰 Fees — ${new Date(fromDate+'T12:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;color:var(--muted)">Total classes (incl. missed + additional)</span>
+        <span style="font-size:12px;font-weight:600">${runningCount}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;color:var(--muted)">Counted classes ${attModel==='monthly-cap8'?'(max 8)':''}</span>
+        <span style="font-size:12px;font-weight:600">${countedClasses}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);margin-top:4px">
+        <span style="font-size:13px;font-weight:600">Total fee</span>
+        <span style="font-size:16px;font-weight:700;color:var(--text)">${fmtAmountBoth(feeAmount, currency, b?.tzGroup||'IST')}</span>
+      </div>
+      <div style="font-size:11px;color:var(--subtle);margin-top:4px">${countedClasses} × ${fmtAmount(rate,currency)}</div>
+    </div>` : '';
 
-  return `${isPer8 ? buildCycleStartEditor(key, ss) : ''}
-    <div style="overflow-x:auto"><table class="timing-table">
-      <thead><tr><th>Date</th><th>Class</th>${per8Col}<th>Status</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`;
+  return `<div style="overflow-x:auto"><table class="timing-table">
+    <thead><tr>
+      <th>Class day &amp; date (IST)</th>
+      <th>Type</th>
+      <th>Attendance</th>
+      <th style="text-align:center">Counted #</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>${feeHtml}`;
 }
+
+
 
 function buildCycleStartEditor(key, ss) {
   const val = ss.cycleStart || 0;
@@ -3661,56 +3714,65 @@ function getClassesFromTimings() {
   // From batches
   batches.forEach(b => {
     const showCal = b.showOnCalendar || 'regular';
-    const tempSeason = b.tempSeason || 'both'; // which seasons the temp timing applies to
-    // Regular timings — always included; season is per-slot
+    const tempSeason = b.tempSeason || 'both';
+    const hasTempSlots = (b.tempTimings || []).length > 0;
+
+    // Regular timings — skip if temporary is being shown for that season
     (b.timings || []).forEach(t => {
-      // For seasons where temp is active and showCal=temporary, this regular timing
-      // is still added but showOnCalendar will be 'temporary' so it won't display
-      // unless it's the non-temp season
-      const thisShowCal = (showCal === 'temporary' && (tempSeason === 'both' || tempSeason === t.season))
-        ? 'temporary' : 'regular';
+      const tempCoversThisSeason = hasTempSlots && showCal === 'temporary' &&
+        (tempSeason === 'both' || tempSeason === t.season);
+      if (tempCoversThisSeason) return; // skip — temp is shown instead
       result.push({
         batchId: b.id, day: t.day, season: t.season,
         start: t.startIST, end: t.endIST,
-        showOnCalendar: thisShowCal, _fromTimings: true,
+        showOnCalendar: 'regular', _fromTimings: true,
       });
     });
-    // Temp timings — scoped to tempSeason
-    (b.tempTimings || []).forEach(t => {
-      result.push({
-        batchId: b.id, day: t.day,
-        season: tempSeason, // only show in the relevant season(s)
-        tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
-        showOnCalendar: showCal,
-        tempOnly: showCal === 'temporary',
-        _fromTimings: true,
+
+    // Temp timings — only include if showOnCalendar = 'temporary'
+    if (showCal === 'temporary') {
+      (b.tempTimings || []).forEach(t => {
+        result.push({
+          batchId: b.id, day: t.day,
+          season: tempSeason,
+          tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
+          showOnCalendar: 'temporary',
+          tempOnly: true,
+          _fromTimings: true,
+        });
       });
-    });
+    }
   });
 
-  // From individual students (via virtual batch)
+  // From individual students
   individualStudents.forEach(s => {
     const showCal = s.showOnCalendar || 'regular';
     const tempSeason = s.tempSeason || 'both';
+    const hasTempSlots = (s.tempTimings || []).length > 0;
+
     (s.timings || []).forEach(t => {
-      const thisShowCal = (showCal === 'temporary' && (tempSeason === 'both' || tempSeason === t.season))
-        ? 'temporary' : 'regular';
+      const tempCoversThisSeason = hasTempSlots && showCal === 'temporary' &&
+        (tempSeason === 'both' || tempSeason === t.season);
+      if (tempCoversThisSeason) return;
       result.push({
         batchId: s.id, day: t.day, season: t.season,
         start: t.startIST, end: t.endIST,
-        showOnCalendar: thisShowCal, _fromTimings: true,
+        showOnCalendar: 'regular', _fromTimings: true,
       });
     });
-    (s.tempTimings || []).forEach(t => {
-      result.push({
-        batchId: s.id, day: t.day,
-        season: tempSeason,
-        tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
-        showOnCalendar: showCal,
-        tempOnly: showCal === 'temporary',
-        _fromTimings: true,
+
+    if (showCal === 'temporary') {
+      (s.tempTimings || []).forEach(t => {
+        result.push({
+          batchId: s.id, day: t.day,
+          season: tempSeason,
+          tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
+          showOnCalendar: 'temporary',
+          tempOnly: true,
+          _fromTimings: true,
+        });
       });
-    });
+    }
   });
 
   // Also include one-off classes from the classes array
