@@ -188,6 +188,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 .timing-slot input,.timing-slot select{font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif;width:100%}
 .timing-slot .del-slot{width:28px;height:28px;border:none;background:none;cursor:pointer;color:#d93025;font-size:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .timing-slot .del-slot:hover{background:#fce8e6}
+.cat-desc{font-size:11px;color:var(--muted);background:var(--bg);border-radius:var(--radius);padding:6px 10px;line-height:1.5;margin-top:4px}
 .add-slot-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;color:var(--blue);font-size:12px;cursor:pointer;border:1px dashed var(--border);border-radius:var(--radius);background:none;font-family:'Roboto',sans-serif;transition:background .15s;width:100%;justify-content:center;margin-top:4px}
 .add-slot-btn:hover{background:var(--blue-light)}
 .timing-section{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px}
@@ -266,10 +267,16 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
   <aside class="sidebar" id="sidebar">
     <!-- Top action buttons -->
     <div style="padding:12px 12px 4px">
-      <button onclick="openAddStudentBatch()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-family:'Roboto',sans-serif;font-weight:500">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-        Add student / batch
-      </button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <button onclick="openAddBatch()" style="display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 10px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add batch
+        </button>
+        <button onclick="openAddStudentFlow()" style="display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 10px;background:none;color:var(--blue);border:1px solid var(--blue);border-radius:var(--radius);cursor:pointer;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add student
+        </button>
+      </div>
       <button onclick="openManageAll()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 12px;margin-top:6px;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;font-size:12px;font-family:'Roboto',sans-serif">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Manage batches &amp; students
@@ -307,36 +314,20 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
   <main class="cal-outer"><div id="cal-inner"></div></main>
 </div>
 
-<!-- UNIFIED ADD STUDENT/BATCH -->
-<div class="overlay" id="modal-add-sb">
+<!-- ADD BATCH — Step 1: Batch Details -->
+<div class="overlay" id="modal-add-batch-1">
   <div class="modal modal-sm">
-    <h2 id="asb-title">Add student / batch</h2>
-
-    <!-- Type toggle -->
-    <div class="field">
-      <label>Adding a</label>
-      <div class="pill-group" style="border-radius:var(--radius);width:100%">
-        <button class="pill-btn active-blue" id="asb-type-student" onclick="asbSetType('student')" style="flex:1;border-radius:0">Student</button>
-        <button class="pill-btn" id="asb-type-batch" onclick="asbSetType('batch')" style="flex:1;border-radius:0">Batch</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2>Add batch details</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:11px;font-weight:500;color:var(--blue)">Step 1 of 2</span>
+        <div style="width:40px;height:4px;border-radius:2px;background:var(--border)"><div style="width:50%;height:100%;background:var(--blue);border-radius:2px"></div></div>
       </div>
     </div>
-
-    <!-- Student name (student mode) -->
-    <div class="field" id="asb-student-name-wrap">
-      <label>Student name</label>
-      <input id="asb-student-name" type="text" placeholder="e.g. Ava"/>
-    </div>
-
-    <!-- Batch name + students (batch mode) -->
-    <div id="asb-batch-wrap" style="display:none">
-      <div class="field"><label>Batch name</label><input id="asb-batch-name" type="text" placeholder="e.g. Ohio 1"/></div>
-      <div class="field"><label>Students (comma separated)</label><textarea id="asb-batch-students" placeholder="Ava, Harini, ..."></textarea></div>
-    </div>
-
-    <!-- Shared fields -->
-    <div class="field">
-      <label>Preferred timezone</label>
-      <select id="asb-tz">
+    <div class="field"><label>Batch name</label><input id="ab-name" type="text" placeholder="e.g. Ohio 1"/></div>
+    <div class="field"><label>Students (comma separated)</label><textarea id="ab-students" placeholder="Ava, Harini, ..." style="min-height:52px"></textarea></div>
+    <div class="field"><label>Preferred timezone</label>
+      <select id="ab-tz">
         <option value="IST">IST – India Standard Time</option>
         <option value="Eastern">Eastern (EDT/EST)</option>
         <option value="Central">Central (CDT/CST)</option>
@@ -345,72 +336,163 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
         <option value="British">British (BST/GMT)</option>
       </select>
     </div>
-
-    <div class="field">
-      <label>Attendance model</label>
-      <select id="asb-att-model" onchange="asbAttModelChanged()">
-        <option value="monthly-all">Monthly — count all classes</option>
-        <option value="monthly-cap8">Monthly — capped at 8 classes</option>
-        <option value="upfront-8">Pay 8 upfront at start of month</option>
-        <option value="per-8">Pay after every 8 classes</option>
-      </select>
+    <div class="field"><label>Colour</label><div class="color-grid" id="ab-color-grid"></div></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-add-batch-1')">Cancel</button>
+      <button class="btn-primary" onclick="abStep2()">Save and next →</button>
     </div>
+  </div>
+</div>
 
-    <!-- Per-8 inline expansion: last attended + class N of 8 -->
-    <div id="asb-per8-section" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Starting point for per-8 cycle</div>
-      <div class="field" style="margin-bottom:8px"><label>Last attended class</label><input id="asb-per8-last-date" type="date"/></div>
-      <div class="field" style="margin-bottom:0">
-        <label>That was class <input id="asb-per8-class-num" type="number" min="1" max="8" value="1" style="width:52px;display:inline-block;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);margin:0 4px"/> of 8</label>
+<!-- ADD BATCH — Step 2: Class Timings -->
+<div class="overlay" id="modal-add-batch-2">
+  <div class="modal" style="width:560px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2>Add class timings</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:11px;font-weight:500;color:var(--blue)">Step 2 of 2</span>
+        <div style="width:40px;height:4px;border-radius:2px;background:var(--border)"><div style="width:100%;height:100%;background:var(--blue);border-radius:2px"></div></div>
       </div>
     </div>
-
-    <div class="field">
-      <label>Fee model</label>
-      <select id="asb-fee-model" onchange="asbFeeModelChanged()">
-        <option value="monthly-all">Monthly — pay for all classes</option>
-        <option value="monthly-cap8">Monthly — capped at 8 classes</option>
-        <option value="upfront-8">Pay 8 classes upfront each month</option>
-        <option value="per-8">Pay after every 8 classes (flat per block)</option>
-      </select>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px" id="ab-batch-label"></div>
+    <div class="timing-section summer">
+      <div class="timing-section-title">☀ Summer timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="ab-summer-slots"></div>
+      <button class="add-slot-btn" onclick="abAddSlot('summer')">+ Add summer slot</button>
     </div>
-
-    <!-- Monthly fee expansion: calculate from month -->
-    <div id="asb-monthly-section" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Billing period start</div>
-      <div class="field" style="margin-bottom:0"><label id="asb-monthly-label">Calculate from</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <select id="asb-fee-month">
-            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
-            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
-            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
-            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-          </select>
-          <select id="asb-fee-year"></select>
+    <div class="timing-section winter">
+      <div class="timing-section-title">❄ Winter timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="ab-winter-slots"></div>
+      <button class="add-slot-btn" onclick="abAddSlot('winter')">+ Add winter slot</button>
+    </div>
+    <div class="timing-section temp">
+      <div class="timing-section-title">⏱ Temporary timings <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(during break periods)</span></div>
+      <div class="field" style="margin-bottom:8px">
+        <label>Applies to</label>
+        <select id="ab-temp-season">
+          <option value="both">Both seasons</option>
+          <option value="summer">Summer only</option>
+          <option value="winter">Winter only</option>
+        </select>
+      </div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="ab-temp-slots"></div>
+      <button class="add-slot-btn" onclick="abAddSlot('temp')">+ Add temporary slot</button>
+      <div class="field" style="margin-top:10px;margin-bottom:0">
+        <label>Show on calendar</label>
+        <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <button id="ab-show-regular" onclick="abSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
+          <button id="ab-show-temporary" onclick="abSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
         </div>
       </div>
     </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-add-batch-2')">Cancel</button>
+      <button class="btn-primary" onclick="abSave()">Save</button>
+    </div>
+  </div>
+</div>
 
-    <div class="field">
-      <label id="asb-rate-label">Per class rate</label>
-      <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
-        <input id="asb-rate" type="number" min="0" step="0.01" placeholder="e.g. 20"/>
-        <select id="asb-currency">
-          <option value="INR">INR</option>
-          <option value="USD">USD</option>
-        </select>
+<!-- ADD STUDENT — Step 1: Student Details -->
+<div class="overlay" id="modal-add-student-1">
+  <div class="modal modal-sm">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2 id="as-title">Add student details</h2>
+      <div style="display:flex;gap:6px;align-items:center" id="as-step-indicator">
+        <span style="font-size:11px;font-weight:500;color:var(--blue)">Step 1 of 2</span>
+        <div style="width:40px;height:4px;border-radius:2px;background:var(--border)"><div style="width:50%;height:100%;background:var(--blue);border-radius:2px"></div></div>
       </div>
     </div>
-
-    <!-- Colour (batch mode only) -->
-    <div class="field" id="asb-color-wrap" style="display:none">
-      <label>Colour</label>
-      <div class="color-grid" id="asb-color-grid"></div>
+    <div class="field"><label>Student name</label><input id="as-name" type="text" placeholder="Student name"/></div>
+    <div class="field"><label>Batch</label>
+      <select id="as-batch" onchange="asBatchChanged()">
+        <option value="">No batch (individual student)</option>
+      </select>
     </div>
-
+    <div class="field"><label>Category</label>
+      <select id="as-category" onchange="asCategoryChanged()">
+        <option value="ohio-standard">Type A — Ohio Standard</option>
+      </select>
+      <div id="as-cat-desc" class="cat-desc" style="margin-top:6px;font-size:11px;color:var(--muted);background:var(--bg);border-radius:var(--radius);padding:6px 10px;line-height:1.5">Monthly billing, capped at 8 classes. Regular, missed and additional classes all count. Makeup = 0.</div>
+    </div>
+    <!-- Type A fields -->
+    <div id="as-type-a-fields">
+      <div class="field">
+        <label>Attendance &amp; fee period starts from</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-period-month">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6" selected>June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+          <select id="as-period-year"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Per class fee rate</label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-rate" type="number" min="0" step="0.01" placeholder="e.g. 400"/>
+          <select id="as-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+    </div>
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeOverlay('modal-add-sb')">Cancel</button>
-      <button class="btn-primary" onclick="asbSave()">Save</button>
+      <button class="btn-cancel" onclick="closeOverlay('modal-add-student-1')">Cancel</button>
+      <button class="btn-primary" id="as-next-btn" onclick="asStep2OrSave()">Save and next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD STUDENT — Step 2: Class Timings (individual students only) -->
+<div class="overlay" id="modal-add-student-2">
+  <div class="modal" style="width:560px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2>Add class timings</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:11px;font-weight:500;color:var(--blue)">Step 2 of 2</span>
+        <div style="width:40px;height:4px;border-radius:2px;background:var(--border)"><div style="width:100%;height:100%;background:var(--blue);border-radius:2px"></div></div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px" id="as-timing-label"></div>
+    <div class="timing-section summer">
+      <div class="timing-section-title">☀ Summer timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="as-summer-slots"></div>
+      <button class="add-slot-btn" onclick="asAddSlot('summer')">+ Add summer slot</button>
+    </div>
+    <div class="timing-section winter">
+      <div class="timing-section-title">❄ Winter timings</div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="as-winter-slots"></div>
+      <button class="add-slot-btn" onclick="asAddSlot('winter')">+ Add winter slot</button>
+    </div>
+    <div class="timing-section temp">
+      <div class="timing-section-title">⏱ Temporary timings</div>
+      <div class="field" style="margin-bottom:8px">
+        <label>Applies to</label>
+        <select id="as-temp-season">
+          <option value="both">Both seasons</option>
+          <option value="summer">Summer only</option>
+          <option value="winter">Winter only</option>
+        </select>
+      </div>
+      <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
+      <div id="as-temp-slots"></div>
+      <button class="add-slot-btn" onclick="asAddSlot('temp')">+ Add temporary slot</button>
+      <div class="field" style="margin-top:10px;margin-bottom:0">
+        <label>Show on calendar</label>
+        <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+          <button id="as-show-regular" onclick="asSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
+          <button id="as-show-temporary" onclick="asSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-add-student-2')">Cancel</button>
+      <button class="btn-primary" onclick="asSave()">Save</button>
     </div>
   </div>
 </div>
@@ -1287,16 +1369,25 @@ function renderSidebar() {
   const se = document.getElementById('student-empty');
   if(sl) sl.innerHTML = allStudents.map(s => {
     const col = getColor(getBatch(s.batchId)?.color || 'c17');
+    const ssKey = s.batchId + ':' + s.name;
+    const needsSetup = !s.isIndividual && studentSettings[ssKey]?.needsSetup !== false && !studentSettings[ssKey]?.category;
     const editBtn = s.isIndividual
-      ? `<button class="icon-btn" onclick="event.stopPropagation();openEditIndividualStudent('${s.indId}')" title="Edit">
+      ? `<button class="icon-btn" onclick="event.stopPropagation();openEditIndStudentFlow('${s.indId}')" title="Edit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>` : '';
     const batchLabel = s.isIndividual
       ? `<span style="font-size:10px;background:var(--hover);color:var(--subtle);padding:1px 5px;border-radius:8px;flex-shrink:0">Individual</span>`
       : `<span style="font-size:10px;color:var(--subtle);flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.batchName}</span>`;
-    return `<div class="batch-row" onclick="openStudentDetail('${s.batchId}','${s.name.replace(/'/g,"\'")}')">
+    const dotHtml = needsSetup
+      ? `<div title="Profile not set up — click to set up" style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;cursor:pointer" onclick="event.stopPropagation();openAddStudentFlow('${s.batchId}','${s.name.replace(/'/g,"\'")}')"></div>`
+      : '';
+    const rowClick = needsSetup
+      ? `openAddStudentFlow('${s.batchId}','${s.name.replace(/'/g,"\'")}')` 
+      : `openStudentDetail('${s.batchId}','${s.name.replace(/'/g,"\'")}')`;
+    return `<div class="batch-row" onclick="${rowClick}">
       <div class="batch-dot" style="background:${col.border}"></div>
       <span class="batch-name">${s.name}</span>
+      ${dotHtml}
       ${batchLabel}
       <div class="batch-actions">${editBtn}</div>
     </div>`;
@@ -1950,7 +2041,9 @@ function openNewBatch(){
   renderColorGrid('c1');
   document.getElementById('modal-batch-edit').classList.add('open');
 }
-function openEditBatch(id){
+function openEditBatch(id){ openAddBatch(id); return;
+// legacy below:
+
   addBatchMode=false;editBatchId=id;
   const b=getBatch(id);
   document.getElementById('be-title').textContent='Edit batch';
@@ -3794,6 +3887,352 @@ function getClassesFromTimings() {
   classes.forEach(c => { result.push({ ...c, _fromTimings: false }); });
 
   return result;
+}
+
+
+
+// ══════════════════════════════════════════════
+// ADD BATCH FLOW (2-step)
+// ══════════════════════════════════════════════
+let abShowOnCalendar = 'regular';
+let abEditId = null; // null = new, string = editing existing
+
+function openAddBatch(editId) {
+  abEditId = editId || null;
+  const b = editId ? getBatch(editId) : null;
+  renderColorGrid_ab(b?.color || 'c1');
+  document.getElementById('ab-name').value = b?.name || '';
+  document.getElementById('ab-students').value = b?.students || '';
+  document.getElementById('ab-tz').value = b?.tzGroup || 'IST';
+  document.getElementById('modal-add-batch-1').classList.add('open');
+}
+
+function abStep2() {
+  const name = document.getElementById('ab-name').value.trim();
+  if (!name) { showToast('Please enter a batch name'); return; }
+  document.getElementById('ab-batch-label').textContent = 'Batch: ' + name;
+  // Pre-fill if editing
+  const b = abEditId ? getBatch(abEditId) : null;
+  abShowOnCalendar = b?.showOnCalendar || 'regular';
+  renderSlotsToContainer('ab-summer-slots', (b?.timings||[]).filter(t=>t.season==='summer'));
+  renderSlotsToContainer('ab-winter-slots', (b?.timings||[]).filter(t=>t.season==='winter'));
+  renderSlotsToContainer('ab-temp-slots', b?.tempTimings||[]);
+  document.getElementById('ab-temp-season').value = b?.tempSeason || 'both';
+  abSetShow(abShowOnCalendar);
+  closeOverlay('modal-add-batch-1');
+  document.getElementById('modal-add-batch-2').classList.add('open');
+}
+
+function abAddSlot(season) {
+  const id = season==='summer'?'ab-summer-slots':season==='winter'?'ab-winter-slots':'ab-temp-slots';
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.insertAdjacentHTML('beforeend', makeSlotRow({}, el.querySelectorAll('.timing-slot').length));
+}
+
+function abSetShow(v) {
+  abShowOnCalendar = v;
+  document.getElementById('ab-show-regular').style.background = v==='regular'?'var(--blue-light)':'none';
+  document.getElementById('ab-show-regular').style.color = v==='regular'?'var(--blue)':'var(--muted)';
+  document.getElementById('ab-show-temporary').style.background = v==='temporary'?'var(--orange-light)':'none';
+  document.getElementById('ab-show-temporary').style.color = v==='temporary'?'var(--orange)':'var(--muted)';
+}
+
+function abSave() {
+  const name = document.getElementById('ab-name').value.trim();
+  const tzGroup = document.getElementById('ab-tz').value;
+  const students = document.getElementById('ab-students').value.trim();
+  const color = getSelectedColor_ab();
+  const summerSlots = getSlotsFromContainer('ab-summer-slots').map(s=>({...s,season:'summer'}));
+  const winterSlots = getSlotsFromContainer('ab-winter-slots').map(s=>({...s,season:'winter'}));
+  const tempSlots = getSlotsFromContainer('ab-temp-slots');
+  const tempSeason = document.getElementById('ab-temp-season').value;
+  const timings = [...summerSlots,...winterSlots];
+
+  if (abEditId) {
+    const b = getBatch(abEditId);
+    if (b) {
+      b.name=name; b.color=color; b.students=students; b.tzGroup=tzGroup;
+      b.timings=timings; b.tempTimings=tempSlots; b.tempSeason=tempSeason;
+      b.showOnCalendar=abShowOnCalendar;
+    }
+  } else {
+    const newBatch = {
+      id:'b_'+Date.now(), name, color, students, tzGroup,
+      timings, tempTimings:tempSlots, tempSeason,
+      showOnCalendar:abShowOnCalendar,
+      attModel:'monthly-cap8', rate:'', currency:'INR',
+    };
+    batches.push(newBatch);
+    // Add students from batch to sidebar with blue dot
+    const studentNames = students.split(',').map(s=>s.trim()).filter(Boolean);
+    studentNames.forEach(sName => {
+      // Check if already in studentSettings — if not, mark as needs setup
+      const key = newBatch.id + ':' + sName;
+      if (!studentSettings[key]) {
+        if (!studentSettings[key]) studentSettings[key] = {};
+        studentSettings[key].needsSetup = true;
+      }
+    });
+    save('studentSettings', studentSettings);
+  }
+  save('batches', batches);
+  closeOverlay('modal-add-batch-2');
+  renderSidebar();
+  renderCalendar();
+  showToast(abEditId ? 'Batch updated' : 'Batch added');
+}
+
+function renderColorGrid_ab(selId) {
+  const el = document.getElementById('ab-color-grid');
+  if (!el) return;
+  el.innerHTML = ALL_COLORS.map(c =>
+    `<div class="color-swatch${c.id===selId?' selected':''}" style="background:${c.border}" onclick="selectColor_ab('${c.id}')" data-cid="${c.id}"></div>`
+  ).join('');
+}
+function selectColor_ab(cid) {
+  document.querySelectorAll('#ab-color-grid .color-swatch').forEach(el=>el.classList.toggle('selected',el.dataset.cid===cid));
+}
+function getSelectedColor_ab() {
+  const el = document.querySelector('#ab-color-grid .color-swatch.selected');
+  return el ? el.dataset.cid : 'c1';
+}
+
+// ══════════════════════════════════════════════
+// ADD STUDENT FLOW (1 or 2 steps)
+// ══════════════════════════════════════════════
+let asShowOnCalendar = 'regular';
+let asEditId = null; // null=new, string=editing individual student id
+let asEditBatchStudentName = null; // for batch student setup
+
+function openAddStudentFlow(batchId, studentName) {
+  // Can be called 3 ways:
+  // 1. Fresh "Add student" button → no args
+  // 2. Blue dot clicked → batchId + studentName
+  // 3. Edit individual student → asEditId set separately
+  asEditId = null;
+  asEditBatchStudentName = null;
+
+  // Populate batch dropdown
+  const bSel = document.getElementById('as-batch');
+  bSel.innerHTML = '<option value="">No batch (individual student)</option>' +
+    batches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+
+  // Populate year dropdown
+  const yrSel = document.getElementById('as-period-year');
+  const now = new Date();
+  yrSel.innerHTML = '';
+  for (let y=now.getFullYear()-1;y<=now.getFullYear()+2;y++) {
+    yrSel.innerHTML+=`<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
+  }
+  document.getElementById('as-period-month').value = now.getMonth()+1;
+
+  if (batchId && studentName) {
+    // Setup from blue dot
+    asEditBatchStudentName = studentName;
+    document.getElementById('as-title').textContent = 'Set up student profile';
+    document.getElementById('as-name').value = studentName;
+    document.getElementById('as-name').readOnly = true;
+    bSel.value = batchId;
+    bSel.disabled = true;
+  } else {
+    document.getElementById('as-title').textContent = 'Add student details';
+    document.getElementById('as-name').value = '';
+    document.getElementById('as-name').readOnly = false;
+    bSel.value = '';
+    bSel.disabled = false;
+  }
+
+  document.getElementById('as-category').value = 'ohio-standard';
+  document.getElementById('as-rate').value = '';
+  document.getElementById('as-currency').value = 'INR';
+  asCategoryChanged();
+  asBatchChanged();
+  document.getElementById('modal-add-student-1').classList.add('open');
+}
+
+function openEditIndStudentFlow(id) {
+  const s = getIndStudent(id);
+  if (!s) return;
+  asEditId = id;
+  asEditBatchStudentName = null;
+
+  const bSel = document.getElementById('as-batch');
+  bSel.innerHTML = '<option value="">No batch (individual student)</option>' +
+    batches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+  bSel.value = '';
+  bSel.disabled = false;
+
+  const yrSel = document.getElementById('as-period-year');
+  const now = new Date();
+  yrSel.innerHTML = '';
+  for (let y=now.getFullYear()-1;y<=now.getFullYear()+2;y++) {
+    yrSel.innerHTML+=`<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
+  }
+
+  document.getElementById('as-title').textContent = 'Edit student';
+  document.getElementById('as-name').value = s.name;
+  document.getElementById('as-name').readOnly = false;
+  document.getElementById('as-category').value = s.category || 'ohio-standard';
+  document.getElementById('as-rate').value = s.rate || '';
+  document.getElementById('as-currency').value = s.currency || 'INR';
+
+  const key = s.id+':'+s.name;
+  const ss = studentSettings[key]||{};
+  if (ss.periodMonth) document.getElementById('as-period-month').value=ss.periodMonth;
+  if (ss.periodYear) document.getElementById('as-period-year').value=ss.periodYear;
+
+  asCategoryChanged();
+  asBatchChanged();
+  document.getElementById('modal-add-student-1').classList.add('open');
+}
+
+function asBatchChanged() {
+  const hasBatch = document.getElementById('as-batch').value !== '';
+  const nextBtn = document.getElementById('as-next-btn');
+  const indicator = document.getElementById('as-step-indicator');
+  if (hasBatch) {
+    nextBtn.textContent = 'Save';
+    indicator.style.opacity = '0.4';
+  } else {
+    nextBtn.textContent = 'Save and next →';
+    indicator.style.opacity = '1';
+  }
+}
+
+function asCategoryChanged() {
+  const cat = document.getElementById('as-category').value;
+  const descs = {
+    'ohio-standard': 'Monthly billing, capped at 8 classes. Regular, missed and additional classes all count (max 8). Makeup = 0 count.',
+  };
+  document.getElementById('as-cat-desc').textContent = descs[cat] || '';
+  // Show/hide category-specific fields
+  document.getElementById('as-type-a-fields').style.display = cat==='ohio-standard' ? '' : 'none';
+}
+
+function asStep2OrSave() {
+  const hasBatch = document.getElementById('as-batch').value !== '';
+  if (hasBatch) {
+    asSaveStudent(); // batch student — no timings needed
+  } else {
+    // Individual student — go to timings step
+    const name = document.getElementById('as-name').value.trim();
+    if (!name) { showToast('Please enter a student name'); return; }
+    document.getElementById('as-timing-label').textContent = 'Student: ' + name;
+    // Pre-fill if editing
+    if (asEditId) {
+      const s = getIndStudent(asEditId);
+      asShowOnCalendar = s?.showOnCalendar || 'regular';
+      renderSlotsToContainer('as-summer-slots', (s?.timings||[]).filter(t=>t.season==='summer'));
+      renderSlotsToContainer('as-winter-slots', (s?.timings||[]).filter(t=>t.season==='winter'));
+      renderSlotsToContainer('as-temp-slots', s?.tempTimings||[]);
+      document.getElementById('as-temp-season').value = s?.tempSeason||'both';
+    } else {
+      document.getElementById('as-summer-slots').innerHTML='';
+      document.getElementById('as-winter-slots').innerHTML='';
+      document.getElementById('as-temp-slots').innerHTML='';
+      document.getElementById('as-temp-season').value='both';
+      asShowOnCalendar='regular';
+    }
+    asSetShow(asShowOnCalendar);
+    closeOverlay('modal-add-student-1');
+    document.getElementById('modal-add-student-2').classList.add('open');
+  }
+}
+
+function asAddSlot(season) {
+  const id=season==='summer'?'as-summer-slots':season==='winter'?'as-winter-slots':'as-temp-slots';
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.insertAdjacentHTML('beforeend',makeSlotRow({},el.querySelectorAll('.timing-slot').length));
+}
+function asSetShow(v){
+  asShowOnCalendar=v;
+  document.getElementById('as-show-regular').style.background=v==='regular'?'var(--blue-light)':'none';
+  document.getElementById('as-show-regular').style.color=v==='regular'?'var(--blue)':'var(--muted)';
+  document.getElementById('as-show-temporary').style.background=v==='temporary'?'var(--orange-light)':'none';
+  document.getElementById('as-show-temporary').style.color=v==='temporary'?'var(--orange)':'var(--muted)';
+}
+
+function asSaveStudent() {
+  const name = document.getElementById('as-name').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  const batchId = document.getElementById('as-batch').value;
+  const category = document.getElementById('as-category').value;
+  const rate = document.getElementById('as-rate').value.trim();
+  const currency = document.getElementById('as-currency').value;
+  const periodMonth = document.getElementById('as-period-month').value;
+  const periodYear = document.getElementById('as-period-year').value;
+
+  if (batchId) {
+    // Batch student — store settings under batchId:name
+    const key = batchId+':'+name;
+    if (!studentSettings[key]) studentSettings[key]={};
+    studentSettings[key].category=category;
+    studentSettings[key].rate=rate;
+    studentSettings[key].currency=currency;
+    studentSettings[key].periodMonth=periodMonth;
+    studentSettings[key].periodYear=periodYear;
+    studentSettings[key].needsSetup=false;
+    save('studentSettings',studentSettings);
+    closeOverlay('modal-add-student-1');
+    renderSidebar();
+    showToast('Student profile saved');
+  }
+}
+
+function asSave() {
+  // Individual student — save with timings
+  const name = document.getElementById('as-name').value.trim();
+  const category = document.getElementById('as-category').value;
+  const rate = document.getElementById('as-rate').value.trim();
+  const currency = document.getElementById('as-currency').value;
+  const periodMonth = document.getElementById('as-period-month').value;
+  const periodYear = document.getElementById('as-period-year').value;
+  const summerSlots=getSlotsFromContainer('as-summer-slots').map(s=>({...s,season:'summer'}));
+  const winterSlots=getSlotsFromContainer('as-winter-slots').map(s=>({...s,season:'winter'}));
+  const tempSlots=getSlotsFromContainer('as-temp-slots');
+  const tempSeason=document.getElementById('as-temp-season').value;
+  const timings=[...summerSlots,...winterSlots];
+
+  if (asEditId) {
+    const s=getIndStudent(asEditId);
+    if(s){
+      s.name=name;s.category=category;s.rate=rate;s.currency=currency;
+      s.timings=timings;s.tempTimings=tempSlots;s.tempSeason=tempSeason;
+      s.showOnCalendar=asShowOnCalendar;
+      const key=asEditId+':'+name;
+      if(!studentSettings[key])studentSettings[key]={};
+      studentSettings[key].periodMonth=periodMonth;
+      studentSettings[key].periodYear=periodYear;
+      save('studentSettings',studentSettings);
+    }
+  } else {
+    const id=IND_BATCH_PREFIX+Date.now();
+    individualStudents.push({
+      id,name,category,rate,currency,
+      timings,tempTimings:tempSlots,tempSeason,
+      showOnCalendar:asShowOnCalendar,
+      tzGroup:'IST',attModel:'monthly-cap8',
+    });
+    const key=id+':'+name;
+    studentSettings[key]={periodMonth,periodYear,category,rate,currency};
+    save('studentSettings',studentSettings);
+  }
+  save('individualStudents',individualStudents);
+  closeOverlay('modal-add-student-2');
+  setTimeout(()=>{
+    if(!sidebarSectionState.students){
+      sidebarSectionState.students=true;
+      const b=document.getElementById('students-body');
+      const ch=document.getElementById('students-chevron');
+      if(b)b.style.display='';
+      if(ch)ch.style.transform='';
+    }
+    renderSidebar();
+  },50);
+  renderCalendar();
+  showToast(asEditId?'Student updated':'Student added');
 }
 
 
