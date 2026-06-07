@@ -2041,10 +2041,31 @@ function saveBatch(){
 }
 function deleteBatch(){
   if(!confirm('Delete this batch and all its classes?'))return;
+  // Remove from main calendar classes array
   classes=classes.filter(c=>c.batchId!==editBatchId);
+  // Remove batch
   batches=batches.filter(b=>b.id!==editBatchId);
-  save('batches',batches);save('classes',classes);
-  closeOverlay('modal-batch-edit');renderSidebar();renderCalendar();showToast('Batch deleted');
+  // Remove studentSettings for all students in this batch
+  Object.keys(studentSettings).forEach(k=>{
+    if(k.startsWith(editBatchId+':')) delete studentSettings[k];
+  });
+  // Remove attendance records for this batch
+  Object.keys(attendance).forEach(evId=>{
+    const rec=attendance[evId];
+    if(rec.batchId===editBatchId) delete attendance[evId];
+    else rec.students=rec.students.filter(s=>s.batchId!==editBatchId);
+  });
+  // Clean TW cache
+  cleanTwCacheForBatch(editBatchId);
+  // Persist
+  save('batches',batches);
+  save('classes',classes);
+  save('studentSettings',studentSettings);
+  cloudSave('attendance',JSON.stringify(attendance));
+  save('twWeekCache',JSON.stringify({cache:Object.fromEntries(Object.entries(twWeekCache).map(([k,v])=>[k,v.map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}))])),weekStart:twWeekStart?twWeekStart.toISOString():null,season:twSeason,removed:twRemovedEvents}));
+  closeOverlay('modal-batch-edit');
+  if(document.getElementById('modal-thisweek').classList.contains('open'))twRender();
+  renderSidebar();renderCalendar();showToast('Batch deleted');
 }
 
 // ── Batch detail ──
@@ -3365,9 +3386,13 @@ function tweExpandAttendance() {
   const ev = twEvents.find(x=>x.id===twEditId);
   if (!ev) return;
   const b = getBatch(ev.batchId);
-  const students = b ? (b.students||'').split(',').map(s=>s.trim()).filter(Boolean) : [];
+  // If this is a 1:1 class (studentScope), only show that student
+  // Otherwise show the full batch roster
+  const students = ev.studentScope
+    ? [ev.studentScope]
+    : b ? (b.students||'').split(',').map(s=>s.trim()).filter(Boolean) : [];
 
-  // Start with batch/scope students
+  // Start with scoped/batch students
   const allStudents = [...students];
 
   // Add addon students already saved on the event
@@ -3565,15 +3590,44 @@ function twSaveEdit() {
   });
   ev.addonStudents = addonStudents.length ? addonStudents : undefined;
 
-  // Save attendance if marked
+  // Save attendance if marked — propagate classType into attendance status
   if (Object.keys(tweAttState).length > 0) {
     const b = getBatch(ev.batchId);
     const d = localDateStr(ev.date);
     if (!attendance[twEditId]) attendance[twEditId] = {date:d, batchId:ev.batchId, classLabel:(b?.name||'')+' – '+d, twStart:ev.start, students:[]};
-    Object.entries(tweAttState).forEach(([name, status]) => {
+    // Build a map of addon student classTypes for lookup
+    const addonTypeMap = {};
+    (ev.addonStudents||[]).forEach(a => { addonTypeMap[a.name] = a.classType || 'scheduled'; });
+    Object.entries(tweAttState).forEach(([name, markedStatus]) => {
+      // Determine if this student is an addon (has their own classType) or primary
+      const isAddon = !!(ev.addonStudents||[]).find(a=>a.name===name);
+      const studentClassType = isAddon ? (addonTypeMap[name]||'scheduled') : (ev.classType||'scheduled');
+      // Map classType + present/absent to final attendance status
+      let finalStatus = markedStatus; // 'present' or 'absent'
+      if (markedStatus === 'present') {
+        if (studentClassType === 'makeup') finalStatus = 'makeup';
+        else if (studentClassType === 'additional') finalStatus = 'additional';
+        else finalStatus = 'present';
+      }
+      // For absent: always store as 'absent' regardless of classType
+      // Find makeupFor if this is a makeup class
+      const makeupFor = (studentClassType === 'makeup' && ev.makeupFor) ? ev.makeupFor : null;
+      // Find addon-specific makeupFor
+      const addonMakeupFor = isAddon ? ((ev.addonStudents||[]).find(a=>a.name===name)?.makeupFor||null) : null;
+      const resolvedMakeupFor = makeupFor || addonMakeupFor;
+      const batchIdForStudent = isAddon
+        ? ((ev.addonStudents||[]).find(a=>a.name===name)?.batchId || ev.batchId)
+        : ev.batchId;
       const existing = attendance[twEditId].students.find(s=>s.name===name);
-      if (existing) existing.status=status;
-      else attendance[twEditId].students.push({name, batchId:ev.batchId, status, isGuest:false});
+      if (existing) {
+        existing.status = finalStatus;
+        if (resolvedMakeupFor) existing.makeupFor = resolvedMakeupFor;
+      } else {
+        attendance[twEditId].students.push({
+          name, batchId:batchIdForStudent, status:finalStatus,
+          makeupFor:resolvedMakeupFor||null, isGuest:isAddon
+        });
+      }
     });
     cloudSave('attendance', JSON.stringify(attendance));
   }
@@ -3948,18 +4002,13 @@ function confirmDeleteStudent() {
   });
   cloudSave('attendance', JSON.stringify(attendance));
 
-  // Remove from TW cache
-  Object.keys(twWeekCache).forEach(wk => {
-    twWeekCache[wk] = twWeekCache[wk].filter(ev => {
-      if (ev.batchId === batchId && ev.studentScope === name) return false;
-      if (ev.addonStudents) ev.addonStudents = ev.addonStudents.filter(a => !(a.name===name&&a.batchId===batchId));
-      return true;
-    });
-  });
-  save('twWeekCache', JSON.stringify({ cache: Object.fromEntries(Object.entries(twWeekCache).map(([k,v])=>[k,v.map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}))])), weekStart: twWeekStart?twWeekStart.toISOString():null, season: twSeason }));
+  // Clean TW cache — respects "happened vs not happened" rule
+  cleanTwCacheForStudent(batchId, name);
+  save('twWeekCache', JSON.stringify({ cache: Object.fromEntries(Object.entries(twWeekCache).map(([k,v])=>[k,v.map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}))])), weekStart: twWeekStart?twWeekStart.toISOString():null, season: twSeason, removed: twRemovedEvents }));
 
   closeOverlay('modal-delete-student');
   closeOverlay('modal-student');
+  if(document.getElementById('modal-thisweek').classList.contains('open'))twRender();
   renderSidebar();
   renderCalendar();
   showToast(name + ' deleted');
@@ -4588,6 +4637,78 @@ function editStudentInfo() {
   } else {
     // Batch student: open step 1 only (timings are on the batch, edit via Edit batch)
     openAddStudentFlow(currentStudentBatchId, currentStudentName);
+  }
+}
+
+
+// ── TW cache cleanup on batch/student deletion ──
+function cleanTwCacheForBatch(batchId) {
+  const today = localDateStr(new Date());
+  // Get current week's Monday
+  const currentMonday = localDateStr(getMondayOf(new Date()));
+
+  Object.keys(twWeekCache).forEach(wk => {
+    const weekStart = wk; // already a date string YYYY-MM-DD
+    const weekEnd = localDateStr(addDays(new Date(wk+'T12:00:00'), 6));
+
+    if (weekEnd < currentMonday) {
+      // Past week — leave untouched
+      return;
+    }
+
+    if (weekStart === currentMonday) {
+      // Current week — remove events that haven't happened yet (date > today)
+      twWeekCache[wk] = twWeekCache[wk].filter(ev => {
+        const evDate = localDateStr(ev.date);
+        if (ev.batchId !== batchId) return true;
+        return evDate <= today; // keep if already happened
+      });
+    } else {
+      // Future week — remove all events for this batch
+      twWeekCache[wk] = twWeekCache[wk].filter(ev => ev.batchId !== batchId);
+    }
+
+    // Also clean twRemovedEvents for this week
+    if (twRemovedEvents[wk]) {
+      twRemovedEvents[wk] = twRemovedEvents[wk].filter(r => r.batchId !== batchId);
+    }
+  });
+
+  // Update current twEvents if TW is open on current week
+  if (twWeekStart && localDateStr(twWeekStart) === currentMonday) {
+    twEvents = twWeekCache[currentMonday] || [];
+  }
+}
+
+function cleanTwCacheForStudent(batchId, studentName) {
+  const today = localDateStr(new Date());
+  const currentMonday = localDateStr(getMondayOf(new Date()));
+
+  Object.keys(twWeekCache).forEach(wk => {
+    const weekEnd = localDateStr(addDays(new Date(wk+'T12:00:00'), 6));
+    if (weekEnd < currentMonday) return; // past week, leave
+
+    const isCurrent = wk === currentMonday;
+
+    twWeekCache[wk] = twWeekCache[wk].filter(ev => {
+      const evDate = localDateStr(ev.date);
+      // Remove studentScope events for this student
+      if (ev.batchId === batchId && ev.studentScope === studentName) {
+        if (isCurrent) return evDate <= today; // keep if happened
+        return false; // future week, remove
+      }
+      // Remove student from addon list
+      if (ev.addonStudents) {
+        ev.addonStudents = ev.addonStudents.filter(
+          a => !(a.name === studentName && a.batchId === batchId)
+        );
+      }
+      return true;
+    });
+  });
+
+  if (twWeekStart && localDateStr(twWeekStart) === currentMonday) {
+    twEvents = twWeekCache[currentMonday] || [];
   }
 }
 
