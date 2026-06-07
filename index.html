@@ -1040,6 +1040,10 @@ let editBatchId = null, addBatchMode = false;
 let detailBatchId = null;
 let detailExtraTzGroups = new Set();
 let batches = [], classes = [], individualStudents = [];
+let attendance = {};
+let studentSettings = {};
+let attCurrentEventId = null;
+let attCurrentStudents = [];
 let mcShow = 'regular'; // which timing to show on calendar for the class being edited
 
 function setMcShow(v) {
