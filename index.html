@@ -264,7 +264,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     This week
   </button>
-  <button class="header-btn" onclick="openAttendanceSheet()" style="background:var(--blue-light);color:var(--blue);font-weight:500">
+  <button class="header-btn" onclick="openFeeTracker()" style="background:var(--blue-light);color:var(--blue);font-weight:500">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
     Attendance
   </button>
@@ -314,6 +314,12 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
         <div id="student-list"></div>
         <div id="student-empty" style="font-size:12px;color:var(--subtle);padding:8px 4px 4px;display:none">No students yet.</div>
       </div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <!-- Paused students -->
+    <div id="paused-section" class="sidebar-section" style="display:none">
+      <div class="sidebar-label" style="color:var(--subtle)">Paused</div>
+      <div id="paused-student-list"></div>
     </div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">
@@ -821,9 +827,15 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 <div class="overlay" id="modal-student">
   <div class="modal modal-lg">
     <div id="student-detail-content"></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeOverlay('modal-student')">Close</button>
-      <button class="btn-primary" onclick="closeOverlay('modal-student');openAddBatch(currentStudentBatchId)">Edit batch</button>
+    <div class="modal-actions" style="justify-content:space-between">
+      <div style="display:flex;gap:8px">
+        <button id="student-delete-btn" class="btn-danger" onclick="openDeleteStudent()">Delete student</button>
+        <button id="student-pause-btn" class="btn-cancel" onclick="pauseResumeStudent()" style="color:var(--orange);border-color:var(--orange)!important">Pause</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-cancel" onclick="closeOverlay('modal-student')">Close</button>
+        <button class="btn-primary" onclick="closeOverlay('modal-student');openAddBatch(currentStudentBatchId)">Edit batch</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1308,9 +1320,19 @@ function renderSidebar() {
   });
   allStudents.sort((a, b) => a.name.localeCompare(b.name));
 
+  // Separate paused students
+  const activeStudents = allStudents.filter(s => {
+    const k = s.batchId+':'+s.name;
+    return !studentSettings[k]?.paused;
+  });
+  const pausedStudents = allStudents.filter(s => {
+    const k = s.batchId+':'+s.name;
+    return studentSettings[k]?.paused;
+  });
+
   const sl = document.getElementById('student-list');
   const se = document.getElementById('student-empty');
-  if(sl) sl.innerHTML = allStudents.map(s => {
+  if(sl) sl.innerHTML = activeStudents.map(s => {
     const ssKey = s.batchId + ':' + s.name;
     const needsSetup = !s.isIndividual && !(studentSettings[ssKey]?.category);
     const col = getColor(getBatch(s.batchId)?.color || 'c17');
@@ -1335,7 +1357,28 @@ function renderSidebar() {
       <div class="batch-actions">${editBtn}</div>
     </div>`;
   }).join('');
-  if(se) se.style.display = allStudents.length === 0 ? 'block' : 'none';
+  if(se) se.style.display = activeStudents.length === 0 && pausedStudents.length === 0 ? 'block' : 'none';
+
+  // Paused students section
+  const pausedEl = document.getElementById('paused-student-list');
+  if (pausedEl) {
+    if (pausedStudents.length > 0) {
+      document.getElementById('paused-section').style.display = '';
+      pausedEl.innerHTML = pausedStudents.map(s => {
+        const col = getColor(getBatch(s.batchId)?.color || 'c17');
+        const batchLabel = s.isIndividual
+          ? `<span style="font-size:10px;background:var(--hover);color:var(--subtle);padding:1px 5px;border-radius:8px;flex-shrink:0">Individual</span>`
+          : `<span style="font-size:10px;color:var(--subtle);flex-shrink:0">${s.batchName}</span>`;
+        return `<div class="batch-row" onclick="openStudentDetail('${s.batchId}','${s.name.replace(/'/g,"\'")}')">
+          <div class="batch-dot" style="background:${col.border};opacity:0.4"></div>
+          <span class="batch-name" style="color:var(--muted)">${s.name} <span style="font-size:10px;color:var(--subtle)">(Paused)</span></span>
+          ${batchLabel}
+        </div>`;
+      }).join('');
+    } else {
+      document.getElementById('paused-section').style.display = 'none';
+    }
+  }
 }
 
 
@@ -1441,6 +1484,14 @@ function openStudentDetail(batchId, studentName) {
     <div id="student-fee-body" style="margin-top:8px"></div>
   `;
   document.getElementById('modal-student').classList.add('open');
+  // Update pause button based on current state
+  const pauseBtn = document.getElementById('student-pause-btn');
+  const isPaused = studentSettings[batchId+':'+studentName]?.paused;
+  if (pauseBtn) {
+    pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+    pauseBtn.style.color = isPaused ? '#1b5e20' : 'var(--orange)';
+    pauseBtn.style.borderColor = isPaused ? '#1b5e20' : 'var(--orange)';
+  }
   setTimeout(()=>{ refreshStudentAtt(); }, 50);
 }
 
@@ -3338,6 +3389,7 @@ function getClassesFromTimings() {
     const tempSeason = b.tempSeason || 'both';
     if (!Array.isArray(b.timings)) b.timings = [];
     if (!Array.isArray(b.tempTimings)) b.tempTimings = [];
+    // Skip if all students are paused (batch-level check not needed — individual filtering below)
     (b.timings||[]).forEach(t => {
       const tempCoversThisSeason = (tempSeason==='both'||tempSeason===t.season);
       if (showCal==='temporary' && tempCoversThisSeason) return;
@@ -4255,6 +4307,410 @@ function twSaveEdit() {
 // ══════════════════════════════════════════════
 
 
+// ══════════════════════════════════════════════
+// FEE & ATTENDANCE TRACKER
+// ══════════════════════════════════════════════
+
+function openFeeTracker() {
+  // Set default to current month/year, minimum May 2026
+  const now = new Date();
+  const yr = now.getFullYear();
+  const mo = now.getMonth() + 1;
+  const ftYear = document.getElementById('ft-year');
+  const ftMonth = document.getElementById('ft-month');
+  if (ftYear) ftYear.value = String(yr < 2026 ? 2026 : yr);
+  if (ftMonth) ftMonth.value = String(mo);
+  document.getElementById('modal-fee-tracker').classList.add('open');
+  renderFeeTracker();
+}
+
+function renderFeeTracker() {
+  const month = parseInt(document.getElementById('ft-month').value);
+  const year  = parseInt(document.getElementById('ft-year').value);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const fromDate = `${year}-${String(month).padStart(2,'0')}-01`;
+  const toDate   = `${year}-${String(month).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+  const MONTH_NAMES = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // Build all days of month
+  const days = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month-1, d);
+    days.push({ d, dayName: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()], isWeekend: dt.getDay()===0||dt.getDay()===6 });
+  }
+
+  // Build student rows: grouped by batch, alpha within batch
+  const rows = [];
+  batches.forEach(b => {
+    const names = (b.students||'').split(',').map(s=>s.trim()).filter(Boolean).sort();
+    names.forEach(name => rows.push({ name, batchId: b.id, batchName: b.name, isInd: false }));
+  });
+  individualStudents.forEach(s => {
+    rows.push({ name: s.name, batchId: s.id, batchName: 'Individual', isInd: true });
+  });
+
+  // Pre-compute attendance lookup: studentKey -> date -> record
+  const attLookup = {}; // "batchId:name" -> { "2026-06-03": {status, makeupFor, classLabel} }
+  Object.values(attendance).forEach(rec => {
+    if (rec.date < fromDate || rec.date > toDate) return;
+    rec.students.forEach(s => {
+      const key = s.batchId + ':' + s.name;
+      if (!attLookup[key]) attLookup[key] = {};
+      attLookup[key][rec.date] = { status: s.status, makeupFor: s.makeupFor||null };
+    });
+  });
+
+  // Pre-compute scheduled dates per student from timings
+  const schedLookup = {}; // key -> Set of date strings
+  rows.forEach(r => {
+    const key = r.batchId + ':' + r.name;
+    schedLookup[key] = new Set();
+    const allCal = getClassesFromTimings();
+    const studentCal = allCal.filter(c => c.batchId === r.batchId && (c.season==='both'||c.season===season));
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(year, month-1, d);
+      const dateStr = localDateStr(dt);
+      const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()];
+      studentCal.forEach(c => { if (c.day === dayName) schedLookup[key].add(dateStr); });
+    }
+    // Also add TW cache dates
+    Object.values(twWeekCache).forEach(weekEvs => {
+      if (!Array.isArray(weekEvs)) return;
+      weekEvs.forEach(ev => {
+        if (ev.batchId !== r.batchId) return;
+        const d = localDateStr(ev.date);
+        if (d >= fromDate && d <= toDate) schedLookup[key].add(d);
+      });
+    });
+    // Add any attendance dates
+    Object.keys(attLookup[key]||{}).forEach(d => schedLookup[key].add(d));
+  });
+
+  // CSS
+  const css = `
+    <style>
+    #ft-table { border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+    #ft-table th { background: var(--surface); padding: 5px 6px; border: 1px solid var(--border); position: sticky; top: 0; z-index: 5; font-weight: 500; color: var(--muted); text-align: center; min-width: 38px; }
+    #ft-table th.student-col { left: 0; z-index: 7; min-width: 140px; text-align: left; background: var(--surface); }
+    #ft-table th.batch-col { left: 140px; z-index: 7; min-width: 90px; text-align: left; background: var(--surface); }
+    #ft-table th.sticky-right { position: sticky; z-index: 6; background: #f0f4ff; }
+    #ft-table td { padding: 3px 4px; border: 1px solid #f0f0f0; vertical-align: top; text-align: center; }
+    #ft-table td.student-name { position: sticky; left: 0; background: var(--surface); font-weight: 500; text-align: left; padding: 4px 8px; z-index: 2; border-right: 2px solid var(--border); min-width: 140px; }
+    #ft-table td.batch-name { position: sticky; left: 140px; background: var(--surface); font-size: 10px; color: var(--muted); text-align: left; padding: 4px 6px; z-index: 2; border-right: 1px solid var(--border); min-width: 90px; }
+    #ft-table td.present-cell { background: #e6f4ea; }
+    #ft-table td.absent-cell { background: #fce8e6; }
+    #ft-table td.empty-cell { background: #fafafa; }
+    #ft-table td.weekend-cell { background: #f8f8f8; }
+    #ft-table td.count-cell { background: #f0f4ff; font-weight: 600; min-width: 60px; }
+    #ft-table td.fee-cell { background: #fffbe6; min-width: 110px; }
+    #ft-table td.status-cell { min-width: 80px; }
+    #ft-table tr.batch-header td { background: #f1f3f4; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; padding: 4px 8px; }
+    .cell-type { font-size: 10px; font-weight: 600; line-height: 1.3; display: block; }
+    .cell-sub { font-size: 9px; color: #666; display: block; line-height: 1.2; }
+    .status-badge { display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 500; }
+    .status-ongoing { background: #e8f0fe; color: #1a73e8; }
+    .status-pending { background: #fff3e0; color: #e37400; }
+    .status-paid { background: #e6f4ea; color: #1b5e20; }
+    </style>`;
+
+  // Build header row
+  let html = css + '<table id="ft-table"><thead><tr>';
+  html += `<th class="student-col">Student</th>`;
+  html += `<th class="batch-col">Batch</th>`;
+  days.forEach(({ d, dayName, isWeekend }) => {
+    const bg = isWeekend ? 'background:#f5f5f5;' : '';
+    html += `<th style="${bg}">${dayName}<br><span style="font-size:9px;font-weight:400">${d}</span></th>`;
+  });
+  html += `<th class="sticky-right" style="right:252px">Class<br>Count</th>`;
+  html += `<th class="sticky-right" style="right:140px;min-width:112px">Fee Amount</th>`;
+  html += `<th class="sticky-right" style="right:0;min-width:140px">Fee Status</th>`;
+  html += '</tr></thead><tbody>';
+
+  // Track fee summary
+  let totalDue = 0, totalCollected = 0;
+  let lastBatchId = null;
+
+  rows.forEach(r => {
+    const key = r.batchId + ':' + r.name;
+    const ss = studentSettings[key] || {};
+    const category = ss.category || 'ohio-standard';
+    const attModel = {'ohio-standard':'monthly-cap8','monthly-block':'monthly-block','true-per-class':'true-per-class','rolling-cycle':'rolling-cycle','monthly-cap8':'monthly-cap8'}[category]||'monthly-cap8';
+    const rate = parseFloat(ss.rate) || 0;
+    const currency = ss.currency || 'INR';
+    const col = getColor(getBatch(r.batchId)?.color || 'c17');
+
+    // Batch header row
+    if (r.batchId !== lastBatchId) {
+      lastBatchId = r.batchId;
+      const totalCols = days.length + 5;
+      html += `<tr class="batch-header"><td colspan="${totalCols}" style="border-left: 4px solid ${col.border}">${r.batchName}</td></tr>`;
+    }
+
+    // Build day cells
+    let presentCount = 0, countedCount = 0;
+    let rollingCount = (parseInt(ss.firstClassCount)||1) - 1;
+    const dayCells = [];
+
+    days.forEach(({ d, dayName: dn, isWeekend }) => {
+      const dt = new Date(year, month-1, d);
+      const dateStr = localDateStr(dt);
+      const sched = schedLookup[key]?.has(dateStr);
+      const attRec = attLookup[key]?.[dateStr];
+
+      if (!sched && !attRec) {
+        dayCells.push({ html: '', cls: isWeekend ? 'weekend-cell' : 'empty-cell' });
+        return;
+      }
+
+      const status = attRec?.status || null;
+      let cellHtml = '', cls = '';
+
+      if (!attRec) {
+        // Scheduled but no attendance recorded yet
+        cellHtml = `<span class="cell-type" style="color:#9aa0a6">Sched</span>`;
+        cls = isWeekend ? 'weekend-cell' : 'empty-cell';
+      } else if (status === 'present' || status === 'makeup' || status === 'additional') {
+        cls = 'present-cell';
+        const typeLabel = status === 'makeup' ? 'Makeup' : status === 'additional' ? 'Additional' : 'Scheduled';
+        const typeColor = status === 'makeup' ? '#e65100' : status === 'additional' ? '#311b92' : '#1b5e20';
+        cellHtml = `<span class="cell-type" style="color:${typeColor}">${typeLabel}</span>`;
+        if (status === 'makeup' && attRec.makeupFor) {
+          cellHtml += `<span class="cell-sub">for ${attRec.makeupFor}</span>`;
+        }
+        presentCount++;
+        // Count logic
+        const counts = (attModel === 'monthly-cap8' && status === 'makeup') ? false : true;
+        if (counts) { rollingCount++; countedCount++; }
+      } else if (status === 'absent' || status === 'absent-nc') {
+        cls = 'absent-cell';
+        const isCounted = status === 'absent' && (attModel === 'monthly-cap8' || attModel === 'monthly-block' || attModel === 'true-per-class');
+        const needsMakeup = (attModel === 'monthly-cap8' || attModel === 'monthly-block') && status === 'absent';
+        cellHtml = `<span class="cell-type" style="color:#b71c1c">Missed</span>`;
+        if (needsMakeup) cellHtml += `<span class="cell-sub" style="color:#e37400">To makeup</span>`;
+        if (isCounted) { rollingCount++; countedCount++; }
+      } else if (status === 'cancelled') {
+        cls = 'absent-cell';
+        const needsMakeup = attModel === 'monthly-block';
+        cellHtml = `<span class="cell-type" style="color:#b71c1c">Cancelled</span>`;
+        if (needsMakeup) cellHtml += `<span class="cell-sub" style="color:#e37400">To makeup</span>`;
+      }
+
+      dayCells.push({ html: cellHtml, cls });
+    });
+
+    // Class count cell
+    let countCellHtml = '';
+    if (attModel === 'monthly-cap8') {
+      const capped = Math.min(countedCount, 8);
+      countCellHtml = `<strong>${capped}</strong><span class="cell-sub">${countedCount > 8 ? `(${countedCount} raw)` : 'of 8 max'}</span>`;
+    } else if (attModel === 'rolling-cycle') {
+      const cyclePos = ((rollingCount - 1) % 8) + 1;
+      countCellHtml = `<strong>${countedCount}</strong><span class="cell-sub">Class ${cyclePos} of 8</span>`;
+    } else {
+      countCellHtml = `<strong>${countedCount}</strong>`;
+    }
+
+    // Fee amount cell
+    let feeCellHtml = '';
+    let feeForSummary = 0;
+
+    if (attModel === 'monthly-cap8') {
+      const capped = Math.min(countedCount, 8);
+      const amt = capped * rate;
+      feeForSummary = amt;
+      feeCellHtml = `<strong>${fmtAmount(amt, currency)}</strong><span class="cell-sub">${capped} × ${fmtAmount(rate,currency)}</span>`;
+    } else if (attModel === 'monthly-block') {
+      feeForSummary = rate;
+      feeCellHtml = `<strong>${fmtAmount(rate, currency)}</strong><span class="cell-sub">Fixed monthly</span>`;
+    } else if (attModel === 'true-per-class') {
+      const amt = countedCount * rate;
+      feeForSummary = amt;
+      feeCellHtml = `<strong>${fmtAmount(amt, currency)}</strong><span class="cell-sub">${countedCount} × ${fmtAmount(rate,currency)}</span>`;
+    } else if (attModel === 'rolling-cycle') {
+      // Type D: may span two cycles in a month
+      const cycleStart = ss.cycleStartDate || fromDate;
+      const cycleStartD = new Date(cycleStart + 'T12:00:00');
+      const cycleStartStr = localDateStr(cycleStartD);
+      if (cycleStartStr > fromDate) {
+        // Previous cycle ended during this month
+        const prevEnd = new Date(cycleStartD); prevEnd.setDate(prevEnd.getDate()-1);
+        const prevEndStr = localDateStr(prevEnd);
+        const prevLabel = `${MONTH_NAMES[parseInt(fromDate.slice(5,7))].slice(0,3)} 1 – ${prevEndStr.slice(8)} ${MONTH_NAMES[parseInt(prevEndStr.slice(5,7))].slice(0,3)}`;
+        const curLabel = `${cycleStartStr.slice(8)} ${MONTH_NAMES[month].slice(0,3)} onwards`;
+        const cyclePos = ((rollingCount-1)%8)+1;
+        const curAmt = Math.floor((cyclePos/8)*rate);
+        feeForSummary = rate + curAmt;
+        feeCellHtml = `<span class="cell-sub">${prevLabel}</span><strong>${fmtAmount(rate,currency)}</strong><hr style="margin:2px 0;border:none;border-top:1px dashed #ccc"><span class="cell-sub">${curLabel}</span><strong>${fmtAmount(curAmt,currency)}</strong>`;
+      } else {
+        const cyclePos = ((rollingCount-1)%8)+1;
+        const curAmt = Math.floor((cyclePos/8)*rate);
+        feeForSummary = curAmt;
+        feeCellHtml = `<strong>${fmtAmount(curAmt,currency)}</strong><span class="cell-sub">Class ${cyclePos} of 8</span>`;
+      }
+    }
+
+    // Fee status cell
+    const storedStatus = ss.feeStatus || 'ongoing';
+    const now2 = new Date();
+    const curM = now2.getMonth()+1, curY = now2.getFullYear();
+    let displayStatus = storedStatus;
+    if (storedStatus === 'ongoing' && (year < curY || (year === curY && month < curM))) {
+      displayStatus = 'pending'; // past month defaults to pending if not paid
+    }
+    const statusClass = { ongoing:'status-ongoing', pending:'status-pending', paid:'status-paid' }[displayStatus]||'status-ongoing';
+    const statusLabel = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
+
+    // For Type D with split cell
+    let statusCellHtml = '';
+    if (attModel === 'rolling-cycle' && ss.cycleStartDate && localDateStr(new Date(ss.cycleStartDate+'T12:00:00')) > fromDate) {
+      const prevStatus = ss.lastPaidDate ? 'paid' : 'pending';
+      const prevClass = prevStatus === 'paid' ? 'status-paid' : 'status-pending';
+      statusCellHtml = `<span class="status-badge ${prevClass}">${prevStatus.charAt(0).toUpperCase()+prevStatus.slice(1)}</span><hr style="margin:2px 0;border:none;border-top:1px dashed #ccc"><span class="status-badge status-ongoing">Ongoing</span>`;
+    } else {
+      statusCellHtml = `<span class="status-badge ${statusClass}">${statusLabel}</span>`;
+    }
+
+    // Accumulate summary
+    totalDue += feeForSummary || 0;
+    if (displayStatus === 'paid') totalCollected += feeForSummary || 0;
+
+    // Build row
+    html += `<tr>`;
+    html += `<td class="student-name">${r.name}</td>`;
+    html += `<td class="batch-name">${r.batchName}</td>`;
+    dayCells.forEach(({ html: ch, cls }) => {
+      html += `<td class="${cls}">${ch}</td>`;
+    });
+    html += `<td class="count-cell">${countCellHtml}</td>`;
+    html += `<td class="fee-cell">${feeCellHtml}</td>`;
+    html += `<td class="status-cell">${statusCellHtml}</td>`;
+    html += `</tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('ft-inner').innerHTML = html;
+
+  // Fee summary footer
+  document.getElementById('ft-summary').innerHTML = `
+    <div>
+      <div style="font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Total Fee Due — ${MONTH_NAMES[month]} ${year}</div>
+      <div style="font-size:20px;font-weight:700;color:var(--text)">${fmtAmount(totalDue,'INR')}</div>
+    </div>
+    <div style="width:1px;background:var(--border)"></div>
+    <div>
+      <div style="font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Total Collected</div>
+      <div style="font-size:20px;font-weight:700;color:#1b5e20">${fmtAmount(totalCollected,'INR')}</div>
+    </div>
+    <div style="width:1px;background:var(--border)"></div>
+    <div>
+      <div style="font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Outstanding</div>
+      <div style="font-size:20px;font-weight:700;color:#b71c1c">${fmtAmount(totalDue - totalCollected,'INR')}</div>
+    </div>
+    <div style="margin-left:auto;font-size:11px;color:var(--subtle);align-self:center">Fee status changes in student popup · Scroll right to see all dates</div>
+  `;
+}
+
+
+
+// ══════════════════════════════════════════════
+// DELETE & PAUSE STUDENT
+// ══════════════════════════════════════════════
+
+function openDeleteStudent() {
+  const name = currentStudentName;
+  document.getElementById('del-student-name-label').textContent = name;
+  document.getElementById('del-student-confirm-input').value = '';
+  document.getElementById('del-student-confirm-btn').disabled = true;
+  document.getElementById('del-student-confirm-btn').style.opacity = '.4';
+  document.getElementById('modal-delete-student').classList.add('open');
+}
+
+function checkDeleteConfirm() {
+  const input = document.getElementById('del-student-confirm-input').value.trim();
+  const ok = input === currentStudentName;
+  document.getElementById('del-student-confirm-btn').disabled = !ok;
+  document.getElementById('del-student-confirm-btn').style.opacity = ok ? '1' : '.4';
+}
+
+function confirmDeleteStudent() {
+  const name = currentStudentName;
+  const batchId = currentStudentBatchId;
+
+  // Remove from batch students list
+  const b = getBatch(batchId);
+  if (b && !b.isIndividual) {
+    const names = (b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+    b.students = names.filter(n => n !== name).join(', ');
+    save('batches', batches);
+  }
+
+  // Remove individual student
+  const wasInd = individualStudents.find(s => s.id === batchId);
+  if (wasInd) {
+    individualStudents = individualStudents.filter(s => s.id !== batchId);
+    save('individualStudents', individualStudents);
+  }
+
+  // Remove studentSettings
+  const key = batchId + ':' + name;
+  delete studentSettings[key];
+  save('studentSettings', studentSettings);
+
+  // Remove all attendance records for this student
+  Object.keys(attendance).forEach(evId => {
+    const rec = attendance[evId];
+    rec.students = rec.students.filter(s => !(s.name === name && s.batchId === batchId));
+    if (rec.students.length === 0) delete attendance[evId];
+  });
+  cloudSave('attendance', JSON.stringify(attendance));
+
+  // Remove from TW cache
+  Object.keys(twWeekCache).forEach(wk => {
+    twWeekCache[wk] = twWeekCache[wk].filter(ev => {
+      if (ev.batchId === batchId && ev.studentScope === name) return false;
+      if (ev.addonStudents) ev.addonStudents = ev.addonStudents.filter(a => !(a.name===name&&a.batchId===batchId));
+      return true;
+    });
+  });
+  save('twWeekCache', JSON.stringify({ cache: Object.fromEntries(Object.entries(twWeekCache).map(([k,v])=>[k,v.map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}))])), weekStart: twWeekStart?twWeekStart.toISOString():null, season: twSeason }));
+
+  closeOverlay('modal-delete-student');
+  closeOverlay('modal-student');
+  renderSidebar();
+  renderCalendar();
+  showToast(name + ' deleted');
+}
+
+function pauseResumeStudent() {
+  const name = currentStudentName;
+  const batchId = currentStudentBatchId;
+  const key = batchId + ':' + name;
+  if (!studentSettings[key]) studentSettings[key] = {};
+  const isPaused = studentSettings[key].paused;
+
+  if (isPaused) {
+    // Resume
+    studentSettings[key].paused = false;
+    save('studentSettings', studentSettings);
+    // Update button
+    document.getElementById('student-pause-btn').textContent = 'Pause';
+    document.getElementById('student-pause-btn').style.color = 'var(--orange)';
+    document.getElementById('student-pause-btn').style.borderColor = 'var(--orange)';
+    renderSidebar();
+    showToast(name + ' resumed');
+  } else {
+    // Pause
+    studentSettings[key].paused = true;
+    save('studentSettings', studentSettings);
+    document.getElementById('student-pause-btn').textContent = 'Resume';
+    document.getElementById('student-pause-btn').style.color = '#1b5e20';
+    document.getElementById('student-pause-btn').style.borderColor = '#1b5e20';
+    renderSidebar();
+    showToast(name + ' paused — removed from upcoming classes');
+  }
+}
+
+
 // Boot
 document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
 document.getElementById('btn-winter').classList.toggle('active-blue',season==='winter');
@@ -4263,5 +4719,60 @@ renderTzDropdown();renderSidebar();renderCalendar();
 autoCheckFeeStatuses();
 initLoad();
 </script>
+
+<!-- FEE & ATTENDANCE TRACKER -->
+<div class="overlay" id="modal-fee-tracker" style="align-items:stretch;padding:0">
+  <div style="background:var(--bg);width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden">
+    <!-- Header -->
+    <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0">
+      <div style="font-family:'Google Sans',sans-serif;font-size:18px;font-weight:500;color:var(--blue)">📊 Attendance &amp; Fee Tracker</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:12px;color:var(--muted);font-weight:500">Month:</label>
+        <select id="ft-month" onchange="renderFeeTracker()" style="font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">
+          <option value="5">May</option><option value="6" selected>June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+        </select>
+        <select id="ft-year" onchange="renderFeeTracker()" style="font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+        </select>
+      </div>
+      <div style="flex:1"></div>
+      <button class="header-btn" onclick="closeOverlay('modal-fee-tracker')" style="color:#d93025">✕ Close</button>
+    </div>
+    <!-- Grid -->
+    <div style="flex:1;overflow:auto;padding:16px" id="ft-outer">
+      <div id="ft-inner"></div>
+    </div>
+    <!-- Fee Summary Footer -->
+    <div id="ft-summary" style="background:var(--surface);border-top:1px solid var(--border);padding:12px 24px;flex-shrink:0;display:flex;gap:32px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+
+<!-- DELETE STUDENT CONFIRM -->
+<div class="overlay" id="modal-delete-student">
+  <div class="modal modal-sm">
+    <h2 style="color:#d93025">⚠ Delete student?</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">This will permanently delete <strong id="del-student-name-label"></strong> and all their attendance, fee, and schedule records. This cannot be undone.</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Type the student's name to confirm:</p>
+    <div class="field">
+      <input id="del-student-confirm-input" type="text" placeholder="Type student name…" oninput="checkDeleteConfirm()"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeOverlay('modal-delete-student')">Cancel</button>
+      <button id="del-student-confirm-btn" onclick="confirmDeleteStudent()" disabled
+        style="background:#d93025;color:#fff;font-size:14px;font-family:'Roboto',sans-serif;font-weight:500;padding:9px 18px;border-radius:var(--radius);border:none;cursor:pointer;opacity:.4;transition:opacity .15s">
+        Delete everything
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
