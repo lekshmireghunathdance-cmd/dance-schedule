@@ -4317,7 +4317,20 @@ function twMouseUp(e){
       const col=target?.closest?.('.tw-col');
       const ev=twEvents.find(x=>x.id===twDragState.evId);
       if(ev&&col){
+        const originalDragDate = localDateStr(ev.date); // capture before move
         if(col.dataset.date) ev.date=new Date(col.dataset.date+'T12:00:00');
+        // If date changed, mark original date as removed so merge doesn't re-add it
+        const newDragDate = localDateStr(ev.date);
+        if(col.dataset.date && newDragDate !== originalDragDate){
+          const wk = twWeekKey();
+          if(!twRemovedEvents[wk]) twRemovedEvents[wk]=[];
+          const alreadyRemoved = twRemovedEvents[wk].some(
+            r=>r.batchId===ev.batchId&&r.date===originalDragDate&&(r.studentScope||null)===(ev.studentScope||null)
+          );
+          if(!alreadyRemoved){
+            twRemovedEvents[wk].push({batchId:ev.batchId,date:originalDragDate,studentScope:ev.studentScope||null});
+          }
+        }
         const outer=document.getElementById('tw-cal-outer');
         const colTop=col.getBoundingClientRect().top+(outer?outer.scrollTop:0)-(outer?outer.getBoundingClientRect().top:0);
         const mouseYInDoc=e.clientY+(outer?outer.scrollTop:0)-(outer?outer.getBoundingClientRect().top:0);
