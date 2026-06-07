@@ -3616,8 +3616,22 @@ function twOpenEdit(evId) {
 function twSaveEdit() {
   const ev = twEvents.find(x=>x.id===twEditId);
   if (!ev) { closeOverlay('modal-tw-edit'); return; }
+  const originalDate = localDateStr(ev.date); // capture before change
   const dateVal = document.getElementById('twe-date').value;
   if (dateVal) ev.date = new Date(dateVal+'T00:00:00');
+  // If date was changed, mark original date as removed so merge doesn't re-add it
+  const newDate = localDateStr(ev.date);
+  if (dateVal && newDate !== originalDate) {
+    const wk = twWeekKey();
+    if (!twRemovedEvents[wk]) twRemovedEvents[wk] = [];
+    // Only add if not already tracked
+    const alreadyRemoved = twRemovedEvents[wk].some(
+      r => r.batchId===ev.batchId && r.date===originalDate && (r.studentScope||null)===(ev.studentScope||null)
+    );
+    if (!alreadyRemoved) {
+      twRemovedEvents[wk].push({batchId:ev.batchId, date:originalDate, studentScope:ev.studentScope||null});
+    }
+  }
   ev.start = document.getElementById('twe-start').value;
   ev.end = document.getElementById('twe-end').value;
   ev.classType = document.getElementById('twe-class-type').value;
@@ -3855,8 +3869,8 @@ function renderFeeTracker() {
       let cellHtml = '', cls = '';
 
       if (!attRec) {
-        // Scheduled but no attendance recorded yet
-        cellHtml = `<span class="cell-type" style="color:#9aa0a6">Sched</span>`;
+        // Scheduled but no attendance recorded yet — show neutral dot, not label
+        cellHtml = `<span style="color:#dadce0;font-size:14px;line-height:1">·</span>`;
         cls = isWeekend ? 'weekend-cell' : 'empty-cell';
       } else if (status === 'present' || status === 'makeup' || status === 'additional') {
         cls = 'present-cell';
