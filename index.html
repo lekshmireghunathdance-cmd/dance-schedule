@@ -2470,8 +2470,10 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
     const cancelled = status === 'cancelled';
 
     let typeStr='Scheduled', typeColor='color:var(--muted)', makeupNote='';
-    if (hasAtt) {
+    if (!hasAtt) { typeStr='Scheduled'; typeColor='color:var(--subtle)'; }
+    else if (hasAtt) {
       if (cancelled) { typeStr='Cancelled'; typeColor='color:#b71c1c;font-weight:500'; }
+      else if (status==='absent') { typeStr='Scheduled'; typeColor='color:var(--muted)'; }
       else if (status==='makeup') {
         typeStr = attModel==='true-per-class' ? 'Additional' : 'Makeup';
         typeColor='color:#e65100;font-weight:500';
@@ -2496,9 +2498,15 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       countCell = '<span style="color:var(--subtle);font-size:11px">—</span>';
     } else if (cancelled || status==='absent-nc') {
       countCell = '';
-    } else if (status==='makeup' && attModel==='monthly-cap8') {
-      countCell = '';
-    } else if (status==='present'||status==='absent'||status==='additional'||(status==='makeup'&&attModel!=='monthly-cap8')) {
+    } else if (status==='makeup' && (attModel==='monthly-cap8'||attModel==='monthly-block')) {
+      countCell = ''; // makeup doesn't count for Type A or B
+    } else if (attModel==='monthly-cap8' && (status==='present'||status==='absent'||status==='additional')) {
+      runningCount++; counted=true;
+    } else if (attModel==='monthly-block' && (status==='present'||status==='absent'||status==='additional')) {
+      runningCount++; counted=true; // makeup=0, cancelled=0 for Type B
+    } else if (attModel==='true-per-class' && (status==='present'||status==='makeup'||status==='additional')) {
+      runningCount++; counted=true; // absent doesn't count for Type C
+    } else if (attModel==='rolling-cycle' && (status==='present'||status==='additional')) {
       runningCount++; counted=true;
     }
     if (counted) {
@@ -2526,6 +2534,7 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   // Pending list (A=absent, B=cancelled only)
   let pendingHtml = '';
   if (attModel==='monthly-cap8'||attModel==='monthly-block') {
+    // Track makeup resolutions (dates that have been made up)
     const resolvedDates = new Set();
     Object.values(attendance).forEach(rec=>{
       rec.students.forEach(s=>{
@@ -2533,15 +2542,48 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
         if(s.status==='makeup'&&s.makeupFor) resolvedDates.add(s.makeupFor.split(' ')[0]);
       });
     });
+
     const allTimeAtt = {};
-    Object.values(attendance).forEach(rec=>{
-      rec.students.forEach(s=>{
-        if(s.name!==studentName)return;
-        const isPending = attModel==='monthly-cap8' ? s.status==='absent' : s.status==='cancelled';
-        if(isPending&&!resolvedDates.has(rec.date)&&!allTimeAtt[rec.date])
-          allTimeAtt[rec.date]={date:rec.date,time:rec.twStart||''};
+    if (attModel==='monthly-cap8') {
+      // Type A: absent from scheduled class → pending (needs makeup)
+      Object.values(attendance).forEach(rec=>{
+        rec.students.forEach(s=>{
+          if(s.name!==studentName)return;
+          if(s.status==='absent'&&!resolvedDates.has(rec.date)&&!allTimeAtt[rec.date])
+            allTimeAtt[rec.date]={date:rec.date,time:rec.twStart||''};
+        });
       });
-    });
+    } else {
+      // Type B: ONLY cancelled classes → pending (absent does NOT create pending)
+      // But only if < 8 counted classes already in that month
+      // First, count classes per month
+      const monthCounts = {}; // "YYYY-MM" → count of counted classes
+      Object.values(attendance).forEach(rec=>{
+        const ym = rec.date.slice(0,7);
+        rec.students.forEach(s=>{
+          if(s.name!==studentName)return;
+          // Counted classes for Type B: present, absent (scheduled), additional
+          if(s.status==='present'||s.status==='absent'||s.status==='additional'){
+            if(!monthCounts[ym])monthCounts[ym]=0;
+            monthCounts[ym]++;
+          }
+        });
+      });
+      Object.values(attendance).forEach(rec=>{
+        rec.students.forEach(s=>{
+          if(s.name!==studentName)return;
+          if(s.status!=='cancelled')return;
+          if(resolvedDates.has(rec.date))return;
+          if(allTimeAtt[rec.date])return;
+          // Check if 8 counted classes already done in that month
+          const ym = rec.date.slice(0,7);
+          const countSoFar = monthCounts[ym]||0;
+          if(countSoFar >= 8) return; // already at cap, cancellation not pending
+          allTimeAtt[rec.date]={date:rec.date,time:rec.twStart||''};
+        });
+      });
+    }
+
     const allPending = Object.values(allTimeAtt).sort((a,b)=>a.date.localeCompare(b.date));
     if (allPending.length) {
       const pendingRows = allPending.map(p=>{
@@ -2554,9 +2596,10 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
           : '<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:#fce8e6;color:#b71c1c">Pending</span>';
         return `<tr><td style="padding:6px 10px;font-size:12px">${label}</td><td style="padding:6px 10px">${statusCell}</td></tr>`;
       }).join('');
+      const pendingType = attModel==='monthly-block' ? 'Cancelled (pending makeup)' : 'Pending classes';
       pendingHtml = `<div style="margin-top:14px">
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#b71c1c;margin-bottom:8px">Pending classes <span style="background:#fce8e6;color:#b71c1c;padding:1px 7px;border-radius:10px;font-size:11px">${allPending.length}</span></div>
-        <table class="timing-table"><thead><tr><th>To make up for</th><th>Status</th></tr></thead><tbody>${pendingRows}</tbody></table>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#b71c1c;margin-bottom:8px">${pendingType} <span style="background:#fce8e6;color:#b71c1c;padding:1px 7px;border-radius:10px;font-size:11px">${allPending.length}</span></div>
+        <table class="timing-table"><thead><tr><th>${attModel==='monthly-block'?'Cancelled class':'To make up for'}</th><th>Status</th></tr></thead><tbody>${pendingRows}</tbody></table>
       </div>`;
     } else {
       pendingHtml = '<div style="margin-top:10px;font-size:12px;color:#1b5e20">No pending classes</div>';
@@ -3829,16 +3872,18 @@ function renderFeeTracker() {
         if (counts) { rollingCount++; countedCount++; }
       } else if (status === 'absent' || status === 'absent-nc') {
         cls = 'absent-cell';
-        const isCounted = status === 'absent' && (attModel === 'monthly-cap8' || attModel === 'monthly-block' || attModel === 'true-per-class');
-        const needsMakeup = (attModel === 'monthly-cap8' || attModel === 'monthly-block') && status === 'absent';
+        // Type A: absent counts + needs makeup; Type B: absent counts but NO makeup; Type C: absent doesn't count
+        const isCounted = status === 'absent' && (attModel === 'monthly-cap8' || attModel === 'monthly-block');
+        const needsMakeup = attModel === 'monthly-cap8' && status === 'absent'; // only Type A needs makeup for absent
         cellHtml = `<span class="cell-type" style="color:#b71c1c">Missed</span>`;
         if (needsMakeup) cellHtml += `<span class="cell-sub" style="color:#e37400">To makeup</span>`;
         if (isCounted) { rollingCount++; countedCount++; }
       } else if (status === 'cancelled') {
         cls = 'absent-cell';
+        // Type B only: cancelled is pending if < 8 counted that month
         const needsMakeup = attModel === 'monthly-block';
         cellHtml = `<span class="cell-type" style="color:#b71c1c">Cancelled</span>`;
-        if (needsMakeup) cellHtml += `<span class="cell-sub" style="color:#e37400">To makeup</span>`;
+        if (needsMakeup) cellHtml += `<span class="cell-sub" style="color:#e37400">Pending makeup</span>`;
       }
 
       dayCells.push({ html: cellHtml, cls });
@@ -4135,7 +4180,8 @@ function twRender(){
   html+=`</div>`;
   days.forEach((d,di)=>{
     const dateStr=localDateStr(d);
-    const dayEvs=twEvents.filter(e=>localDateStr(e.date)===dateStr);
+    // Filter out events for deleted batches/students
+    const dayEvs=twEvents.filter(e=>localDateStr(e.date)===dateStr&&getBatch(e.batchId));
     html+=`<div class="tw-col" style="height:${TW_GRID_H}px" data-date="${dateStr}" onclick="twColClick(event,'${dateStr}')" onmousemove="twColHover(event)" onmouseleave="twColLeave(event)">`;
     for(let h=0;h<=TW_END_H-TW_START_H;h++){html+=`<div class="hour-line solid" style="top:${h*60*TW_PX_PM}px;pointer-events:none"></div>`;if(h<TW_END_H-TW_START_H)html+=`<div class="hour-line" style="top:${(h+.5)*60*TW_PX_PM}px;pointer-events:none"></div>`;}
     const evs=dayEvs.map(e=>{const sm=twMinsFromStart(e.start),em=twMinsFromStart(e.end);return{e,sm,em};}).filter(x=>x.sm>=0&&x.em<=TW_TOTAL_MINS).sort((a,b)=>a.sm-b.sm);
