@@ -1306,7 +1306,7 @@ function renderSidebar() {
       <div class="batch-dot" style="background:${col.border}"></div>
       <span class="batch-name">${b.name}</span>
       <div class="batch-actions">
-        <button class="icon-btn" onclick="event.stopPropagation();openEditBatch('${b.id}')">
+        <button class="icon-btn" onclick="event.stopPropagation();openAddBatch('${b.id}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
@@ -2227,10 +2227,12 @@ function renderDetailContent() {
       // Get this student's category to determine pending logic
       const sKey=b.id+':'+s.name;
       const sCat=(studentSettings[sKey]?.category)||'ohio-standard';
-      // Type B: only cancelled = pending. All others: absent = pending
+      // Type A: absent=pending; Type B: cancelled=pending; Type C/D: no pending
       const isPending = sCat==='monthly-block'
         ? s.status==='cancelled'
-        : s.status==='absent';
+        : (sCat==='ohio-standard')
+        ? s.status==='absent'
+        : false; // true-per-class and rolling-cycle have no pending/makeup
       if(isPending&&!resolvedDates[s.name]?.has(rec.date)){
         if(!pendingMap[s.name])pendingMap[s.name]=[];
         if(!pendingMap[s.name].includes(rec.date))pendingMap[s.name].push(rec.date);
@@ -3536,12 +3538,10 @@ function tweConfirmCancel() {
       const d = localDateStr(ev.date);
       if (!attendance[twEditId]) attendance[twEditId] = {date:d, batchId:ev.batchId, classLabel:b.name+' – '+d, twStart:ev.start, students:[]};
       students.forEach(name => {
-        const ss = studentSettings[ev.batchId+':'+name]||{};
-        if ((ss.category||'ohio-standard')==='monthly-block') {
-          const existing = attendance[twEditId].students.find(s=>s.name===name);
-          if (existing) existing.status='cancelled';
-          else attendance[twEditId].students.push({name, batchId:ev.batchId, status:'cancelled', isGuest:false});
-        }
+        // Mark ALL students as cancelled; display logic filters by category
+        const existing = attendance[twEditId].students.find(s=>s.name===name);
+        if (existing) existing.status='cancelled';
+        else attendance[twEditId].students.push({name, batchId:ev.batchId, status:'cancelled', isGuest:false});
       });
       cloudSave('attendance', JSON.stringify(attendance));
     }
@@ -3911,8 +3911,8 @@ function renderFeeTracker() {
           cellHtml += `<span class="cell-sub">for ${attRec.makeupFor}</span>`;
         }
         presentCount++;
-        // Count logic
-        const counts = (attModel === 'monthly-cap8' && status === 'makeup') ? false : true;
+        // Count logic: makeup = 0 for Type A and Type B; additional = 1 for all
+        const counts = (status === 'makeup' && (attModel === 'monthly-cap8' || attModel === 'monthly-block')) ? false : true;
         if (counts) { rollingCount++; countedCount++; }
       } else if (status === 'absent' || status === 'absent-nc') {
         cls = 'absent-cell';
@@ -4220,7 +4220,7 @@ function twRender(){
     html+=`<div class="tw-hdr" style="${isToday?'color:var(--orange);font-weight:700;':''}">${d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}<span class="tw-date">${fmtDate(d)}</span></div>`;
   });
   html+=`<div style="display:flex;flex-direction:column;background:var(--surface)">`;
-  for(let h=TW_START_H;h<=TW_END_H;h++){const lbl=h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;html+=`<div class="tw-time" style="height:${60*TW_PX_PM}px">${lbl}</div>`;}
+  for(let h=TW_START_H;h<TW_END_H;h++){const lbl=h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;html+=`<div class="tw-time" style="height:${60*TW_PX_PM}px">${lbl}</div>`;}
   html+=`</div>`;
   days.forEach((d,di)=>{
     const dateStr=localDateStr(d);
@@ -4539,7 +4539,7 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
       const st = s.status;
       let counts = false;
       if (category === 'ohio-standard') counts = st==='present'||st==='absent'||st==='additional';
-      else if (category === 'monthly-block') counts = st==='present'||st==='absent'||st==='makeup'||st==='additional';
+      else if (category === 'monthly-block') counts = st==='present'||st==='absent'||st==='additional'; // makeup=0 for Type B
       else if (category === 'true-per-class') counts = st==='present'||st==='makeup'||st==='additional';
       else if (category === 'rolling-cycle') counts = st==='present'||st==='additional';
       if (counts) totalCount++;
