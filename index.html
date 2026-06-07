@@ -1493,6 +1493,8 @@ function openStudentDetail(batchId, studentName) {
     </div>
     <div id="student-fee-body" style="margin-top:8px"></div>
   `;
+  // Recompute fee statuses before showing (catches Type D cycle completions)
+  autoCheckFeeStatuses();
   document.getElementById('modal-student').classList.add('open');
   // Update pause button based on current state
   const pauseBtn = document.getElementById('student-pause-btn');
@@ -3630,6 +3632,8 @@ function twSaveEdit() {
       }
     });
     cloudSave('attendance', JSON.stringify(attendance));
+    // Re-check fee statuses after attendance change (catches Type D cycle completions)
+    autoCheckFeeStatuses();
   }
 
   twSaveEvents();
@@ -4303,11 +4307,6 @@ function computeMonthStatus(ss, category, year, month) {
 
 // ── autoCheckFeeStatuses ── (runs on load, no longer auto-advances anything)
 function autoCheckFeeStatuses() {
-  // For Type D: check if class 8 was just reached and flip cycle to pending
-  // This is handled in attendance recording — nothing to auto-flip here
-  // For A/B/C: status is computed on-the-fly in display, not stored unless manually set
-  // So this function is now a no-op for display purposes,
-  // but we keep it to handle Type D cycle completion checks
   const now = new Date();
   let changed = false;
 
@@ -4317,49 +4316,51 @@ function autoCheckFeeStatuses() {
     const category = ss.category || 'ohio-standard';
     if (category !== 'rolling-cycle') return;
 
-    // Count attended classes since cycle start to detect if cycle completed
     const parts = key.split(':');
     const batchId = parts[0], studentName = parts.slice(1).join(':');
-    const cycleStart = ss.cycleStartDate;
-    if (!cycleStart) return;
+    const trackStart = ss.trackStartDate || ss.cycleStartDate;
+    if (!trackStart) return;
+    const firstCount = parseInt(ss.firstClassCount) || 1;
 
-    // Count classes from cycleStart onwards
-    let classCount = parseInt(ss.firstClassCount) || 1;
-    // We count from attendance records
+    // Collect all attended dates since trackStart
     const attendedDates = [];
     Object.values(attendance).forEach(rec => {
+      if (rec.date < trackStart) return;
       rec.students.forEach(s => {
         if (s.name !== studentName || s.batchId !== batchId) return;
-        if (rec.date < cycleStart) return;
-        if (s.status === 'present' || s.status === 'additional') {
+        if (s.status === 'present' || s.status === 'additional' || s.status === 'makeup') {
           attendedDates.push(rec.date);
         }
       });
     });
     attendedDates.sort();
 
-    // Walk through and find cycle boundaries
-    let count = parseInt(ss.firstClassCount) || 1;
-    let prevCycleStart = cycleStart;
+    // Walk through attendance finding cycle boundaries
+    // Start at position firstCount within the first cycle
+    let posInCycle = firstCount; // 1-based position
+    let currentCycleStartDate = trackStart;
+
     for (const date of attendedDates) {
-      if (count === 8) {
-        // Cycle completed at this class
-        const cycleKey = feeCycleKey(prevCycleStart);
+      if (posInCycle === 8) {
+        // This class completes the cycle — mark it pending if not already set
+        const cycleKey = feeCycleKey(currentCycleStartDate);
         if (!ss[cycleKey]) {
-          ss[cycleKey] = 'pending'; // flip to pending when cycle completes
+          ss[cycleKey] = 'pending';
           changed = true;
         }
-        // New cycle starts next
-        prevCycleStart = date; // next class after this will be class 1
-        count = 1;
+        // New cycle starts after this class
+        currentCycleStartDate = date;
+        posInCycle = 1;
       } else {
-        count++;
+        posInCycle++;
       }
     }
-    // Update cycle tracking in ss
-    if (prevCycleStart !== cycleStart || count !== (parseInt(ss.firstClassCount)||1)) {
-      ss.currentCycleStart = prevCycleStart;
-      ss.currentClassCount = count;
+
+    // Store current cycle state
+    if (ss.currentCycleStart !== currentCycleStartDate || ss.currentClassCount !== posInCycle) {
+      ss.currentCycleStart = currentCycleStartDate;
+      ss.currentClassCount = posInCycle;
+      changed = true;
     }
   });
 
@@ -4460,10 +4461,40 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
     <div style="font-size:11px;color:var(--subtle);margin-top:3px">${totalCount} × ${fmtAmount(rate,currency)}</div>`;
   } else if (category === 'rolling-cycle') {
     // Type D: find current cycle position
-    const cycleStart = ss.currentCycleStart || ss.cycleStartDate || fromDate;
-    const cyclePos = ss.currentClassCount || (parseInt(ss.firstClassCount)||1);
+    // Compute cycle position from actual attendance records
+    const trackStart = ss.trackStartDate || ss.cycleStartDate || fromDate;
+    const firstCount = parseInt(ss.firstClassCount) || 1;
+    // Count attended classes from trackStart across ALL attendance records
+    let totalAttended = 0;
+    const allAttDates = [];
+    Object.values(attendance).forEach(rec => {
+      if (rec.date < trackStart) return;
+      rec.students.forEach(s => {
+        if (s.name !== studentName || s.batchId !== batchId) return;
+        if (s.status === 'present' || s.status === 'additional' || s.status === 'makeup') {
+          allAttDates.push(rec.date);
+        }
+      });
+    });
+    allAttDates.sort();
+    totalAttended = allAttDates.length;
+    // Total position in rolling count = (firstCount - 1) + totalAttended
+    const totalPos = (firstCount - 1) + totalAttended;
+    // Current position within current 8-class block
+    const cyclePos = (totalPos % 8) + 1;
+    // Which cycle are we on (0-indexed)
+    const cycleNum = Math.floor(totalPos / 8);
+    // Cycle start date = trackStart for cycle 0, or date of class that started new cycle
+    let activeCycleStart = trackStart;
+    if (cycleNum > 0 && allAttDates.length >= cycleNum * 8 - (firstCount - 1)) {
+      // The cycle started after the (cycleNum*8 - firstCount+1)th class
+      const cycleStartIdx = cycleNum * 8 - (firstCount - 1);
+      if (cycleStartIdx > 0 && cycleStartIdx <= allAttDates.length) {
+        activeCycleStart = allAttDates[cycleStartIdx - 1];
+      }
+    }
     feeBody = `<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Current cycle</span><span style="font-size:12px;font-weight:600">Class ${cyclePos} of 8</span></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Cycle started</span><span style="font-size:12px;font-weight:600">${cycleStart}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Cycle started</span><span style="font-size:12px;font-weight:600">${activeCycleStart}</span></div>
     <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Per 8-class fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(rate,currency)}</span></div>`;
   }
 
