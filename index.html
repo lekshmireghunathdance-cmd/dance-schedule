@@ -1518,20 +1518,37 @@ function twSetSeason(s) {
 function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sidebar').classList.toggle('collapsed',!sidebarOpen);}
 
 // ── Calendar ──
-function getDisplayTime(c){
-  // Temp-only class: always show the temporary timing
-  if(c.tempOnly||(!c.start&&c.tempStart))
-    return{start:c.tempStart,end:c.tempEnd,day:c.tempDay||c.day,isTemp:true};
-  // Has temp timing and set to show temporary
-  if(c.showOnCalendar==='temporary'&&c.tempStart&&c.tempEnd)
-    return{start:c.tempStart,end:c.tempEnd,day:c.tempDay||c.day,isTemp:true};
-  // Default: regular timing
-  return{start:c.start,end:c.end,day:c.day,isTemp:false};
+function getDisplayTime(c, refDate) {
+  // refDate: YYYY-MM-DD string for date-based temp switching
+  // If not provided, use today (for main calendar)
+  const ref = refDate || localDateStr(new Date());
+  const periods = c.tempPeriods || [];
+  const hasTempTimings = !!(c.tempStart || (c.tempTimings && c.tempTimings.length));
+  const inTempPeriod = hasTempTimings && isInTempPeriod(periods, ref);
+
+  if (inTempPeriod) {
+    // Inside a temp period → show temp timing
+    const ts = c.tempStart || (c.tempTimings&&c.tempTimings[0]?.startIST);
+    const te = c.tempEnd || (c.tempTimings&&c.tempTimings[0]?.endIST);
+    const td = c.tempDay || (c.tempTimings&&c.tempTimings[0]?.day) || c.day;
+    if (ts && te) return {start:ts, end:te, day:td, isTemp:true};
+  }
+
+  // Outside temp period: show regular timing if it exists
+  if (c.start) return {start:c.start, end:c.end, day:c.day, isTemp:false};
+
+  // Temp-only class outside its period: hide it (return null start)
+  return {start:null, end:null, day:c.day, isTemp:false};
 }
 
 function renderCalendar(){
   const allClasses=getClassesFromTimings();
-  const visible=allClasses.filter(c=>c.season==='both'||c.season===season);
+  const todayRef = localDateStr(new Date());
+  const visible=allClasses.filter(c=>{
+    if(c.season!=='both'&&c.season!==season) return false;
+    const dt=getDisplayTime(c, todayRef);
+    return !!dt.start; // hide temp-only classes outside their period
+  });
   let html=`<div class="cal-grid" style="grid-template-columns:52px ${istOnly?'':'52px '}repeat(7,minmax(88px,1fr))">`;
   html+=`<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--subtle);display:flex;align-items:flex-end;justify-content:flex-end;padding:0 5px 6px;border-right:1px solid var(--border)">IST</div>`;
   if(!istOnly) html+=`<div class="cal-hdr-corner" style="font-size:10px;font-weight:600;color:var(--blue);display:flex;align-items:flex-end;justify-content:flex-start;padding:0 5px 6px;border-right:1px solid var(--border)">${currentTz}</div>`;
@@ -1554,7 +1571,7 @@ function renderCalendar(){
   DAYS.forEach(day=>{
     // Include events whose display day (possibly tempDay) matches this column
     const dayCls=visible.filter(c=>{
-      const dt=getDisplayTime(c);
+      const dt=getDisplayTime(c, todayRef);
       return dt.day===day;
     });
     html+=`<div class="cal-col" style="height:${GRID_H}px" data-day="${day}" onmousemove="calColHover(event)" onmouseleave="calColLeave(event)">`;
@@ -1566,7 +1583,7 @@ function renderCalendar(){
     // Build events with display times
     const events=dayCls.map(c=>{
       const idx=allClasses.indexOf(c);
-      const dt=getDisplayTime(c);
+      const dt=getDisplayTime(c, todayRef);
       const sm=minsFromStart(dt.start),em=minsFromStart(dt.end);
       const batch=getBatch(c.batchId);
       if(sm<0||em>TOTAL_MINS||!batch)return null;
@@ -1673,7 +1690,7 @@ document.addEventListener('mouseup',e=>{
     // Day change
     if(colEl&&colEl.dataset.day){
       const newDay=colEl.dataset.day;
-      const dt=getDisplayTime(c);
+      const dt=getDisplayTime(c, todayRef);
       if(newDay!==dt.day){
         if(c.showOnCalendar==='temporary'&&c.tempStart){c.tempDay=newDay;}
         else{c.day=newDay;}
@@ -1685,7 +1702,7 @@ document.addEventListener('mouseup',e=>{
       const rect=colEl.getBoundingClientRect();
       const snapped=Math.round(((e.clientY-rect.top)/PX_PER_MIN)/15)*15;
       const newStartMin=START_H*60+Math.min(snapped,TOTAL_MINS-60);
-      const dt=getDisplayTime(c);
+      const dt=getDisplayTime(c, todayRef);
       const dur=toMins(dt.end)-toMins(dt.start);
       const newStart=minsToIstStr(newStartMin);
       const newEnd=minsToIstStr(Math.min(newStartMin+dur,END_H*60));
@@ -2159,7 +2176,7 @@ function renderDetailContent() {
     const dateStr=`${y}-${m}-${dy}`;
     const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
     batchCalClasses.forEach(c=>{
-      const dt=getDisplayTime(c);
+      const dt=getDisplayTime(c, todayRef);
       if(!dt.start)return;
       if(c.day===dayName&&!eventMap[dateStr])
         eventMap[dateStr]={id:'proj_'+dateStr,batchId:detailBatchId,date:new Date(d),start:dt.start,end:dt.end,_projected:true};
@@ -2841,14 +2858,13 @@ function getClassesFromTimings() {
     if (!Array.isArray(b.timings)) b.timings = [];
     if (!Array.isArray(b.tempTimings)) b.tempTimings = [];
     // Skip if all students are paused (batch-level check not needed — individual filtering below)
+    const batchTempPeriods = b.tempPeriods || [];
     (b.timings||[]).forEach(t => {
-      const tempCoversThisSeason = (tempSeason==='both'||tempSeason===t.season);
-      if (showCal==='temporary' && tempCoversThisSeason) return;
-      result.push({batchId:b.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, showOnCalendar:'regular', _fromTimings:true});
+      result.push({batchId:b.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, tempPeriods:batchTempPeriods, _fromTimings:true});
     });
-    if ((b.tempTimings||[]).length > 0 && showCal !== 'regular') {
+    if ((b.tempTimings||[]).length > 0) {
       (b.tempTimings||[]).forEach(t => {
-        result.push({batchId:b.id, day:t.day, season:tempSeason, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, showOnCalendar:showCal, tempOnly:showCal==='temporary', _fromTimings:true});
+        result.push({batchId:b.id, day:t.day, season:tempSeason, start:t.startIST||null, end:t.endIST||null, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, tempPeriods:batchTempPeriods, _fromTimings:true});
       });
     }
   });
@@ -2857,14 +2873,13 @@ function getClassesFromTimings() {
     const tempSeason = s.tempSeason || 'both';
     if (!Array.isArray(s.timings)) s.timings = [];
     if (!Array.isArray(s.tempTimings)) s.tempTimings = [];
+    const indTempPeriods = s.tempPeriods || [];
     (s.timings||[]).forEach(t => {
-      const tempCoversThisSeason = (tempSeason==='both'||tempSeason===t.season);
-      if (showCal==='temporary' && tempCoversThisSeason) return;
-      result.push({batchId:s.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, showOnCalendar:'regular', _fromTimings:true});
+      result.push({batchId:s.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, tempPeriods:indTempPeriods, _fromTimings:true});
     });
-    if ((s.tempTimings||[]).length > 0 && showCal !== 'regular') {
+    if ((s.tempTimings||[]).length > 0) {
       (s.tempTimings||[]).forEach(t => {
-        result.push({batchId:s.id, day:t.day, season:tempSeason, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, showOnCalendar:showCal, tempOnly:showCal==='temporary', _fromTimings:true});
+        result.push({batchId:s.id, day:t.day, season:tempSeason, start:t.startIST||null, end:t.endIST||null, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, tempPeriods:indTempPeriods, _fromTimings:true});
       });
     }
   });
@@ -2899,7 +2914,7 @@ function abStep2() {
   const sameEl = document.getElementById('ab-same-winter');
   if (sameEl) { sameEl.checked = b?.sameAsWinter||false; abToggleSameWinter(); }
   document.getElementById('ab-temp-season').value = b?.tempSeason || 'both';
-  abSetShow(abShowOnCalendar);
+  renderPeriodsToContainer('ab-temp-periods', b?.tempPeriods||[]);
   closeOverlay('modal-add-batch-1');
   document.getElementById('modal-add-batch-2').classList.add('open');
 }
@@ -2929,13 +2944,14 @@ function abSave() {
   const winterSlots=getSlotsFromContainer('ab-winter-slots').map(s=>({...s,season:'winter'}));
   const tempSlots=getSlotsFromContainer('ab-temp-slots');
   const tempSeason=document.getElementById('ab-temp-season').value;
+  const tempPeriods=getPeriodsFromContainer('ab-temp-periods');
   const sameAsWinter=document.getElementById('ab-same-winter')?.checked||false;
   const timings=[...summerSlots,...winterSlots];
   if (abEditId) {
     const b=getBatch(abEditId);
-    if(b){b.name=name;b.color=color;b.students=students;b.tzGroup=tzGroup;b.timings=timings;b.tempTimings=tempSlots;b.tempSeason=tempSeason;b.showOnCalendar=abShowOnCalendar;b.sameAsWinter=sameAsWinter;}
+    if(b){b.name=name;b.color=color;b.students=students;b.tzGroup=tzGroup;b.timings=timings;b.tempTimings=tempSlots;b.tempSeason=tempSeason;b.tempPeriods=tempPeriods;b.sameAsWinter=sameAsWinter;}
   } else {
-    const newBatch={id:'b_'+Date.now(),name,color,students,tzGroup,timings,tempTimings:tempSlots,tempSeason,sameAsWinter,showOnCalendar:abShowOnCalendar,attModel:'monthly-cap8',rate:'',currency:'INR'};
+    const newBatch={id:'b_'+Date.now(),name,color,students,tzGroup,timings,tempTimings:tempSlots,tempSeason,tempPeriods,sameAsWinter,attModel:'monthly-cap8',rate:'',currency:'INR'};
     batches.push(newBatch);
     const studentNames=students.split(',').map(s=>s.trim()).filter(Boolean);
     studentNames.forEach(sName=>{
@@ -3076,6 +3092,7 @@ function asStep2OrSave() {
       renderSlotsToContainer('as-winter-slots',(s?.timings||[]).filter(t=>t.season==='winter'));
       renderSlotsToContainer('as-temp-slots',s?.tempTimings||[]);
       document.getElementById('as-temp-season').value=s?.tempSeason||'both';
+      renderPeriodsToContainer('as-temp-periods',s?.tempPeriods||[]);
       if(document.getElementById('as-same-winter'))document.getElementById('as-same-winter').checked=s?.sameAsWinter||false;
       asToggleSameWinter();
     } else {
@@ -3083,6 +3100,7 @@ function asStep2OrSave() {
       document.getElementById('as-winter-slots').innerHTML='';
       document.getElementById('as-temp-slots').innerHTML='';
       document.getElementById('as-temp-season').value='both';
+      document.getElementById('as-temp-periods').innerHTML='';
       if(document.getElementById('as-same-winter'))document.getElementById('as-same-winter').checked=false;
       asToggleSameWinter();
       asShowOnCalendar='regular';
@@ -3132,13 +3150,14 @@ function asSave() {
   const winterSlots=getSlotsFromContainer('as-winter-slots').map(s=>({...s,season:'winter'}));
   const tempSlots=getSlotsFromContainer('as-temp-slots');
   const tempSeason=document.getElementById('as-temp-season')?.value||'both';
+  const tempPeriods=getPeriodsFromContainer('as-temp-periods');
   const sameAsWinter=document.getElementById('as-same-winter')?.checked||false;
   const timings=[...summerSlots,...winterSlots];
   if(asEditId){
     const s=getIndStudent(asEditId);
     if(s){
       s.name=name;s.category=catFields.category;s.rate=catFields.rate||'';s.currency=catFields.currency||'INR';
-      s.timings=timings;s.tempTimings=tempSlots;s.tempSeason=tempSeason;s.showOnCalendar=asShowOnCalendar;s.sameAsWinter=sameAsWinter;
+      s.timings=timings;s.tempTimings=tempSlots;s.tempSeason=tempSeason;s.tempPeriods=tempPeriods;s.showOnCalendar=asShowOnCalendar;s.sameAsWinter=sameAsWinter;
       const key=asEditId+':'+name;
       if(!studentSettings[key])studentSettings[key]={};
       studentSettings[key]={...catFields};
@@ -3146,7 +3165,7 @@ function asSave() {
     }
   } else {
     const id=IND_BATCH_PREFIX+Date.now();
-    individualStudents.push({id,name,category:catFields.category,rate:catFields.rate||'',currency:catFields.currency||'INR',timings,tempTimings:tempSlots,tempSeason,sameAsWinter,showOnCalendar:asShowOnCalendar,tzGroup:'IST',attModel:'monthly-cap8'});
+    individualStudents.push({id,name,category:catFields.category,rate:catFields.rate||'',currency:catFields.currency||'INR',timings,tempTimings:tempSlots,tempSeason,tempPeriods,sameAsWinter,showOnCalendar:asShowOnCalendar,tzGroup:'IST',attModel:'monthly-cap8'});
     const key=id+':'+name;
     studentSettings[key]={...catFields};
     save('studentSettings',studentSettings);
@@ -3213,12 +3232,12 @@ function twMergeNewTimingEvents() {
   const removedForWeek=twRemovedEvents[wk]||[];
   let added=false;
   visible.forEach(c=>{
-    const dt=getDisplayTime(c);
-    if(!dt.start||!dt.end)return;
     for(let i=0;i<7;i++){
       const d=addDays(twWeekStart,i);
-      if(dateToDay(d)!==dt.day)continue;
       const dStr=localDateStr(d);
+      const dt=getDisplayTime(c, dStr); // use each day's date for temp period check
+      if(!dt.start||!dt.end)continue;
+      if(dateToDay(d)!==dt.day)continue;
       // Skip if intentionally removed this week
       const wasRemoved=removedForWeek.some(r=>r.batchId===c.batchId&&r.date===dStr&&(r.studentScope||null)===(c.studentScope||null));
       if(wasRemoved)break;
@@ -4185,11 +4204,12 @@ function twPopulateFromCalendar(){
   const visible=allClasses.filter(c=>c.season==='both'||c.season===twSeason);
   const evs=[];
   visible.forEach(c=>{
-    const dt=getDisplayTime(c);
-    if(!dt.start||!dt.end)return;
     const batch=getBatch(c.batchId);if(!batch)return;
     for(let i=0;i<7;i++){
       const d=addDays(twWeekStart,i);
+      const dStr=localDateStr(d);
+      const dt=getDisplayTime(c, dStr); // use each day's date for temp period check
+      if(!dt.start||!dt.end)continue;
       if(dateToDay(d)===dt.day){
         evs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:c.batchId,date:new Date(d),start:dt.start,end:dt.end,isTemp:dt.isTemp,studentScope:c.studentScope,addonStudents:c.addonStudents?JSON.parse(JSON.stringify(c.addonStudents)):undefined});
         break;
@@ -4857,6 +4877,82 @@ function cleanTwCacheForStudent(batchId, studentName) {
     twEvents = twWeekCache[currentMonday] || [];
   }
 }
+
+// ══════════════════════════════════════════════
+// TEMPORARY TIMING PERIODS
+// Date-based switching: each batch/student has tempPeriods = [{from, to}]
+// When today (or TW week date) falls inside a period → show temp timing
+// ══════════════════════════════════════════════
+
+// ── Period row HTML ──
+function makeTempPeriodRow(period, idx, containerId) {
+  const p = period || {};
+  const rowId = containerId + '-period-' + idx;
+  return `<div class="timing-slot" id="${rowId}" style="grid-template-columns:1fr 1fr 28px;gap:6px;align-items:center;margin-bottom:6px">
+    <div><label style="font-size:10px;color:var(--subtle);font-weight:500;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:2px">From</label>
+      <input type="date" class="period-from" value="${p.from||''}" style="font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif;width:100%"/></div>
+    <div><label style="font-size:10px;color:var(--subtle);font-weight:500;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:2px">To</label>
+      <input type="date" class="period-to" value="${p.to||''}" style="font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif;width:100%"/></div>
+    <button class="del-slot" onclick="document.getElementById('${rowId}').remove()" style="margin-top:16px">×</button>
+  </div>`;
+}
+
+function getPeriodsFromContainer(containerId) {
+  const periods = [];
+  document.querySelectorAll('#' + containerId + ' .timing-slot').forEach(row => {
+    const from = row.querySelector('.period-from')?.value;
+    const to = row.querySelector('.period-to')?.value;
+    if (from && to) periods.push({ from, to });
+  });
+  return periods;
+}
+
+function renderPeriodsToContainer(containerId, periods) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = (periods || []).map((p, i) => makeTempPeriodRow(p, i, containerId)).join('');
+}
+
+function abAddTempPeriod() {
+  const el = document.getElementById('ab-temp-periods');
+  if (!el) return;
+  const idx = el.querySelectorAll('.timing-slot').length;
+  el.insertAdjacentHTML('beforeend', makeTempPeriodRow({}, idx, 'ab-temp-periods'));
+}
+
+function asAddTempPeriod() {
+  const el = document.getElementById('as-temp-periods');
+  if (!el) return;
+  const idx = el.querySelectorAll('.timing-slot').length;
+  el.insertAdjacentHTML('beforeend', makeTempPeriodRow({}, idx, 'as-temp-periods'));
+}
+
+// ── Check if a date falls in any temp period ──
+function isInTempPeriod(periods, dateStr) {
+  if (!periods || !periods.length) return false;
+  return periods.some(p => p.from && p.to && dateStr >= p.from && dateStr <= p.to);
+}
+
+// ── Get display timing for a class, respecting temp periods ──
+// refDate: YYYY-MM-DD string to check against periods (today or TW week date)
+function getDisplayTimeForDate(c, refDate) {
+  const periods = c.tempPeriods || [];
+  const hasTempTimings = !!(c.tempStart || (c.tempTimings && c.tempTimings.length));
+
+  if (hasTempTimings && isInTempPeriod(periods, refDate)) {
+    // Inside a temp period → show temp timing
+    if (c.tempStart) return { start: c.tempStart, end: c.tempEnd, day: c.tempDay || c.day, isTemp: true };
+    if (c.tempTimings && c.tempTimings.length) return { start: c.tempTimings[0].startIST, end: c.tempTimings[0].endIST, day: c.tempTimings[0].day, isTemp: true };
+  }
+  // Outside temp period OR no temp timings → show regular
+  if (c.start) return { start: c.start, end: c.end, day: c.day, isTemp: false };
+  // tempOnly class with no regular: show temp if in period, else hide
+  if (c.tempOnly && isInTempPeriod(periods, refDate)) {
+    if (c.tempStart) return { start: c.tempStart, end: c.tempEnd, day: c.tempDay || c.day, isTemp: true };
+  }
+  return { start: null, end: null, day: c.day, isTemp: false };
+}
+
 
 // Boot
 document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
