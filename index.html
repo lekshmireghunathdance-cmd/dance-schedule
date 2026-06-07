@@ -831,7 +831,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-cancel" onclick="closeOverlay('modal-student')">Close</button>
-        <button class="btn-primary" onclick="closeOverlay('modal-student');openAddStudentFlow(currentStudentBatchId, currentStudentName)">Edit student info</button>
+        <button class="btn-primary" onclick="closeOverlay('modal-student');editStudentInfo()">Edit student info</button>
       </div>
     </div>
   </div>
@@ -1475,7 +1475,10 @@ function openStudentDetail(batchId, studentName) {
       </div>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px">
-      <div class="section-title">Class schedule</div>
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Class schedule</span>
+        ${!b.isIndividual ? `<button onclick="closeOverlay('modal-student');openAddBatch('${batchId}')" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif">Edit timings</button>` : ''}
+      </div>
       ${schedHtml}
     </div>
     <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px">
@@ -2056,7 +2059,7 @@ function toggleDetailTz(label){
   else detailExtraTzGroups.add(label);
   renderDetailContent();
 }
-function editBatchFromDetail(){closeOverlay('modal-detail');openEditBatch(detailBatchId);}
+function editBatchFromDetail(){closeOverlay('modal-detail');openAddBatch(detailBatchId);}
 
 function renderDetailContent() {
   const b = getBatch(detailBatchId);
@@ -4574,6 +4577,19 @@ function feeTrackerMonthChanged(sel, ssKey) {
   }
 }
 
+
+
+function editStudentInfo() {
+  // Route to the correct edit flow based on whether student is individual or batch member
+  const isIndividual = currentStudentBatchId && currentStudentBatchId.startsWith('ind_');
+  if (isIndividual) {
+    // Individual student: open full 2-step flow with timings
+    openEditIndStudentFlow(currentStudentBatchId);
+  } else {
+    // Batch student: open step 1 only (timings are on the batch, edit via Edit batch)
+    openAddStudentFlow(currentStudentBatchId, currentStudentName);
+  }
+}
 
 // Boot
 document.getElementById('btn-summer').classList.toggle('active-blue',season==='summer');
