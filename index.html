@@ -2145,6 +2145,7 @@ function renderDetailContent() {
     if(!Array.isArray(weekEvs))return;
     weekEvs.forEach(ev=>{
       if(ev.batchId!==detailBatchId)return;
+      if(ev.cancelled)return; // don't show cancelled events in monthly list
       const d=localDateStr(ev.date);
       if(d>=fromDate&&d<=toDate)eventMap[d]=ev;
     });
@@ -2644,6 +2645,7 @@ async function initLoad(){
         });
         if(parsed.weekStart) twWeekStart=new Date(parsed.weekStart);
         if(parsed.season) twSeason=parsed.season;
+        if(parsed.removed) twRemovedEvents=parsed.removed;
       }
     }catch(e){twWeekCache={};}
     // Restore individual students
@@ -3108,6 +3110,9 @@ function detailApplyMonth() {
 function twMergeNewTimingEvents() {
   const allClasses=getClassesFromTimings();
   const visible=allClasses.filter(c=>c.season==='both'||c.season===twSeason);
+  const wk=twWeekKey();
+  const removedForWeek=twRemovedEvents[wk]||[];
+  let added=false;
   visible.forEach(c=>{
     const dt=getDisplayTime(c);
     if(!dt.start||!dt.end)return;
@@ -3115,14 +3120,19 @@ function twMergeNewTimingEvents() {
       const d=addDays(twWeekStart,i);
       if(dateToDay(d)!==dt.day)continue;
       const dStr=localDateStr(d);
+      // Skip if intentionally removed this week
+      const wasRemoved=removedForWeek.some(r=>r.batchId===c.batchId&&r.date===dStr&&(r.studentScope||null)===(c.studentScope||null));
+      if(wasRemoved)break;
       const alreadyExists=twEvents.some(ev=>ev.batchId===c.batchId&&localDateStr(ev.date)===dStr&&(!c.studentScope||ev.studentScope===c.studentScope));
       if(!alreadyExists){
         twEvents.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:c.batchId,date:new Date(d),start:dt.start,end:dt.end,isTemp:dt.isTemp,studentScope:c.studentScope});
+        added=true;
       }
       break;
     }
   });
   twWeekCache[twWeekKey()]=twEvents;
+  if(added) twSaveEvents();
 }
 
 
@@ -3305,6 +3315,8 @@ function twaSave() {
   closeOverlay('modal-tw-add');
   twRender();
   showToast('Class added');
+  if (document.getElementById('modal-detail').classList.contains('open')) renderDetailContent();
+  if (document.getElementById('modal-student').classList.contains('open')) refreshStudentAtt();
 }
 
 // ══════════════════════════════════════════════
@@ -3435,10 +3447,24 @@ function tweConfirmCancel() {
   }
   closeOverlay('modal-tw-cancel-confirm');
   showToast('Class cancelled');
+  if (document.getElementById('modal-detail').classList.contains('open')) renderDetailContent();
+  if (document.getElementById('modal-student').classList.contains('open')) refreshStudentAtt();
 }
 
 function tweRemoveClass() {
   if (!confirm('Remove this class from This Week? It will disappear with no record. The main calendar schedule is unchanged.')) return;
+  const ev = twEvents.find(x => x.id === twEditId);
+  // Track this removal so merge doesn't re-add it
+  if (ev) {
+    const wk = twWeekKey();
+    if (!twRemovedEvents[wk]) twRemovedEvents[wk] = [];
+    // Store batchId+date+studentScope as the fingerprint
+    twRemovedEvents[wk].push({
+      batchId: ev.batchId,
+      date: localDateStr(ev.date),
+      studentScope: ev.studentScope || null
+    });
+  }
   // Delete any attendance record for this event
   if (attendance[twEditId]) {
     delete attendance[twEditId];
@@ -3552,6 +3578,13 @@ function twSaveEdit() {
   twSaveEvents();
   closeOverlay('modal-tw-edit');
   twRender();
+  // Refresh any open detail popups so they show updated TW data
+  if (document.getElementById('modal-detail').classList.contains('open')) {
+    renderDetailContent();
+  }
+  if (document.getElementById('modal-student').classList.contains('open')) {
+    refreshStudentAtt();
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -3970,6 +4003,7 @@ const TW_GRID_H=TW_TOTAL_MINS*TW_PX_PM;
 
 let twWeekStart=null;
 let twWeekCache={};
+let twRemovedEvents={}; // tracks intentionally removed events per week key
 let twEvents=[];
 let twSeason='summer';
 let twDragState=null;
@@ -4026,7 +4060,7 @@ function twSaveEvents(){
   twWeekCache[twWeekKey()]=twEvents;
   const serialisable={};
   Object.keys(twWeekCache).forEach(wk=>{serialisable[wk]=twWeekCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});
-  save('twWeekCache',JSON.stringify({cache:serialisable,weekStart:twWeekStart?twWeekStart.toISOString():null,season:twSeason}));
+  save('twWeekCache',JSON.stringify({cache:serialisable,weekStart:twWeekStart?twWeekStart.toISOString():null,season:twSeason,removed:twRemovedEvents}));
 }
 
 function twMinsFromStart(t){return toMins(t)-TW_START_H*60;}
