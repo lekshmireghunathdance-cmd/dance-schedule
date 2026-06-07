@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Dance Class Schedule</title>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -652,10 +651,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <div id="detail-content"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeOverlay('modal-detail')">Close</button>
-      <button class="btn-cancel" onclick="downloadDetailJpg()" id="btn-download-jpg">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download JPG
-      </button>
+
       <button class="btn-primary" onclick="editBatchFromDetail()">Edit batch</button>
     </div>
   </div>
@@ -680,10 +676,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       </button>
       <div style="flex:1"></div>
       <span style="font-size:12px;color:var(--subtle)">Drag to rearrange · changes don't affect main calendar</span>
-      <button class="header-btn primary" onclick="downloadThisWeekJpg()" id="btn-tw-download">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download JPG
-      </button>
+
       <button class="header-btn" onclick="closeOverlay('modal-thisweek')" style="color:#d93025">✕ Close</button>
     </div>
     <!-- Planner calendar -->
@@ -834,7 +827,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-cancel" onclick="closeOverlay('modal-student')">Close</button>
-        <button class="btn-primary" onclick="closeOverlay('modal-student');openAddBatch(currentStudentBatchId)">Edit batch</button>
+        <button class="btn-primary" onclick="closeOverlay('modal-student');openAddStudentFlow(currentStudentBatchId, currentStudentName)">Edit student info</button>
       </div>
     </div>
   </div>
@@ -1163,6 +1156,12 @@ function setSeason(s){
   document.getElementById('btn-summer').classList.toggle('active-blue',s==='summer');
   document.getElementById('btn-winter').classList.toggle('active-blue',s==='winter');
   syncTzToSeason(s);renderCalendar();
+  // Sync TW season — if TW is open, re-populate and re-render
+  twSeason = s;
+  if (document.getElementById('modal-thisweek').classList.contains('open')) {
+    twPopulateFromCalendar();
+    twRender();
+  }
 }
 function toggleIstOnly(){
   istOnly=!istOnly;
@@ -2242,664 +2241,7 @@ function renderDetailContent() {
 }
 
 
-function drawRoundRect(ctx,x,y,w,h,r){
-  r=Math.min(r,w/2,h/2);
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);
-  ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
-  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
-  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
-  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
-  ctx.closePath();
-}
-async function downloadDetailJpg() {
-  const btn = document.getElementById('btn-download-jpg');
-  btn.textContent = 'Preparing…';
-  btn.disabled = true;
 
-  const b = getBatch(detailBatchId);
-  const source = document.getElementById('detail-content');
-
-  // Create a styled clone for rendering — white background, generous padding
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = `
-    position:fixed;left:-9999px;top:0;
-    background:#ffffff;padding:32px 36px;
-    font-family:'Roboto',sans-serif;font-size:13px;color:#202124;
-    width:${Math.min(source.offsetWidth + 72, 820)}px;
-    box-sizing:border-box;
-  `;
-
-  // Clone the content
-  const clone = source.cloneNode(true);
-  // Remove any buttons inside (none expected, but safety)
-  clone.querySelectorAll('button').forEach(el => el.remove());
-  wrapper.appendChild(clone);
-  document.body.appendChild(wrapper);
-
-  // Make blue-light backgrounds visible on white
-  wrapper.querySelectorAll('[style*="var(--blue-light)"]').forEach(el => {
-    el.style.background = '#e8f0fe';
-  });
-  wrapper.querySelectorAll('[style*="var(--hover)"]').forEach(el => {
-    el.style.background = '#f1f3f4';
-  });
-  // Resolve CSS vars that html2canvas won't handle
-  wrapper.querySelectorAll('*').forEach(el => {
-    const cs = getComputedStyle(el);
-    ['color','background-color','border-color','border-bottom-color'].forEach(prop => {
-      const val = cs.getPropertyValue(prop);
-      if(val) el.style[prop.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())] = val;
-    });
-  });
-
-  try {
-    const canvas = await html2canvas(wrapper, {
-      scale: 2, // retina quality
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-    });
-    const link = document.createElement('a');
-    link.download = `${b.name.replace(/\s+/g,'-')}-timings.jpg`;
-    link.href = canvas.toDataURL('image/jpeg', 0.92);
-    link.click();
-    showToast('Downloaded!');
-  } catch(e) {
-    showToast('Download failed — try again');
-    console.error(e);
-  } finally {
-    document.body.removeChild(wrapper);
-    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download JPG`;
-    btn.disabled = false;
-  }
-}
-
-// ── This Week Planner ──
-const TW_START_H=5, TW_END_H=23;
-const TW_TOTAL_MINS=(TW_END_H-TW_START_H)*60;
-const TW_PX_PM=1.4;
-const TW_GRID_H=TW_TOTAL_MINS*TW_PX_PM;
-
-let twWeekStart=null;
-let twWeekCache={};
-let twEvents=[];
-let twSeason='summer';
-let twDragState=null;
-let twEditId=null;
-function twWeekKey(){return twWeekStart?twWeekStart.toISOString().slice(0,10):'';}
-
-function getMondayOf(d){
-  const date=new Date(d);
-  const day=date.getDay(); // 0=Sun
-  const diff=day===0?-6:1-day;
-  date.setDate(date.getDate()+diff);
-  date.setHours(0,0,0,0);
-  return date;
-}
-function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
-function fmtDate(d){return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});}
-function fmtDateShort(d){return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});}
-function dateToDay(d){return['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];}
-
-function openThisWeek(){
-  twSeason=season; // always sync with main calendar
-  if(!twWeekStart) twWeekStart=getMondayOf(new Date());
-  // Only sync season from main calendar if nothing has been saved
-  // (twSeason defaults to main season at declaration, so this is safe)
-  // Season buttons removed — TW follows main calendar
-  if(!twWeekCache[twWeekKey()]){twPopulateFromCalendar();}else{twEvents=twWeekCache[twWeekKey()];twMergeNewTimingEvents();}
-  twRender();
-  document.getElementById('tw-date-input').value=localDateStr(twWeekStart);
-  document.getElementById('modal-thisweek').classList.add('open');
-}
-function twSetWeek(){
-  const val=document.getElementById('tw-date-input').value;
-  if(!val)return;
-  twWeekStart=getMondayOf(new Date(val+'T12:00:00'));
-  document.getElementById('tw-date-input').value=localDateStr(twWeekStart);
-  if(!twWeekCache[twWeekKey()]){twPopulateFromCalendar();}else{twEvents=twWeekCache[twWeekKey()];twMergeNewTimingEvents();}
-  twRender();
-}
-function twPrevWeek(){
-  twWeekStart=addDays(twWeekStart,-7);
-  document.getElementById('tw-date-input').value=localDateStr(twWeekStart);
-  if(!twWeekCache[twWeekKey()]){twPopulateFromCalendar();}else{twEvents=twWeekCache[twWeekKey()];twMergeNewTimingEvents();}
-  twRender();
-}
-function twNextWeek(){
-  twWeekStart=addDays(twWeekStart,7);
-  document.getElementById('tw-date-input').value=localDateStr(twWeekStart);
-  if(!twWeekCache[twWeekKey()]){twPopulateFromCalendar();}else{twEvents=twWeekCache[twWeekKey()];twMergeNewTimingEvents();}
-  twRender();
-}
-function twRefreshFromCalendar(){
-  if(!confirm('Refresh from main calendar? Your edits for this week will be replaced.'))return;
-  twPopulateFromCalendar();twRender();showToast('Refreshed from calendar');
-}
-function twPopulateFromCalendar(){
-  const allClasses=getClassesFromTimings();
-  const visible=allClasses.filter(c=>c.season==='both'||c.season===twSeason);
-  const evs=[];
-  visible.forEach(c=>{
-    const dt=getDisplayTime(c);
-    if(!dt.start||!dt.end)return;
-    const batch=getBatch(c.batchId);if(!batch)return;
-    for(let i=0;i<7;i++){
-      const d=addDays(twWeekStart,i);
-      if(dateToDay(d)===dt.day){
-        evs.push({
-          id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-          batchId:c.batchId,
-          date:new Date(d),
-          start:dt.start,
-          end:dt.end,
-          isTemp:dt.isTemp,
-          studentScope:c.studentScope,
-          addonStudents:c.addonStudents?JSON.parse(JSON.stringify(c.addonStudents)):undefined,
-        });
-        break;
-      }
-    }
-  });
-  twWeekCache[twWeekKey()]=evs;twEvents=evs;
-}
-function twSaveEvents(){
-  twWeekCache[twWeekKey()]=twEvents;
-  // Persist to cloud — save serialisable version (dates as ISO strings)
-  const serialisable={};
-  Object.keys(twWeekCache).forEach(wk=>{
-    serialisable[wk]=twWeekCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));
-  });
-  // Also save current week start and season so they survive reload
-  save('twWeekCache',JSON.stringify({
-    cache: serialisable,
-    weekStart: twWeekStart?twWeekStart.toISOString():null,
-    season: twSeason,
-  }));
-}
-function twMinsFromStart(t){return toMins(t)-TW_START_H*60;}
-function twRender(){
-  const days=Array.from({length:7},(_,i)=>addDays(twWeekStart,i));
-  let html=`<div class="tw-cal-grid" style="grid-template-columns:52px repeat(7,minmax(100px,1fr))">`;
-  html+=`<div class="tw-hdr-corner">IST</div>`;
-  days.forEach(d=>{
-    const isToday=new Date().toDateString()===d.toDateString();
-    html+=`<div class="tw-hdr" style="${isToday?'color:var(--orange);font-weight:700;':''}">${d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}<span class="tw-date">${fmtDate(d)}</span></div>`;
-  });
-  html+=`<div style="display:flex;flex-direction:column;background:var(--surface)">`;
-  for(let h=TW_START_H;h<=TW_END_H;h++){
-    const lbl=h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
-    html+=`<div class="tw-time" style="height:${60*TW_PX_PM}px">${lbl}</div>`;
-  }
-  html+=`</div>`;
-  days.forEach((d,di)=>{
-    const dateStr=localDateStr(d);
-    const dayEvs=twEvents.filter(e=>localDateStr(e.date)===dateStr);
-    html+=`<div class="tw-col" style="height:${TW_GRID_H}px" data-date="${dateStr}" onclick="twColClick(event,'${dateStr}')" onmousemove="twColHover(event)" onmouseleave="twColLeave(event)" data-di="${di}">`;
-    for(let h=0;h<=TW_END_H-TW_START_H;h++){
-      html+=`<div class="hour-line solid" style="top:${h*60*TW_PX_PM}px;pointer-events:none"></div>`;
-      if(h<TW_END_H-TW_START_H)html+=`<div class="hour-line" style="top:${(h+.5)*60*TW_PX_PM}px;pointer-events:none"></div>`;
-    }
-    const evs=dayEvs.map(e=>{const sm=twMinsFromStart(e.start),em=twMinsFromStart(e.end);return{e,sm,em};}).filter(x=>x.sm>=0&&x.em<=TW_TOTAL_MINS).sort((a,b)=>a.sm-b.sm);
-    // Proper overlap detection — only split cells that actually overlap
-    const n=evs.length;
-    const ov=evs.map(()=>[]);
-    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)
-      if(evs[i].sm<evs[j].em&&evs[j].sm<evs[i].em){ov[i].push(j);ov[j].push(i);}
-    const slotOf=new Array(n).fill(0),totalOf=new Array(n).fill(1),vis=new Array(n).fill(false);
-    for(let i=0;i<n;i++){
-      if(vis[i])continue;
-      if(ov[i].length===0){slotOf[i]=0;totalOf[i]=1;vis[i]=true;}
-      else{
-        const grp=[],q=[i];
-        while(q.length){const cur=q.shift();if(vis[cur])continue;vis[cur]=true;grp.push(cur);ov[cur].forEach(nb=>{if(!vis[nb])q.push(nb);});}
-        const gs=[];
-        grp.forEach(gi=>{const ev=evs[gi];const s=gs.findIndex(e=>e<=ev.sm);if(s===-1){gs.push(ev.em);slotOf[gi]=gs.length-1;}else{gs[s]=ev.em;slotOf[gi]=s;}});
-        grp.forEach(gi=>{totalOf[gi]=gs.length;});
-      }
-    }
-    evs.forEach(({e,sm,em},i)=>{
-      const slot=slotOf[i],total=totalOf[i];
-      const top=sm*TW_PX_PM,ht=Math.max((em-sm)*TW_PX_PM,18);
-      const col=getColor(getBatch(e.batchId)?.color||'c1');const batch=getBatch(e.batchId);
-      const lp=(slot/total)*100,wp=(1/total)*100;
-      const ls=`calc(${lp}% + 2px)`,rs=`calc(${100-lp-wp}% + 2px)`;
-      const tempTag=e.isTemp?'<span style="font-size:8px;background:#ff980033;border-radius:2px;padding:0 2px;margin-right:2px">TEMP</span>':'';
-      const scopeTag=e.studentScope?'<span style="font-size:8px;background:#e8f0fe;border-radius:2px;padding:0 2px;margin-right:2px;color:#1a73e8">1:1</span>':'';
-      const dispName=e.studentScope||batch?.name||'';
-      const addonNames=(e.addonStudents||[]).map(a=>a.name).join(', ');
-      const students=e.studentScope?[e.studentScope]:(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean);
-      let bc='';
-      if(ht<22)bc=`<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${tempTag}${scopeTag}${dispName}</span>`;
-      else if(ht<36)bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${scopeTag}${fmtTime(e.start)} IST</span><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dispName}</span>`;
-      else{const ss=(addonNames?students.slice(0,2).concat([addonNames]):students.slice(0,3)).join(', ');bc=`<span style="display:block;font-size:9px;opacity:.8">${tempTag}${scopeTag}${fmtTime(e.start)} IST</span><span style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dispName}</span>${ss?`<span style="display:block;font-size:9px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ss}</span>`:''}`;}
-      const hasAtt=!!attendance[e.id];
-      const attDot=hasAtt?`<span style="position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#34a853;pointer-events:none" title="Attendance recorded"></span>`:'';
-      const cancelledClass = e.cancelled ? ' cancelled' : '';
-      const dragHandler = e.cancelled ? '' : `onmousedown="twDragStart(event,'${e.id}')"`;
-      html+=`<div class="tw-event${cancelledClass}" data-evid="${e.id}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-left-color:${col.border};color:${col.text};display:flex;flex-direction:column;cursor:${e.cancelled?'default':'grab'}" ${dragHandler} onclick="event.stopPropagation();twOpenEdit('${e.id}')" title="${batch?.name||''} | ${e.start} IST">${bc}${attDot}</div>`;
-    });
-    html+=`</div>`;
-  });
-  html+=`</div>`;
-  document.getElementById('tw-cal-inner').innerHTML=html;
-}
-function twOffsetY(e, col){
-  // Returns Y offset in pixels from top of column, scroll-corrected
-  const outer=document.getElementById('tw-cal-outer');
-  const outerRect=outer?outer.getBoundingClientRect():{top:0};
-  const scrollTop=outer?outer.scrollTop:0;
-  const colTop=col.getBoundingClientRect().top + scrollTop - outerRect.top;
-  const mouseY=e.clientY + scrollTop - outerRect.top;
-  return Math.max(0, mouseY - colTop);
-}
-function twColClick(e,dateStr){ /* disabled — use Add Class button instead */ }
-function twColHover(e){
-  const col=e.currentTarget;
-  const raw=Math.round((twOffsetY(e,col)/TW_PX_PM)/15)*15;
-  let ind=col.querySelector('.tw-hover-ind');
-  if(!ind){ind=document.createElement('div');ind.className='tw-hover-ind cal-hover-indicator';col.appendChild(ind);}
-  ind.style.top=raw*TW_PX_PM+'px';ind.style.height=60*TW_PX_PM+'px';ind.style.display='block';
-}
-function twColLeave(e){const ind=e.currentTarget.querySelector('.tw-hover-ind');if(ind)ind.style.display='none';}
-// twOpenEdit, twSaveEdit — new versions defined in the TW section above
-function twDeleteEdit(){
-  twEvents=twEvents.filter(x=>x.id!==twEditId);twSaveEvents();closeOverlay('modal-tw-edit');twRender();
-}
-
-
-// TW drag
-function twDragStart(e,evId){
-  if(e.button!==0)return;
-  e.stopPropagation();
-  const ev=twEvents.find(x=>x.id===evId);
-  if(!ev)return;
-  twDragState={evId,startX:e.clientX,startY:e.clientY,moved:false,ghost:null};
-}
-
-document.addEventListener('mousemove',twMouseMove);
-document.addEventListener('mouseup',twMouseUp);
-
-function twMouseMove(e){
-  if(!twDragState)return;
-  if(!document.getElementById('modal-thisweek').classList.contains('open')){twDragState=null;return;}
-  const dx=Math.abs(e.clientX-twDragState.startX),dy=Math.abs(e.clientY-twDragState.startY);
-  if(!twDragState.moved&&(dx>4||dy>4)){
-    twDragState.moved=true;
-    const ev=twEvents.find(x=>x.id===twDragState.evId);
-    const batch=getBatch(ev?.batchId);
-    const col=getColor(batch?.color||'c1');
-    const g=document.createElement('div');
-    g.className='drag-ghost';
-    g.style.cssText=`background:${col.bg};border-left-color:${col.border};color:${col.text};width:100px;height:40px;position:fixed;pointer-events:none;z-index:9999;border-radius:4px;border-left:3px solid;padding:3px 5px;font-size:11px;font-weight:500`;
-    g.textContent=batch?.name||'';
-    g.style.left=(e.clientX+12)+'px';g.style.top=(e.clientY-10)+'px';
-    document.body.appendChild(g);twDragState.ghost=g;
-    document.body.style.cursor='grabbing';
-    document.querySelectorAll('.tw-event').forEach(el=>el.style.pointerEvents='none');
-  }
-  if(twDragState.ghost){twDragState.ghost.style.left=(e.clientX+12)+'px';twDragState.ghost.style.top=(e.clientY-10)+'px';}
-  document.querySelectorAll('.tw-col').forEach(c=>c.classList.remove('tw-drag-over'));
-  try{
-    const target=document.elementFromPoint(e.clientX,e.clientY);
-    const col=target?.closest?.('.tw-col');
-    if(col)col.classList.add('tw-drag-over');
-  }catch(err){}
-}
-function twMouseUp(e){
-  if(!twDragState)return;
-  if(twDragState.ghost){twDragState.ghost.remove();twDragState.ghost=null;}
-  document.body.style.cursor='';
-  document.querySelectorAll('.tw-event').forEach(el=>el.style.pointerEvents='');
-  document.querySelectorAll('.tw-col').forEach(c=>c.classList.remove('tw-drag-over'));
-  if(twDragState.moved){
-    try{
-      const target=document.elementFromPoint(e.clientX,e.clientY);
-      const col=target?.closest?.('.tw-col');
-      const ev=twEvents.find(x=>x.id===twDragState.evId);
-      if(ev&&col){
-        if(col.dataset.date) ev.date=new Date(col.dataset.date+'T12:00:00');
-        // Get Y position relative to the column top, accounting for scroll
-        const outer=document.getElementById('tw-cal-outer');
-        const colTop=col.getBoundingClientRect().top + (outer?outer.scrollTop:0) - (outer?outer.getBoundingClientRect().top:0);
-        const mouseYInDoc=e.clientY + (outer?outer.scrollTop:0) - (outer?outer.getBoundingClientRect().top:0);
-        const offsetY=Math.max(0, mouseYInDoc - colTop);
-        const raw=Math.round((offsetY/TW_PX_PM)/15)*15;
-        const newStartMin=TW_START_H*60+Math.min(raw,TW_TOTAL_MINS-60);
-        const dur=Math.max(toMins(ev.end)-toMins(ev.start),30);
-        ev.start=minsToIstStr(newStartMin);
-        ev.end=minsToIstStr(Math.min(newStartMin+dur,TW_END_H*60));
-        twSaveEvents();twRender();
-        showToast(`Moved to ${ev.date.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}`);
-      }
-    }catch(err){console.warn('twMouseUp error:',err);}
-  }
-  twDragState=null;
-}
-
-// ── Download This Week as lightweight JPG ──
-async function downloadThisWeekJpg(){
-  const btn=document.getElementById('btn-tw-download');
-  btn.textContent='Preparing…';btn.disabled=true;
-  await new Promise(r=>setTimeout(r,50));
-  try{
-    const W=1080,H=1350;
-    const canvas=document.createElement('canvas');
-    canvas.width=W;canvas.height=H;
-    const ctx=canvas.getContext('2d');
-    const FONT='"Calibri",Arial,sans-serif';
-    const PAD=28,HDR=88,DAY_H=52,TIME_W=52,FOOTER=28;
-    const COLS=7;
-    const COL_W=Math.floor((W-PAD*2-TIME_W)/COLS);
-    const GRID_TOP=HDR+DAY_H;
-    const GRID_BOT=H-FOOTER;
-    const GRID_H=GRID_BOT-GRID_TOP;
-    const days=Array.from({length:7},(_,i)=>addDays(twWeekStart,i));
-    // Time range from events
-    let minH=8,maxH=22;
-    if(twEvents.length){
-      let lo=22*60,hi=8*60;
-      twEvents.forEach(e=>{lo=Math.min(lo,toMins(e.start));hi=Math.max(hi,toMins(e.end));});
-      minH=Math.max(5,Math.floor(lo/60)-1);maxH=Math.min(23,Math.ceil(hi/60)+1);
-    }
-    const DISP_MINS=(maxH-minH)*60;
-    const PX_PM=GRID_H/DISP_MINS;
-    function mY(m){return GRID_TOP+(m-minH*60)*PX_PM;}
-
-    // Background
-    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
-
-    // Header
-    const hg=ctx.createLinearGradient(0,0,W,0);
-    hg.addColorStop(0,'#1c1917');hg.addColorStop(1,'#292524');
-    ctx.fillStyle=hg;ctx.fillRect(0,0,W,HDR);
-    ctx.fillStyle='#fff';ctx.font=`bold 26px ${FONT}`;ctx.textBaseline='middle';ctx.textAlign='left';
-    ctx.fillText('Dance Schedule',PAD,HDR*0.38);
-    ctx.font=`14px ${FONT}`;ctx.fillStyle='rgba(255,255,255,0.55)';
-    const wkLabel=`Week of ${fmtDate(twWeekStart)} – ${fmtDate(addDays(twWeekStart,6))} · ${twSeason==='summer'?'Summer':'Winter'} · IST`;
-    ctx.fillText(wkLabel,PAD,HDR*0.72);
-
-    // Day headers
-    const DAY_COLORS=['#3b82f6','#7c3aed','#0891b2','#059669','#d97706','#dc2626','#db2777'];
-    days.forEach((d,di)=>{
-      const x=PAD+TIME_W+di*COL_W;
-      const isToday=new Date().toDateString()===d.toDateString();
-      ctx.fillStyle=isToday?'#ea580c':DAY_COLORS[di];
-      ctx.fillRect(x+1,HDR,COL_W-2,DAY_H);
-      ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font=`bold 12px ${FONT}`;
-      ctx.fillText(d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase(),x+COL_W/2,HDR+DAY_H*0.35);
-      ctx.font=`11px ${FONT}`;ctx.globalAlpha=0.8;
-      ctx.fillText(fmtDate(d),x+COL_W/2,HDR+DAY_H*0.72);
-      ctx.globalAlpha=1;
-    });
-
-    // Grid
-    ctx.fillStyle='#fafaf9';ctx.fillRect(PAD+TIME_W,GRID_TOP,COL_W*COLS,GRID_H);
-
-    // Hour lines
-    ctx.textAlign='right';ctx.textBaseline='top';
-    for(let h=minH;h<=maxH;h++){
-      const y=mY(h*60);if(y<GRID_TOP-1||y>GRID_BOT+1)continue;
-      ctx.strokeStyle=h%2===0?'#e5e0d8':'#f0ece5';ctx.lineWidth=h%2===0?0.8:0.4;
-      ctx.beginPath();ctx.moveTo(PAD+TIME_W,y);ctx.lineTo(W-PAD,y);ctx.stroke();
-      ctx.fillStyle='#b0a8a0';ctx.font=`9px ${FONT}`;
-      ctx.fillText(h<12?`${h}am`:h===12?'12pm':`${h-12}pm`,PAD+TIME_W-4,y+2);
-    }
-    // Col dividers
-    ctx.strokeStyle='#e5e0d8';ctx.lineWidth=0.7;
-    for(let di=1;di<COLS;di++){const x=PAD+TIME_W+di*COL_W;ctx.beginPath();ctx.moveTo(x,GRID_TOP);ctx.lineTo(x,GRID_BOT);ctx.stroke();}
-
-    // Events
-    days.forEach((d,di)=>{
-      const dateStr=d.toISOString().slice(0,10);
-      const dayEvs=twEvents.filter(e=>e.date.toISOString().slice(0,10)===dateStr);
-      const evs=dayEvs.map(e=>{const sm=toMins(e.start),em=toMins(e.end);return{e,sm,em};}).sort((a,b)=>a.sm-b.sm);
-      const slots=[];
-      const assigned=evs.map(({sm,em})=>{const s=slots.findIndex(e=>e<=sm);if(s===-1){slots.push(em);return slots.length-1;}slots[s]=em;return s;});
-      const total=slots.length||1;
-      evs.forEach(({e,sm,em},i)=>{
-        const slot=assigned[i];
-        const y1=Math.max(mY(sm),GRID_TOP),y2=Math.min(mY(em),GRID_BOT);
-        const evH=Math.max(y2-y1,16);
-        const evW=Math.floor((COL_W-3)/total)-2;
-        const x=PAD+TIME_W+di*COL_W+1+slot*((COL_W-3)/total);
-        const col=getColor(getBatch(e.batchId)?.color||'c1');
-        const batch=getBatch(e.batchId);
-        ctx.shadowColor='rgba(0,0,0,0.06)';ctx.shadowBlur=3;ctx.shadowOffsetY=1;
-        ctx.fillStyle=col.bg;drawRoundRect(ctx,x,y1,evW,evH,3);ctx.fill();
-        ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
-        ctx.fillStyle=col.border;drawRoundRect(ctx,x,y1,3,evH,2);ctx.fill();
-        ctx.fillStyle=col.text;ctx.textAlign='left';ctx.textBaseline='top';
-        const txX=x+5,txY=y1+4,mxW=evW-8;
-        ctx.font=`bold ${evH>32?10:8}px ${FONT}`;
-        let nm=batch?.name||'';while(nm.length>2&&ctx.measureText(nm).width>mxW)nm=nm.slice(0,-1)+'…';
-        ctx.fillText(nm,txX,txY);
-        if(evH>22){ctx.font=`8px ${FONT}`;ctx.globalAlpha=0.65;ctx.fillText(fmtTime(e.start)+' IST',txX,txY+(evH>32?13:10));ctx.globalAlpha=1;}
-      });
-    });
-
-    // Border + footer
-    ctx.strokeStyle='#d0c9c0';ctx.lineWidth=1;ctx.strokeRect(PAD+TIME_W,GRID_TOP,COL_W*COLS,GRID_H);
-    ctx.fillStyle='#c0b8b0';ctx.font=`9px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('Dance Schedule · IST times only',W/2,GRID_BOT+FOOTER/2);
-
-    const a=document.createElement('a');
-    a.download=`dance-week-${twWeekStart.toISOString().slice(0,10)}.jpg`;
-    a.href=canvas.toDataURL('image/jpeg',0.88);
-    a.click();
-    showToast('Downloaded!');
-  }catch(err){console.error(err);showToast('Download failed');}
-  finally{btn.textContent='Download JPG';btn.disabled=false;}
-}
-
-
-// ══════════════════════════════════════════════
-// ATTENDANCE SYSTEM
-// ══════════════════════════════════════════════
-// Data structure:
-// attendance = {
-//   "eventId": {          // twEvent id
-//     date: "2026-06-02",
-//     batchId: "b_xxx",
-//     classLabel: "Ohio 1 – Monday",
-//     students: [
-//       { name, batchId, isGuest, status: "present"|"absent"|"makeup"|"additional",
-//         makeupFor: "2026-05-12" (ISO date of missed class, if makeup) }
-//     ]
-//   }
-// }
-// Stored in cloud as key "attendance"
-
-let attendance = {};      // all attendance records keyed by event id
-let attCurrentEventId = null; // event being edited in att popup
-let attCurrentStudents = [];  // working copy for the popup
-
-// ── Per-student fee/attendance settings ──
-// studentSettings = { "batchId:studentName": { feeModel, rate, cycleStart } }
-// feeModel: "monthly-flat" | "monthly-per-class" | "per-8"
-// cycleStart: number (for per-8 only — manual starting count)
-let studentSettings = {};
-
-// ── Load / Save ──
-function saveAttendance() {
-  const wrap = document.getElementById('att-student-list-wrap');
-  if (!wrap) return;
-  const rows = wrap.querySelectorAll('.att-student-row[data-name]');
-  const students = [];
-  rows.forEach(row => {
-    const name = row.dataset.name;
-    const batchId = row.dataset.batchid;
-    const isGuest = row.dataset.guest === 'true';
-    const sel = row.querySelector('.att-select');
-    const status = sel ? sel.value : 'present';
-    let makeupFor = null;
-    if (status === 'makeup') {
-      const ms = row.querySelector('.att-makeup-select');
-      makeupFor = ms ? ms.value : null;
-    }
-    students.push({ name, batchId, isGuest, status, makeupFor });
-  });
-  if (!attCurrentEventId) return;
-  const ev = twEvents.find(e => e.id === attCurrentEventId);
-  const batch = getBatch(ev?.batchId);
-  attendance[attCurrentEventId] = {
-    date: ev ? ev.date.toISOString().slice(0, 10) : '',
-    batchId: ev?.batchId || '',
-    classLabel: (batch?.name || '') + ' – ' + (ev ? fmtDate(ev.date) : ''),
-    students,
-  };
-  cloudSave('attendance', JSON.stringify(attendance));
-  closeOverlay('modal-att-class');
-  showToast('Attendance saved');
-  // Refresh TW render to show attendance badge
-  twRender();
-}
-
-// ── Open attendance popup from TW event ──
-function openAttendanceForEvent(evId) {
-  attCurrentEventId = evId;
-  const ev = twEvents.find(e => e.id === evId);
-  if (!ev) return;
-  const batch = getBatch(ev.batchId);
-  document.getElementById('att-class-title').textContent = 'Attendance — ' + (batch?.name || '');
-  document.getElementById('att-class-date').textContent =
-    ev.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) +
-    ' · ' + fmtTime(ev.start) + ' – ' + fmtTime(ev.end) + ' IST';
-
-  // Load existing or build fresh student list
-  const existing = attendance[evId];
-  // Determine which students belong to this class
-  // Could be full batch, a single student (studentScope), plus addon students
-  const batchStudents = [];
-  if (ev.studentScope) {
-    // Individual student class
-    batchStudents.push(ev.studentScope);
-  } else {
-    (batch?.students || '').split(',').map(s => s.trim()).filter(Boolean).forEach(s => batchStudents.push(s));
-  }
-  // Also include addon students on the event
-  const addonStudents = ev.addonStudents || [];
-
-  if (existing) {
-    attCurrentStudents = JSON.parse(JSON.stringify(existing.students));
-    // Ensure all current batch students are included
-    batchStudents.forEach(name => {
-      if (!attCurrentStudents.find(s => s.name === name && s.batchId === ev.batchId && !s.isGuest)) {
-        attCurrentStudents.push({ name, batchId: ev.batchId, isGuest: false, status: 'present', makeupFor: null });
-      }
-    });
-    // Ensure addon students are included
-    addonStudents.forEach(a => {
-      if (!attCurrentStudents.find(s => s.name === a.name && s.batchId === a.batchId)) {
-        attCurrentStudents.push({ name: a.name, batchId: a.batchId, isGuest: true, status: 'present', makeupFor: null });
-      }
-    });
-  } else {
-    attCurrentStudents = batchStudents.map(name => ({
-      name, batchId: ev.batchId, isGuest: false, status: 'present', makeupFor: null
-    }));
-    addonStudents.forEach(a => {
-      attCurrentStudents.push({ name: a.name, batchId: a.batchId, isGuest: true, status: 'present', makeupFor: null });
-    });
-  }
-
-  renderAttStudentList();
-  document.getElementById('modal-att-class').classList.add('open');
-}
-
-function renderAttStudentList() {
-  const wrap = document.getElementById('att-student-list-wrap');
-  if (!wrap) return;
-  wrap.innerHTML = attCurrentStudents.map((s, idx) => {
-    const openAbsences = getOpenAbsences(s.name, s.batchId, attCurrentEventId);
-    const makeupOptions = openAbsences.map(d =>
-      `<option value="${d}"${s.makeupFor === d ? ' selected' : ''}>${d}</option>`
-    ).join('');
-    const makeupSel = (s.status === 'makeup' && openAbsences.length > 0)
-      ? `<select class="att-makeup-select" onchange="attMakeupChanged(${idx},this.value)">
-          <option value="">— select missed class date —</option>${makeupOptions}
-         </select>`
-      : (s.status === 'makeup' && openAbsences.length === 0)
-      ? `<div style="font-size:11px;color:var(--muted);padding:4px">No open absences found</div>`
-      : '';
-    const guestBadge = s.isGuest
-      ? `<span class="att-guest-badge">${getBatch(s.batchId)?.name || 'Guest'}</span>` : '';
-    const removeBtn = s.isGuest
-      ? `<button onclick="attRemoveGuest(${idx})" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1" title="Remove">×</button>` : '';
-    return `<div class="att-student-row" data-name="${s.name}" data-batchid="${s.batchId}" data-guest="${s.isGuest}">
-      <div class="att-student-name">${s.name} ${guestBadge}${removeBtn}</div>
-      <div class="att-status-wrap">
-        <select class="att-select ${s.status}" onchange="attStatusChanged(${idx},this)">
-          <option value="present"${s.status==='present'?' selected':''}>✓ Present</option>
-          <option value="absent"${s.status==='absent'?' selected':''}>✗ Absent (counted)</option>
-          <option value="makeup"${s.status==='makeup'?' selected':''}>↺ Makeup</option>
-          <option value="additional"${s.status==='additional'?' selected':''}>+ Additional</option>
-          <option value="absent-nc"${s.status==='absent-nc'?' selected':''}>✗ Absent (not counted)</option>
-        </select>
-        ${makeupSel}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function attStatusChanged(idx, sel) {
-  attCurrentStudents[idx].status = sel.value;
-  sel.className = 'att-select ' + sel.value;
-  if (sel.value !== 'makeup') attCurrentStudents[idx].makeupFor = null;
-  renderAttStudentList();
-}
-function attMakeupChanged(idx, val) {
-  attCurrentStudents[idx].makeupFor = val;
-}
-function attRemoveGuest(idx) {
-  attCurrentStudents.splice(idx, 1);
-  renderAttStudentList();
-}
-
-// ── Get open absences for a student (absent but no resolved makeup) ──
-function getOpenAbsences(studentName, batchId, excludeEventId) {
-  const absenceDates = [];
-  const resolvedDates = new Set();
-  Object.entries(attendance).forEach(([eid, rec]) => {
-    if (eid === excludeEventId) return;
-    rec.students.forEach(s => {
-      if (s.name === studentName && s.batchId === batchId) {
-        if (s.status === 'absent') absenceDates.push(rec.date);
-        if (s.status === 'makeup' && s.makeupFor) resolvedDates.add(s.makeupFor);
-      }
-    });
-  });
-  return absenceDates.filter(d => !resolvedDates.has(d)).sort();
-}
-
-// ── Guest student picker ──
-function attAddGuest() {
-  const sel = document.getElementById('att-guest-batch');
-  sel.innerHTML = batches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
-  attGuestBatchChanged();
-  document.getElementById('modal-att-guest').classList.add('open');
-}
-function attGuestBatchChanged() {
-  const batchId = document.getElementById('att-guest-batch').value;
-  const b = getBatch(batchId);
-  const students = (b?.students || '').split(',').map(s => s.trim()).filter(Boolean);
-  document.getElementById('att-guest-student').innerHTML =
-    students.map(s => `<option value="${s}">${s}</option>`).join('');
-}
-function attConfirmGuest() {
-  const batchId = document.getElementById('att-guest-batch').value;
-  const name = document.getElementById('att-guest-student').value;
-  if (!name) return;
-  // Don't add duplicates
-  if (attCurrentStudents.find(s => s.name === name && s.batchId === batchId)) {
-    showToast('Student already in list'); return;
-  }
-  attCurrentStudents.push({ name, batchId, isGuest: true, status: 'present', makeupFor: null });
-  closeOverlay('modal-att-guest');
-  renderAttStudentList();
-}
 
 // ── Attendance spreadsheet ──
 function openAttendanceSheet() {
@@ -3395,7 +2737,7 @@ function getClassesFromTimings() {
       if (showCal==='temporary' && tempCoversThisSeason) return;
       result.push({batchId:b.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, showOnCalendar:'regular', _fromTimings:true});
     });
-    if ((b.tempTimings||[]).length > 0) {
+    if ((b.tempTimings||[]).length > 0 && showCal !== 'regular') {
       (b.tempTimings||[]).forEach(t => {
         result.push({batchId:b.id, day:t.day, season:tempSeason, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, showOnCalendar:showCal, tempOnly:showCal==='temporary', _fromTimings:true});
       });
@@ -3411,7 +2753,7 @@ function getClassesFromTimings() {
       if (showCal==='temporary' && tempCoversThisSeason) return;
       result.push({batchId:s.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, showOnCalendar:'regular', _fromTimings:true});
     });
-    if ((s.tempTimings||[]).length > 0) {
+    if ((s.tempTimings||[]).length > 0 && showCal !== 'regular') {
       (s.tempTimings||[]).forEach(t => {
         result.push({batchId:s.id, day:t.day, season:tempSeason, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, showOnCalendar:showCal, tempOnly:showCal==='temporary', _fromTimings:true});
       });
@@ -3720,9 +3062,27 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
   const rate = parseFloat(ss.rate || b?.rate) || 0;
   const currency = ss.currency || b?.currency || 'INR';
   if (!rate && attModel!=='monthly-block') return '';
-  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const now=new Date();
 
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const now = new Date();
+  const curM = now.getMonth()+1, curY = now.getFullYear();
+
+  // Parse fromDate to get selected month/year
+  const selM = fromDate ? parseInt(fromDate.slice(5,7)) : curM;
+  const selY = fromDate ? parseInt(fromDate.slice(0,4)) : curY;
+
+  // Build month/year dropdown (May 2026 onwards)
+  let monthOpts = '';
+  for (let y = 2026; y <= curY+1; y++) {
+    const startM = (y === 2026) ? 5 : 1;
+    const endM   = (y === curY+1) ? 1 : 12;
+    for (let mo = startM; mo <= endM; mo++) {
+      const sel = (mo===selM && y===selY) ? ' selected' : '';
+      monthOpts += `<option value="${y}-${String(mo).padStart(2,'0')}"${sel}>${MONTHS[mo-1]} ${y}</option>`;
+    }
+  }
+
+  // Count classes from attendance
   let totalCount=0, countedCount=0;
   Object.values(attendance).forEach(rec=>{
     if(!fromDate||!toDate)return;
@@ -3742,21 +3102,7 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
   else countedCount=totalCount;
   const feeAmount=attModel==='monthly-block'?(parseFloat(ss.rate)||0):countedCount*rate;
 
-  let lastPaidStr='—';
-  if(attModel==='rolling-cycle'){lastPaidStr=ss.lastPaidDate||'—';}
-  else if(ss.lastPaidMonth&&ss.lastPaidYear)lastPaidStr=MONTHS[parseInt(ss.lastPaidMonth)-1]+' '+ss.lastPaidYear;
-
-  let currentCycleStr='—';
-  if(attModel==='rolling-cycle'){currentCycleStr=ss.cycleStartDate||'—';}
-  else{
-    const lpm=parseInt(ss.lastPaidMonth)||0,lpy=parseInt(ss.lastPaidYear)||now.getFullYear();
-    if(lpm){const nextM=lpm===12?1:lpm+1,nextY=lpm===12?lpy+1:lpy;currentCycleStr=MONTHS[nextM-1]+' '+nextY;}
-  }
-
-  const storedStatus=ss.feeStatus||'ongoing';
-  const isSel=(v)=>storedStatus===v?'selected':'';
-  const fromLabel=fromDate?new Date(fromDate+'T12:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'';
-
+  // Fee body
   let feeBody='';
   if(attModel==='monthly-cap8'){
     feeBody=`<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Total classes</span><span style="font-size:12px;font-weight:600">${totalCount}</span></div>
@@ -3771,22 +3117,78 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
     <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Total fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(feeAmount,currency)}</span></div>
     <div style="font-size:11px;color:var(--subtle);margin-top:3px">${totalCount} × ${fmtAmount(rate,currency)}</div>`;
   } else if(attModel==='rolling-cycle'){
-    feeBody=`<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Current period started</span><span style="font-size:12px;font-weight:600">${currentCycleStr}</span></div>
+    feeBody=`<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Current period started</span><span style="font-size:12px;font-weight:600">${ss.cycleStartDate||'—'}</span></div>
     <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Per period fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(rate,currency)}</span></div>
     <div style="font-size:11px;color:var(--subtle);margin-top:3px">Per 8-class block</div>`;
   }
 
-  const statusColors={ongoing:'var(--blue)',pending:'#e37400',paid:'#1b5e20'};
-  const statusColor=statusColors[storedStatus]||'var(--blue)';
+  // ── Payment history & current cycle ──
+  // Build list of unpaid past cycles
+  let pendingCyclesHtml = '';
+
+  if (attModel !== 'rolling-cycle') {
+    // Monthly cycle types A/B/C
+    const lpm = parseInt(ss.lastPaidMonth)||0;
+    const lpy = parseInt(ss.lastPaidYear)||curY;
+    if (lpm) {
+      // Find all months between lastPaid+1 and selM/selY that are NOT the current month
+      const pendingMonths = [];
+      let pm = lpm, py = lpy;
+      // Advance one month past last paid
+      pm++; if(pm>12){pm=1;py++;}
+      // Collect all months up to but not including selected month
+      while (py < selY || (py === selY && pm < selM)) {
+        pendingMonths.push({m:pm, y:py});
+        pm++; if(pm>12){pm=1;py++;}
+      }
+      if (pendingMonths.length > 0) {
+        pendingCyclesHtml = pendingMonths.map(({m,y}) => {
+          const pKey = `${ssKey}_pending_${y}_${m}`;
+          const pStatus = ss[`feeStatus_${y}_${m}`] || 'pending';
+          const statusColor = pStatus==='paid'?'#1b5e20':'#b71c1c';
+          const statusBg = pStatus==='paid'?'#e6f4ea':'#fce8e6';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff8f0;border-radius:var(--radius);margin-bottom:4px">
+            <span style="font-size:12px;color:var(--orange);font-weight:500">⚠ Fee pending — ${MONTHS[m-1]} ${y}</span>
+            <span style="padding:2px 8px;border-radius:10px;font-size:11px;background:${statusBg};color:${statusColor};font-weight:500">${pStatus.charAt(0).toUpperCase()+pStatus.slice(1)}</span>
+          </div>`;
+        }).join('');
+      }
+    }
+  }
+
+  // Current cycle display
+  let currentCycleLabel = '—', lastPaidStr = '—';
+  if (attModel === 'rolling-cycle') {
+    lastPaidStr = ss.lastPaidDate || '—';
+    currentCycleLabel = ss.cycleStartDate ? `From ${ss.cycleStartDate}` : '—';
+  } else {
+    const lpm = parseInt(ss.lastPaidMonth)||0, lpy = parseInt(ss.lastPaidYear)||curY;
+    if (lpm) lastPaidStr = MONTHS[lpm-1]+' '+lpy;
+    // Current cycle = selected month
+    currentCycleLabel = MONTHS[selM-1]+' '+selY;
+  }
+
+  const storedStatus = ss.feeStatus || 'ongoing';
+  // For past months, default to pending if not paid
+  const isCurrentMonth = selM===curM && selY===curY;
+  const displayStatus = (!isCurrentMonth && storedStatus==='ongoing') ? 'pending' : storedStatus;
+  const isSel = (v) => displayStatus===v ? 'selected' : '';
+  const statusColors = {ongoing:'var(--blue)',pending:'#e37400',paid:'#1b5e20'};
+  const statusColor = statusColors[displayStatus]||'var(--blue)';
 
   return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-top:6px">
-    <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px">Fees${fromLabel?' — '+fromLabel:''}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Fees</div>
+      <select onchange="feeTrackerMonthChanged(this,'${ssKey}')" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">
+        ${monthOpts}
+      </select>
+    </div>
     ${feeBody}
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+    ${pendingCyclesHtml ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">${pendingCyclesHtml}</div>` : ''}
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--muted)">Last paid for</span><span style="font-size:12px;font-weight:500">${lastPaidStr}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--muted)">Current cycle</span><span style="font-size:12px;font-weight:500">${currentCycleStr}</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;color:var(--muted)">Cycle status</span>
+        <span style="font-size:12px;color:var(--muted)">Current cycle status — ${currentCycleLabel}</span>
         <select onchange="saveFeeStatus('${ssKey}',this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:${statusColor};font-family:'Roboto',sans-serif;font-weight:500">
           <option value="ongoing" ${isSel('ongoing')}>Ongoing</option>
           <option value="pending" ${isSel('pending')}>Pending</option>
@@ -3796,6 +3198,26 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
     </div>
   </div>`;
 }
+
+function feeTrackerMonthChanged(sel, ssKey) {
+  const val = sel.value; // "2026-06"
+  const y = parseInt(val.slice(0,4));
+  const m = parseInt(val.slice(5,7));
+  const from = `${y}-${String(m).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const to = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  // Re-render just the fee section
+  const feeBody = document.getElementById('student-fee-body');
+  if (feeBody) {
+    // Extract studentName and batchId from ssKey
+    const colonIdx = ssKey.indexOf(':');
+    const bId = ssKey.slice(0, colonIdx);
+    const sName = ssKey.slice(colonIdx+1);
+    feeBody.innerHTML = buildStudentFeeSection(sName, bId, from, to);
+  }
+}
+
+
 
 
 function fmtAmount(amount, currency) {
@@ -4128,22 +3550,34 @@ function tweExpandAttendance() {
   if (!ev) return;
   const b = getBatch(ev.batchId);
   const students = b ? (b.students||'').split(',').map(s=>s.trim()).filter(Boolean) : [];
-  // Add addon students too
+
+  // Start with batch/scope students
   const allStudents = [...students];
-  (ev.addonStudents||[]).forEach(a => { if (!allStudents.includes(a.name)) allStudents.push(a.name+' *'); });
+
+  // Add addon students already saved on the event
+  (ev.addonStudents||[]).forEach(a => {
+    if (!allStudents.includes(a.name)) allStudents.push(a.name);
+  });
+
+  // Also read addon students currently in the DOM (added this session, not yet saved)
+  document.querySelectorAll('#twe-addon-list .tw-addon-row').forEach(row => {
+    const val = row.querySelector('select')?.value || '';
+    const parts = val.split('|');
+    const name = parts[1];
+    if (name && !allStudents.includes(name)) allStudents.push(name);
+  });
 
   // Get existing attendance for this event
   const existing = attendance[twEditId]?.students || [];
-  const getStatus = (name) => existing.find(s=>s.name===name)?.status || null;
+  const getStatus = (name) => existing.find(s=>s.name===name)?.status || tweAttState[name] || null;
 
   const rows = allStudents.map(name => {
-    const cleanName = name.replace(' *','');
-    const status = getStatus(cleanName);
+    const status = getStatus(name);
     return `<div class="tw-att-row">
       <span style="font-size:13px">${name}</span>
       <div class="att-tog">
-        <button class="att-tog-btn${status==='present'?' present':''}" onclick="tweToggleAtt(this,'${cleanName}','present')">Present</button>
-        <button class="att-tog-btn${status==='absent'?' absent':''}" onclick="tweToggleAtt(this,'${cleanName}','absent')">Absent</button>
+        <button class="att-tog-btn${status==='present'?' present':''}" onclick="tweToggleAtt(this,'${name}','present')">Present</button>
+        <button class="att-tog-btn${status==='absent'?' absent':''}" onclick="tweToggleAtt(this,'${name}','absent')">Absent</button>
       </div>
     </div>`;
   }).join('');
@@ -4719,9 +4153,7 @@ renderTzDropdown();renderSidebar();renderCalendar();
 autoCheckFeeStatuses();
 initLoad();
 </script>
-
-<!-- FEE & ATTENDANCE TRACKER -->
-<div class="overlay" id="modal-fee-tracker" style="align-items:stretch;padding:0">
+n-items:stretch;padding:0">
   <div style="background:var(--bg);width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden">
     <!-- Header -->
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0">
