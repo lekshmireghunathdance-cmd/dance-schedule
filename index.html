@@ -793,7 +793,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
     </div>
     <div class="modal-actions" style="justify-content:space-between">
-      <button class="btn-danger" onclick="tweCancelClass()" id="twe-cancel-btn">Cancel class</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-danger" onclick="tweCancelClass()" id="twe-cancel-btn">Cancel class</button>
+        <button class="btn-cancel" onclick="tweRemoveClass()" style="color:#d93025;border-color:#d93025!important" id="twe-remove-btn">Remove</button>
+      </div>
       <div style="display:flex;gap:8px">
         <button class="btn-cancel" onclick="closeOverlay('modal-tw-edit')">Exit</button>
         <button class="btn-primary" onclick="twSaveEdit()">Save</button>
@@ -3433,6 +3436,23 @@ function tweConfirmCancel() {
   closeOverlay('modal-tw-cancel-confirm');
   showToast('Class cancelled');
 }
+
+function tweRemoveClass() {
+  if (!confirm('Remove this class from This Week? It will disappear with no record. The main calendar schedule is unchanged.')) return;
+  // Delete any attendance record for this event
+  if (attendance[twEditId]) {
+    delete attendance[twEditId];
+    cloudSave('attendance', JSON.stringify(attendance));
+  }
+  // Remove the event from twEvents
+  twEvents = twEvents.filter(x => x.id !== twEditId);
+  twSaveEvents();
+  closeOverlay('modal-tw-edit');
+  twRender();
+  showToast('Class removed from this week');
+}
+
+
 
 // ══════════════════════════════════════════════
 // Updated twOpenEdit
