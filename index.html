@@ -542,7 +542,8 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     </div>
     <div id="as-fields-d" style="display:none">
       <div class="field"><label>Per period fee (per 8 classes)</label><div style="display:grid;grid-template-columns:1fr 80px;gap:8px"><input id="as-d-rate" type="number" min="0" step="0.01" placeholder="e.g. 2800"/><select id="as-d-currency"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
-      <div class="field"><label>Last fee paid for</label><input id="as-d-paid-date" type="date" style="width:100%"/></div>
+      <div class="field"><label>Tracking starts from</label><input id="as-d-track-start" type="date" style="width:100%"/><div style="font-size:11px;color:var(--muted);margin-top:3px">Date from which the fee tracker begins. Leave as today if starting fresh.</div></div>
+      <div class="field"><label>Last fee paid for (cycle start date)</label><input id="as-d-paid-date" type="date" style="width:100%"/></div>
       <div class="field"><label>Current fee period started on</label><input id="as-d-cycle-start" type="date" style="width:100%"/></div>
       <div class="field"><label>First class count</label><div style="display:flex;align-items:center;gap:8px"><input id="as-d-first-count" type="number" min="1" max="8" value="1" style="width:70px"/><span style="font-size:12px;color:var(--muted)">of 8</span></div></div>
     </div>
@@ -2881,7 +2882,7 @@ function openAddStudentFlow(batchId, studentName) {
     const el=document.getElementById(id); if(el) el.value=curM;
   });
   const todayStr=localDateStr(new Date());
-  ['as-d-paid-date','as-d-cycle-start'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=todayStr; });
+  ['as-d-paid-date','as-d-cycle-start','as-d-track-start'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=todayStr; });
   if(document.getElementById('as-d-first-count')) document.getElementById('as-d-first-count').value='1';
 
   if (batchId && studentName) {
@@ -2954,7 +2955,7 @@ function asGetCategoryFields() {
   if(cat==='ohio-standard'){fields.rate=document.getElementById('as-a-rate')?.value.trim();fields.currency=document.getElementById('as-a-currency')?.value;fields.periodMonth=document.getElementById('as-a-period-month')?.value;fields.periodYear=document.getElementById('as-a-period-year')?.value;fields.lastPaidMonth=document.getElementById('as-a-paid-month')?.value;fields.lastPaidYear=document.getElementById('as-a-paid-year')?.value;}
   else if(cat==='monthly-block'){fields.rate=document.getElementById('as-b-rate')?.value.trim();fields.currency=document.getElementById('as-b-currency')?.value;fields.periodMonth=document.getElementById('as-b-period-month')?.value;fields.periodYear=document.getElementById('as-b-period-year')?.value;fields.lastPaidMonth=document.getElementById('as-b-paid-month')?.value;fields.lastPaidYear=document.getElementById('as-b-paid-year')?.value;}
   else if(cat==='true-per-class'){fields.rate=document.getElementById('as-c-rate')?.value.trim();fields.currency=document.getElementById('as-c-currency')?.value;fields.periodMonth=document.getElementById('as-c-period-month')?.value;fields.periodYear=document.getElementById('as-c-period-year')?.value;fields.lastPaidMonth=document.getElementById('as-c-paid-month')?.value;fields.lastPaidYear=document.getElementById('as-c-paid-year')?.value;}
-  else if(cat==='rolling-cycle'){fields.rate=document.getElementById('as-d-rate')?.value.trim();fields.currency=document.getElementById('as-d-currency')?.value;fields.lastPaidDate=document.getElementById('as-d-paid-date')?.value;fields.cycleStartDate=document.getElementById('as-d-cycle-start')?.value;fields.firstClassCount=parseInt(document.getElementById('as-d-first-count')?.value)||1;}
+  else if(cat==='rolling-cycle'){fields.rate=document.getElementById('as-d-rate')?.value.trim();fields.currency=document.getElementById('as-d-currency')?.value;fields.trackStartDate=document.getElementById('as-d-track-start')?.value||document.getElementById('as-d-cycle-start')?.value;fields.lastPaidDate=document.getElementById('as-d-paid-date')?.value;fields.cycleStartDate=document.getElementById('as-d-cycle-start')?.value;fields.firstClassCount=parseInt(document.getElementById('as-d-first-count')?.value)||1;}
   return fields;
 }
 function asStep2OrSave() {
@@ -3053,173 +3054,8 @@ function asSave() {
   showToast(asEditId?'Student updated':'Student added');
 }
 
-// ══════════════════════════════════════════════
-// autoCheckFeeStatuses
-// ══════════════════════════════════════════════
 
-function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
-  const b = getBatch(batchId);
-  const ssKey = batchId+':'+studentName;
-  const ss = studentSettings[ssKey] || {};
-  const category = ss.category || b?.attModel || 'ohio-standard';
-  const attModel = {'ohio-standard':'monthly-cap8','monthly-block':'monthly-block','true-per-class':'true-per-class','rolling-cycle':'rolling-cycle','monthly-cap8':'monthly-cap8'}[category]||'monthly-cap8';
-  const rate = parseFloat(ss.rate || b?.rate) || 0;
-  const currency = ss.currency || b?.currency || 'INR';
-  if (!rate && attModel!=='monthly-block') return '';
 
-  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const now = new Date();
-  const curM = now.getMonth()+1, curY = now.getFullYear();
-
-  // Parse fromDate to get selected month/year
-  const selM = fromDate ? parseInt(fromDate.slice(5,7)) : curM;
-  const selY = fromDate ? parseInt(fromDate.slice(0,4)) : curY;
-
-  // Build month/year dropdown (May 2026 onwards)
-  let monthOpts = '';
-  for (let y = 2026; y <= curY+1; y++) {
-    const startM = (y === 2026) ? 5 : 1;
-    const endM   = (y === curY+1) ? 1 : 12;
-    for (let mo = startM; mo <= endM; mo++) {
-      const sel = (mo===selM && y===selY) ? ' selected' : '';
-      monthOpts += `<option value="${y}-${String(mo).padStart(2,'0')}"${sel}>${MONTHS[mo-1]} ${y}</option>`;
-    }
-  }
-
-  // Count classes from attendance
-  let totalCount=0, countedCount=0;
-  Object.values(attendance).forEach(rec=>{
-    if(!fromDate||!toDate)return;
-    if(rec.date<fromDate||rec.date>toDate)return;
-    rec.students.forEach(s=>{
-      if(s.name!==studentName)return;
-      const st=s.status;
-      let counts=false;
-      if(attModel==='monthly-cap8')counts=st==='present'||st==='absent'||st==='additional';
-      else if(attModel==='monthly-block')counts=st==='present'||st==='absent'||st==='makeup'||st==='additional';
-      else if(attModel==='true-per-class')counts=st==='present'||st==='absent'||st==='makeup'||st==='additional';
-      else if(attModel==='rolling-cycle')counts=st==='present'||st==='absent'||st==='additional';
-      if(counts)totalCount++;
-    });
-  });
-  if(attModel==='monthly-cap8')countedCount=Math.min(totalCount,8);
-  else countedCount=totalCount;
-  const feeAmount=attModel==='monthly-block'?(parseFloat(ss.rate)||0):countedCount*rate;
-
-  // Fee body
-  let feeBody='';
-  if(attModel==='monthly-cap8'){
-    feeBody=`<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Total classes</span><span style="font-size:12px;font-weight:600">${totalCount}</span></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Counted (max 8)</span><span style="font-size:12px;font-weight:600">${countedCount}</span></div>
-    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Total fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(feeAmount,currency)}</span></div>
-    <div style="font-size:11px;color:var(--subtle);margin-top:3px">${countedCount} × ${fmtAmount(rate,currency)}</div>`;
-  } else if(attModel==='monthly-block'){
-    feeBody=`<div style="display:flex;justify-content:space-between;padding-top:4px"><span style="font-size:13px;font-weight:600">Monthly fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(rate,currency)}</span></div>
-    <div style="font-size:11px;color:var(--subtle);margin-top:3px">Fixed — does not change with attendance</div>`;
-  } else if(attModel==='true-per-class'){
-    feeBody=`<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Total classes attended</span><span style="font-size:12px;font-weight:600">${totalCount}</span></div>
-    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Total fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(feeAmount,currency)}</span></div>
-    <div style="font-size:11px;color:var(--subtle);margin-top:3px">${totalCount} × ${fmtAmount(rate,currency)}</div>`;
-  } else if(attModel==='rolling-cycle'){
-    feeBody=`<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Current period started</span><span style="font-size:12px;font-weight:600">${ss.cycleStartDate||'—'}</span></div>
-    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Per period fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(rate,currency)}</span></div>
-    <div style="font-size:11px;color:var(--subtle);margin-top:3px">Per 8-class block</div>`;
-  }
-
-  // ── Payment history & current cycle ──
-  // Build list of unpaid past cycles
-  let pendingCyclesHtml = '';
-
-  if (attModel !== 'rolling-cycle') {
-    // Monthly cycle types A/B/C
-    const lpm = parseInt(ss.lastPaidMonth)||0;
-    const lpy = parseInt(ss.lastPaidYear)||curY;
-    if (lpm) {
-      // Find all months between lastPaid+1 and selM/selY that are NOT the current month
-      const pendingMonths = [];
-      let pm = lpm, py = lpy;
-      // Advance one month past last paid
-      pm++; if(pm>12){pm=1;py++;}
-      // Collect all months up to but not including selected month
-      while (py < selY || (py === selY && pm < selM)) {
-        pendingMonths.push({m:pm, y:py});
-        pm++; if(pm>12){pm=1;py++;}
-      }
-      if (pendingMonths.length > 0) {
-        pendingCyclesHtml = pendingMonths.map(({m,y}) => {
-          const pKey = `${ssKey}_pending_${y}_${m}`;
-          const pStatus = ss[`feeStatus_${y}_${m}`] || 'pending';
-          const statusColor = pStatus==='paid'?'#1b5e20':'#b71c1c';
-          const statusBg = pStatus==='paid'?'#e6f4ea':'#fce8e6';
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff8f0;border-radius:var(--radius);margin-bottom:4px">
-            <span style="font-size:12px;color:var(--orange);font-weight:500">⚠ Fee pending — ${MONTHS[m-1]} ${y}</span>
-            <span style="padding:2px 8px;border-radius:10px;font-size:11px;background:${statusBg};color:${statusColor};font-weight:500">${pStatus.charAt(0).toUpperCase()+pStatus.slice(1)}</span>
-          </div>`;
-        }).join('');
-      }
-    }
-  }
-
-  // Current cycle display
-  let currentCycleLabel = '—', lastPaidStr = '—';
-  if (attModel === 'rolling-cycle') {
-    lastPaidStr = ss.lastPaidDate || '—';
-    currentCycleLabel = ss.cycleStartDate ? `From ${ss.cycleStartDate}` : '—';
-  } else {
-    const lpm = parseInt(ss.lastPaidMonth)||0, lpy = parseInt(ss.lastPaidYear)||curY;
-    if (lpm) lastPaidStr = MONTHS[lpm-1]+' '+lpy;
-    // Current cycle = selected month
-    currentCycleLabel = MONTHS[selM-1]+' '+selY;
-  }
-
-  const storedStatus = ss.feeStatus || 'ongoing';
-  // For past months, default to pending if not paid
-  const isCurrentMonth = selM===curM && selY===curY;
-  const displayStatus = (!isCurrentMonth && storedStatus==='ongoing') ? 'pending' : storedStatus;
-  const isSel = (v) => displayStatus===v ? 'selected' : '';
-  const statusColors = {ongoing:'var(--blue)',pending:'#e37400',paid:'#1b5e20'};
-  const statusColor = statusColors[displayStatus]||'var(--blue)';
-
-  return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-top:6px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Fees</div>
-      <select onchange="feeTrackerMonthChanged(this,'${ssKey}')" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">
-        ${monthOpts}
-      </select>
-    </div>
-    ${feeBody}
-    ${pendingCyclesHtml ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">${pendingCyclesHtml}</div>` : ''}
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--muted)">Last paid for</span><span style="font-size:12px;font-weight:500">${lastPaidStr}</span></div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;color:var(--muted)">Current cycle status — ${currentCycleLabel}</span>
-        <select onchange="saveFeeStatus('${ssKey}',this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:${statusColor};font-family:'Roboto',sans-serif;font-weight:500">
-          <option value="ongoing" ${isSel('ongoing')}>Ongoing</option>
-          <option value="pending" ${isSel('pending')}>Pending</option>
-          <option value="paid" ${isSel('paid')}>Paid</option>
-        </select>
-      </div>
-    </div>
-  </div>`;
-}
-
-function feeTrackerMonthChanged(sel, ssKey) {
-  const val = sel.value; // "2026-06"
-  const y = parseInt(val.slice(0,4));
-  const m = parseInt(val.slice(5,7));
-  const from = `${y}-${String(m).padStart(2,'0')}-01`;
-  const lastDay = new Date(y, m, 0).getDate();
-  const to = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-  // Re-render just the fee section
-  const feeBody = document.getElementById('student-fee-body');
-  if (feeBody) {
-    // Extract studentName and batchId from ssKey
-    const colonIdx = ssKey.indexOf(':');
-    const bId = ssKey.slice(0, colonIdx);
-    const sName = ssKey.slice(colonIdx+1);
-    feeBody.innerHTML = buildStudentFeeSection(sName, bId, from, to);
-  }
-}
 
 
 
@@ -3232,49 +3068,7 @@ function fmtAmount(amount, currency) {
   return '₹' + num.toLocaleString('en-IN', {minimumFractionDigits:0, maximumFractionDigits:2});
 }
 
-function autoCheckFeeStatuses() {
-  const now=new Date();
-  const today=localDateStr(now);
-  let changed=false;
-  Object.keys(studentSettings).forEach(key=>{
-    const ss=studentSettings[key];
-    if(!ss||ss.feeStatus!=='ongoing')return;
-    const category=ss.category||'ohio-standard';
-    const attModel={'ohio-standard':'monthly-cap8','monthly-block':'monthly-block','true-per-class':'true-per-class','rolling-cycle':'rolling-cycle','monthly-cap8':'monthly-cap8'}[category]||'monthly-cap8';
-    if(attModel==='rolling-cycle')return;
-    const lpm=parseInt(ss.lastPaidMonth)||0;
-    const lpy=parseInt(ss.lastPaidYear)||now.getFullYear();
-    if(!lpm)return;
-    const nextM=lpm===12?1:lpm+1;
-    const nextY=lpm===12?lpy+1:lpy;
-    const flipAfterM=nextM===12?1:nextM+1;
-    const flipAfterY=nextM===12?nextY+1:nextY;
-    const flipDate=flipAfterY+'-'+String(flipAfterM).padStart(2,'0')+'-01';
-    if(today>=flipDate){ss.feeStatus='pending';changed=true;}
-  });
-  if(changed){save('studentSettings',studentSettings);console.log('Fee statuses updated');}
-}
 
-// ══════════════════════════════════════════════
-// saveFeeStatus
-// ══════════════════════════════════════════════
-function saveFeeStatus(ssKey, status) {
-  if(!studentSettings[ssKey])studentSettings[ssKey]={};
-  const ss=studentSettings[ssKey];
-  ss.feeStatus=status;
-  if(status==='paid'){
-    const now=new Date();
-    if(ss.lastPaidMonth){
-      const lpm=parseInt(ss.lastPaidMonth),lpy=parseInt(ss.lastPaidYear)||now.getFullYear();
-      const nextM=lpm===12?1:lpm+1;
-      const nextY=lpm===12?lpy+1:lpy;
-      ss.lastPaidMonth=String(nextM);ss.lastPaidYear=String(nextY);
-    }
-    ss.feeStatus='ongoing';
-  }
-  save('studentSettings',studentSettings);
-  refreshStudentAtt();
-}
 
 // ══════════════════════════════════════════════
 // sdSetSeason — student popup schedule tabs
@@ -3987,26 +3781,22 @@ function renderFeeTracker() {
       }
     }
 
-    // Fee status cell
-    const storedStatus = ss.feeStatus || 'ongoing';
+    // Fee status cell — use per-cycle status
     const now2 = new Date();
-    const curM = now2.getMonth()+1, curY = now2.getFullYear();
-    let displayStatus = storedStatus;
-    if (storedStatus === 'ongoing' && (year < curY || (year === curY && month < curM))) {
-      displayStatus = 'pending'; // past month defaults to pending if not paid
+    const curM2 = now2.getMonth()+1, curY2 = now2.getFullYear();
+    let displayStatus = 'ongoing';
+    let statusCellHtml = '';
+
+    if (attModel === 'rolling-cycle') {
+      const cycleKey = feeCycleKey(ss.currentCycleStart || ss.cycleStartDate || fromDate);
+      displayStatus = ss[cycleKey] || 'ongoing';
+    } else {
+      displayStatus = computeMonthStatus(ss, category, year, month) || 'ongoing';
     }
+
     const statusClass = { ongoing:'status-ongoing', pending:'status-pending', paid:'status-paid' }[displayStatus]||'status-ongoing';
     const statusLabel = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
-
-    // For Type D with split cell
-    let statusCellHtml = '';
-    if (attModel === 'rolling-cycle' && ss.cycleStartDate && localDateStr(new Date(ss.cycleStartDate+'T12:00:00')) > fromDate) {
-      const prevStatus = ss.lastPaidDate ? 'paid' : 'pending';
-      const prevClass = prevStatus === 'paid' ? 'status-paid' : 'status-pending';
-      statusCellHtml = `<span class="status-badge ${prevClass}">${prevStatus.charAt(0).toUpperCase()+prevStatus.slice(1)}</span><hr style="margin:2px 0;border:none;border-top:1px dashed #ccc"><span class="status-badge status-ongoing">Ongoing</span>`;
-    } else {
-      statusCellHtml = `<span class="status-badge ${statusClass}">${statusLabel}</span>`;
-    }
+    statusCellHtml = `<span class="status-badge ${statusClass}">${statusLabel}</span>`;
 
     // Accumulate summary
     totalDue += feeForSummary || 0;
@@ -4341,6 +4131,393 @@ function twMouseUp(e){
     }catch(err){console.warn('twMouseUp:',err);}
   }
   twDragState=null;
+}
+
+
+// ══════════════════════════════════════════════
+// FEE STATUS SYSTEM — rebuilt
+// ══════════════════════════════════════════════
+
+// Storage keys:
+// Types A/B/C: ss['feeStatus_YYYY_MM'] = 'pending'|'paid'
+// Type D:      ss['feeStatus_cycle_YYYY-MM-DD'] = 'pending'|'paid'
+//              ss['cycleHistory'] = [{start, end, classCount}]
+
+// ── Helpers ──
+function feeStatusKey(year, month) {
+  return 'feeStatus_' + year + '_' + String(month).padStart(2,'0');
+}
+function feeCycleKey(cycleStartDate) {
+  return 'feeStatus_cycle_' + cycleStartDate;
+}
+
+// Get the stored status for a given month (A/B/C)
+function getMonthFeeStatus(ss, year, month) {
+  const key = feeStatusKey(year, month);
+  if (ss[key]) return ss[key];
+  // If this month is on or before lastPaidMonth/Year from setup → treat as paid (historical)
+  const lpm = parseInt(ss.lastPaidMonth)||0;
+  const lpy = parseInt(ss.lastPaidYear)||0;
+  if (lpm && lpy) {
+    const lastPaidVal = lpy * 100 + lpm;
+    const thisVal = year * 100 + month;
+    if (thisVal <= lastPaidVal) return 'paid';
+  }
+  return null; // not yet determined
+}
+
+// Get the computed display status for a given month
+function computeMonthStatus(ss, category, year, month) {
+  const stored = getMonthFeeStatus(ss, year, month);
+  if (stored === 'paid') return 'paid';
+
+  const now = new Date();
+  const curY = now.getFullYear(), curM = now.getMonth() + 1;
+  const periodStartM = parseInt(ss.periodMonth) || 1;
+  const periodStartY = parseInt(ss.periodYear) || curY;
+
+  // Don't show cycles before period start
+  if (year < periodStartY || (year === periodStartY && month < periodStartM)) return null;
+
+  // Type B: pending from start of that month (no "ongoing")
+  if (category === 'monthly-block') {
+    const thisVal = year * 100 + month;
+    const curVal = curY * 100 + curM;
+    if (thisVal > curVal) return null; // future
+    return stored || 'pending';
+  }
+
+  // Type A / C: ongoing during current month, pending after month ends
+  const thisVal = year * 100 + month;
+  const curVal = curY * 100 + curM;
+  if (thisVal > curVal) return null; // future
+  if (thisVal === curVal) return stored || 'ongoing';
+  return stored || 'pending'; // past month not marked paid
+}
+
+// ── autoCheckFeeStatuses ── (runs on load, no longer auto-advances anything)
+function autoCheckFeeStatuses() {
+  // For Type D: check if class 8 was just reached and flip cycle to pending
+  // This is handled in attendance recording — nothing to auto-flip here
+  // For A/B/C: status is computed on-the-fly in display, not stored unless manually set
+  // So this function is now a no-op for display purposes,
+  // but we keep it to handle Type D cycle completion checks
+  const now = new Date();
+  let changed = false;
+
+  Object.keys(studentSettings).forEach(key => {
+    const ss = studentSettings[key];
+    if (!ss) return;
+    const category = ss.category || 'ohio-standard';
+    if (category !== 'rolling-cycle') return;
+
+    // Count attended classes since cycle start to detect if cycle completed
+    const parts = key.split(':');
+    const batchId = parts[0], studentName = parts.slice(1).join(':');
+    const cycleStart = ss.cycleStartDate;
+    if (!cycleStart) return;
+
+    // Count classes from cycleStart onwards
+    let classCount = parseInt(ss.firstClassCount) || 1;
+    // We count from attendance records
+    const attendedDates = [];
+    Object.values(attendance).forEach(rec => {
+      rec.students.forEach(s => {
+        if (s.name !== studentName || s.batchId !== batchId) return;
+        if (rec.date < cycleStart) return;
+        if (s.status === 'present' || s.status === 'additional') {
+          attendedDates.push(rec.date);
+        }
+      });
+    });
+    attendedDates.sort();
+
+    // Walk through and find cycle boundaries
+    let count = parseInt(ss.firstClassCount) || 1;
+    let prevCycleStart = cycleStart;
+    for (const date of attendedDates) {
+      if (count === 8) {
+        // Cycle completed at this class
+        const cycleKey = feeCycleKey(prevCycleStart);
+        if (!ss[cycleKey]) {
+          ss[cycleKey] = 'pending'; // flip to pending when cycle completes
+          changed = true;
+        }
+        // New cycle starts next
+        prevCycleStart = date; // next class after this will be class 1
+        count = 1;
+      } else {
+        count++;
+      }
+    }
+    // Update cycle tracking in ss
+    if (prevCycleStart !== cycleStart || count !== (parseInt(ss.firstClassCount)||1)) {
+      ss.currentCycleStart = prevCycleStart;
+      ss.currentClassCount = count;
+    }
+  });
+
+  if (changed) {
+    save('studentSettings', studentSettings);
+  }
+}
+
+// ── saveFeeStatus ── (no auto-advance, just stores the status for the specific cycle)
+function saveFeeStatus(ssKey, status, cycleId) {
+  if (!studentSettings[ssKey]) studentSettings[ssKey] = {};
+  const ss = studentSettings[ssKey];
+  const category = ss.category || 'ohio-standard';
+
+  if (category === 'rolling-cycle') {
+    // cycleId is the cycle start date string
+    const storeKey = feeCycleKey(cycleId);
+    ss[storeKey] = status;
+  } else {
+    // cycleId is "YYYY-MM"
+    const [y, m] = cycleId.split('-');
+    const storeKey = feeStatusKey(parseInt(y), parseInt(m));
+    ss[storeKey] = status;
+  }
+
+  save('studentSettings', studentSettings);
+  // Refresh the fee section display
+  const feeBody = document.getElementById('student-fee-body');
+  if (feeBody && currentStudentName && currentStudentBatchId) {
+    const month = parseInt(document.getElementById('student-att-month')?.value || new Date().getMonth()+1);
+    const year = parseInt(document.getElementById('student-att-year')?.value || new Date().getFullYear());
+    const from = year+'-'+String(month).padStart(2,'0')+'-01';
+    const lastDay = new Date(year,month,0).getDate();
+    const to = year+'-'+String(month).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+    feeBody.innerHTML = buildStudentFeeSection(currentStudentName, currentStudentBatchId, from, to);
+  }
+}
+
+// ── buildStudentFeeSection ── (full rebuild)
+function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
+  const b = getBatch(batchId);
+  const ssKey = batchId+':'+studentName;
+  const ss = studentSettings[ssKey] || {};
+  const category = ss.category || b?.attModel || 'ohio-standard';
+  const rate = parseFloat(ss.rate || b?.rate) || 0;
+  const currency = ss.currency || b?.currency || 'INR';
+  if (!rate && category !== 'monthly-block') return '';
+
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const now = new Date();
+  const curM = now.getMonth()+1, curY = now.getFullYear();
+  const selM = fromDate ? parseInt(fromDate.slice(5,7)) : curM;
+  const selY = fromDate ? parseInt(fromDate.slice(0,4)) : curY;
+
+  // Build month dropdown (May 2026 onwards)
+  let monthOpts = '';
+  for (let y = 2026; y <= curY+1; y++) {
+    const startM = (y === 2026) ? 5 : 1;
+    const endM = (y === curY+1) ? 1 : 12;
+    for (let mo = startM; mo <= endM; mo++) {
+      const sel = (mo===selM && y===selY) ? ' selected' : '';
+      monthOpts += `<option value="${y}-${String(mo).padStart(2,'0')}"${sel}>${MONTHS[mo-1]} ${y}</option>`;
+    }
+  }
+
+  // Count classes this month from attendance
+  let totalCount = 0;
+  Object.values(attendance).forEach(rec => {
+    if (!fromDate || !toDate) return;
+    if (rec.date < fromDate || rec.date > toDate) return;
+    rec.students.forEach(s => {
+      if (s.name !== studentName) return;
+      const st = s.status;
+      let counts = false;
+      if (category === 'ohio-standard') counts = st==='present'||st==='absent'||st==='additional';
+      else if (category === 'monthly-block') counts = st==='present'||st==='absent'||st==='makeup'||st==='additional';
+      else if (category === 'true-per-class') counts = st==='present'||st==='makeup'||st==='additional';
+      else if (category === 'rolling-cycle') counts = st==='present'||st==='additional';
+      if (counts) totalCount++;
+    });
+  });
+
+  const countedCount = category === 'ohio-standard' ? Math.min(totalCount, 8) : totalCount;
+  const feeAmount = category === 'monthly-block' ? (parseFloat(ss.rate)||0) : countedCount * rate;
+
+  // Fee amount display
+  let feeBody = '';
+  if (category === 'ohio-standard') {
+    feeBody = `<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Classes (max 8)</span><span style="font-size:12px;font-weight:600">${countedCount} / 8</span></div>
+    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Fee due</span><span style="font-size:16px;font-weight:700">${fmtAmount(feeAmount,currency)}</span></div>
+    <div style="font-size:11px;color:var(--subtle);margin-top:3px">${countedCount} × ${fmtAmount(rate,currency)}</div>`;
+  } else if (category === 'monthly-block') {
+    feeBody = `<div style="display:flex;justify-content:space-between;padding-top:4px"><span style="font-size:13px;font-weight:600">Monthly fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(rate,currency)}</span></div>
+    <div style="font-size:11px;color:var(--subtle);margin-top:3px">Fixed — due at start of month</div>`;
+  } else if (category === 'true-per-class') {
+    feeBody = `<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Classes attended</span><span style="font-size:12px;font-weight:600">${totalCount}</span></div>
+    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Fee due</span><span style="font-size:16px;font-weight:700">${fmtAmount(feeAmount,currency)}</span></div>
+    <div style="font-size:11px;color:var(--subtle);margin-top:3px">${totalCount} × ${fmtAmount(rate,currency)}</div>`;
+  } else if (category === 'rolling-cycle') {
+    // Type D: find current cycle position
+    const cycleStart = ss.currentCycleStart || ss.cycleStartDate || fromDate;
+    const cyclePos = ss.currentClassCount || (parseInt(ss.firstClassCount)||1);
+    feeBody = `<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Current cycle</span><span style="font-size:12px;font-weight:600">Class ${cyclePos} of 8</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:var(--muted)">Cycle started</span><span style="font-size:12px;font-weight:600">${cycleStart}</span></div>
+    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Per 8-class fee</span><span style="font-size:16px;font-weight:700">${fmtAmount(rate,currency)}</span></div>`;
+  }
+
+  // ── Pending past cycles ──
+  let pendingCyclesHtml = '';
+  if (category !== 'rolling-cycle') {
+    // Find all months from periodStart up to (but not including) selected month
+    const periodStartM = parseInt(ss.periodMonth)||1;
+    const periodStartY = parseInt(ss.periodYear)||selY;
+    const pastPending = [];
+    let pm = periodStartM, py = periodStartY;
+    while (py < selY || (py === selY && pm < selM)) {
+      const st = computeMonthStatus(ss, category, py, pm);
+      if (st === 'pending') pastPending.push({m:pm, y:py, st});
+      pm++; if(pm>12){pm=1;py++;}
+    }
+    if (pastPending.length > 0) {
+      pendingCyclesHtml = `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:600;color:#b71c1c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Outstanding past cycles</div>` +
+        pastPending.map(({m,y}) => {
+          const cycleId = `${y}-${String(m).padStart(2,'0')}`;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff8f0;border-radius:var(--radius);margin-bottom:4px">
+            <span style="font-size:12px;color:var(--orange);font-weight:500">⚠ ${MONTHS[m-1]} ${y}</span>
+            <button onclick="saveFeeStatus('${ssKey}','paid','${cycleId}')" style="font-size:11px;padding:3px 10px;background:#e6f4ea;color:#1b5e20;border:1px solid #4caf50;border-radius:var(--radius);cursor:pointer;font-family:'Roboto',sans-serif">Mark paid</button>
+          </div>`;
+        }).join('') + `</div>`;
+    }
+  } else {
+    // Type D: show history of cycles with their status
+    // Find completed cycles by looking at feeStatus_cycle_ keys
+    const completedCycles = Object.keys(ss).filter(k=>k.startsWith('feeStatus_cycle_')).map(k=>({
+      key:k, cycleDate:k.replace('feeStatus_cycle_',''), status:ss[k]
+    })).sort((a,b)=>a.cycleDate.localeCompare(b.cycleDate));
+    if (completedCycles.length > 0) {
+      const pendingCycles = completedCycles.filter(c=>c.status==='pending');
+      if (pendingCycles.length > 0) {
+        pendingCyclesHtml = `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;color:#b71c1c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Outstanding cycles</div>` +
+          pendingCycles.map(c => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff8f0;border-radius:var(--radius);margin-bottom:4px">
+            <span style="font-size:12px;color:var(--orange);font-weight:500">⚠ Cycle from ${c.cycleDate}</span>
+            <button onclick="saveFeeStatus('${ssKey}','paid','${c.cycleDate}')" style="font-size:11px;padding:3px 10px;background:#e6f4ea;color:#1b5e20;border:1px solid #4caf50;border-radius:var(--radius);cursor:pointer;font-family:'Roboto',sans-serif">Mark paid</button>
+          </div>`).join('') + `</div>`;
+      }
+    }
+  }
+
+  // ── Current cycle status ──
+  let currentCycleHtml = '';
+  const cycleId = category === 'rolling-cycle'
+    ? (ss.currentCycleStart || ss.cycleStartDate || fromDate)
+    : `${selY}-${String(selM).padStart(2,'0')}`;
+
+  if (category !== 'rolling-cycle') {
+    const displayStatus = computeMonthStatus(ss, category, selY, selM);
+    if (displayStatus === null) {
+      currentCycleHtml = `<div style="font-size:12px;color:var(--muted);margin-top:8px">No fee cycle for this period.</div>`;
+    } else {
+      const statusColors = {ongoing:'var(--blue)',pending:'#e37400',paid:'#1b5e20'};
+      const statusBg = {ongoing:'#e8f0fe',pending:'#fff3e0',paid:'#e6f4ea'};
+      const statusLabel = displayStatus.charAt(0).toUpperCase()+displayStatus.slice(1);
+      const isOngoing = displayStatus === 'ongoing';
+      const isPaid = displayStatus === 'paid';
+
+      // Derive last paid for dynamically
+      let lastPaidStr = '—';
+      const lpm = parseInt(ss.lastPaidMonth)||0, lpy = parseInt(ss.lastPaidYear)||curY;
+      // Find most recent paid month from stored keys or setup
+      let lastPaidY = lpy, lastPaidM = lpm;
+      Object.keys(ss).forEach(k => {
+        if (!k.startsWith('feeStatus_') || k.startsWith('feeStatus_cycle_')) return;
+        if (ss[k] !== 'paid') return;
+        const parts = k.replace('feeStatus_','').split('_');
+        const ky = parseInt(parts[0]), km = parseInt(parts[1]);
+        if (ky*100+km > lastPaidY*100+lastPaidM) { lastPaidY=ky; lastPaidM=km; }
+      });
+      if (lastPaidM) lastPaidStr = MONTHS[lastPaidM-1]+' '+lastPaidY;
+
+      const typeLabel = category === 'monthly-block' ? `${MONTHS[selM-1]} ${selY}` : `${MONTHS[selM-1]} ${selY}`;
+      const helpText = category === 'monthly-block'
+        ? 'Type B — fee due at start of month'
+        : category === 'ohio-standard'
+        ? 'Type A — fee due at end of month'
+        : 'Type C — fee due at end of month';
+
+      currentCycleHtml = `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:12px;color:var(--muted)">Last paid for</span>
+            <span style="font-size:12px;font-weight:500">${lastPaidStr}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:${statusBg[displayStatus]};border-radius:var(--radius)">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:${statusColors[displayStatus]}">${typeLabel} — ${statusLabel}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${helpText}</div>
+            </div>
+            ${isOngoing
+              ? `<span style="font-size:11px;color:var(--blue);padding:3px 10px;background:#e8f0fe;border-radius:10px">Ongoing</span>`
+              : isPaid
+              ? `<button onclick="saveFeeStatus('${ssKey}','pending','${cycleId}')" style="font-size:11px;padding:3px 10px;background:#fce8e6;color:#b71c1c;border:1px solid #e57373;border-radius:var(--radius);cursor:pointer;font-family:'Roboto',sans-serif">Undo paid</button>`
+              : `<button onclick="saveFeeStatus('${ssKey}','paid','${cycleId}')" style="font-size:11px;padding:3px 10px;background:#e6f4ea;color:#1b5e20;border:1px solid #4caf50;border-radius:var(--radius);cursor:pointer;font-family:'Roboto',sans-serif">Mark paid</button>`
+            }
+          </div>
+        </div>`;
+    }
+  } else {
+    // Type D current cycle
+    const cycleStatus = ss[feeCycleKey(cycleId)] || 'ongoing';
+    const statusColors = {ongoing:'var(--blue)',pending:'#e37400',paid:'#1b5e20'};
+    const statusBg = {ongoing:'#e8f0fe',pending:'#fff3e0',paid:'#e6f4ea'};
+    const statusLabel = cycleStatus.charAt(0).toUpperCase()+cycleStatus.slice(1);
+    let lastPaidStr = ss.lastPaidDate || '—';
+    // Find most recent paid cycle
+    const paidCycles = Object.keys(ss).filter(k=>k.startsWith('feeStatus_cycle_')&&ss[k]==='paid').map(k=>k.replace('feeStatus_cycle_','')).sort();
+    if (paidCycles.length) lastPaidStr = paidCycles[paidCycles.length-1];
+
+    currentCycleHtml = `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:12px;color:var(--muted)">Last paid cycle</span>
+          <span style="font-size:12px;font-weight:500">${lastPaidStr}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:${statusBg[cycleStatus]};border-radius:var(--radius)">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:${statusColors[cycleStatus]}">Current cycle — ${statusLabel}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Type D — fee due after class 8</div>
+          </div>
+          ${cycleStatus==='paid'
+            ? `<button onclick="saveFeeStatus('${ssKey}','pending','${cycleId}')" style="font-size:11px;padding:3px 10px;background:#fce8e6;color:#b71c1c;border:1px solid #e57373;border-radius:var(--radius);cursor:pointer;font-family:'Roboto',sans-serif">Undo paid</button>`
+            : cycleStatus==='pending'
+            ? `<button onclick="saveFeeStatus('${ssKey}','paid','${cycleId}')" style="font-size:11px;padding:3px 10px;background:#e6f4ea;color:#1b5e20;border:1px solid #4caf50;border-radius:var(--radius);cursor:pointer;font-family:'Roboto',sans-serif">Mark paid</button>`
+            : `<span style="font-size:11px;color:var(--blue);padding:3px 10px;background:#e8f0fe;border-radius:10px">In progress</span>`
+          }
+        </div>
+      </div>`;
+  }
+
+  return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-top:6px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Fees</div>
+      <select onchange="feeTrackerMonthChanged(this,'${ssKey}')" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">
+        ${monthOpts}
+      </select>
+    </div>
+    ${feeBody}
+    ${pendingCyclesHtml}
+    ${currentCycleHtml}
+  </div>`;
+}
+
+function feeTrackerMonthChanged(sel, ssKey) {
+  const val = sel.value;
+  const y = parseInt(val.slice(0,4));
+  const m = parseInt(val.slice(5,7));
+  const from = `${y}-${String(m).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const to = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  const feeBody = document.getElementById('student-fee-body');
+  if (feeBody && currentStudentName && currentStudentBatchId) {
+    feeBody.innerHTML = buildStudentFeeSection(currentStudentName, currentStudentBatchId, from, to);
+  }
 }
 
 
