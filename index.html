@@ -2224,7 +2224,14 @@ function renderDetailContent() {
   Object.values(attendance).forEach(rec=>{
     rec.students.forEach(s=>{
       if(!students.includes(s.name)||s.isGuest)return;
-      if(s.status==='absent'&&!resolvedDates[s.name]?.has(rec.date)){
+      // Get this student's category to determine pending logic
+      const sKey=b.id+':'+s.name;
+      const sCat=(studentSettings[sKey]?.category)||'ohio-standard';
+      // Type B: only cancelled = pending. All others: absent = pending
+      const isPending = sCat==='monthly-block'
+        ? s.status==='cancelled'
+        : s.status==='absent';
+      if(isPending&&!resolvedDates[s.name]?.has(rec.date)){
         if(!pendingMap[s.name])pendingMap[s.name]=[];
         if(!pendingMap[s.name].includes(rec.date))pendingMap[s.name].push(rec.date);
       }
@@ -2739,6 +2746,13 @@ async function initLoad(){
     document.getElementById('btn-winter').classList.toggle('active-blue',season==='winter');
     syncTzToSeason(season);
     document.getElementById('tz-label-text').textContent=currentTz;
+    // Clean TW cache of events for deleted batches
+    Object.keys(twWeekCache).forEach(wk=>{
+      if(Array.isArray(twWeekCache[wk])){
+        twWeekCache[wk]=twWeekCache[wk].filter(ev=>!!getBatch(ev.batchId));
+      }
+    });
+    if(twEvents.length>0) twEvents=twEvents.filter(ev=>!!getBatch(ev.batchId));
     renderTzDropdown();renderSidebar();renderCalendar();;autoCheckFeeStatuses();
   }catch(err){
     console.error('initLoad error:',err);
