@@ -4386,26 +4386,30 @@ function computeMonthStatus(ss, category, year, month) {
 
   const now = new Date();
   const curY = now.getFullYear(), curM = now.getMonth() + 1;
-  const periodStartM = parseInt(ss.periodMonth) || 1;
-  const periodStartY = parseInt(ss.periodYear) || curY;
 
-  // Don't show cycles before period start
-  if (year < periodStartY || (year === periodStartY && month < periodStartM)) return null;
+  // Don't show future months
+  const thisVal = year * 100 + month;
+  const curVal = curY * 100 + curM;
+  if (thisVal > curVal) return null;
 
   // Type B: pending from start of that month (no "ongoing")
   if (category === 'monthly-block') {
-    const thisVal = year * 100 + month;
-    const curVal = curY * 100 + curM;
-    if (thisVal > curVal) return null; // future
     return stored || 'pending';
   }
 
-  // Type A / C: ongoing during current month, pending after month ends
-  const thisVal = year * 100 + month;
-  const curVal = curY * 100 + curM;
-  if (thisVal > curVal) return null; // future
-  if (thisVal === curVal) return stored || 'ongoing';
-  return stored || 'pending'; // past month not marked paid
+  // Type A: ongoing during current month, pending after month ends
+  if (category === 'ohio-standard') {
+    if (thisVal === curVal) return stored || 'ongoing';
+    return stored || 'pending';
+  }
+
+  // Type C: ongoing during current month, pending after month ends
+  if (category === 'true-per-class') {
+    if (thisVal === curVal) return stored || 'ongoing';
+    return stored || 'pending';
+  }
+
+  return null; // Type D handled separately
 }
 
 // ── autoCheckFeeStatuses ── (runs on load, no longer auto-advances anything)
@@ -4604,11 +4608,21 @@ function buildStudentFeeSection(studentName, batchId, fromDate, toDate) {
   // ── Pending past cycles ──
   let pendingCyclesHtml = '';
   if (category !== 'rolling-cycle') {
-    // Find all months from periodStart up to (but not including) selected month
+    // Find all months from lastPaid+1 up to (but not including) selected month
+    const lpm = parseInt(ss.lastPaidMonth)||0;
+    const lpy = parseInt(ss.lastPaidYear)||selY;
+    // Start from lastPaid+1, or periodStart, whichever is earlier
     const periodStartM = parseInt(ss.periodMonth)||1;
     const periodStartY = parseInt(ss.periodYear)||selY;
+    // Use the earlier of the two as starting point
+    let pm, py;
+    if (lpm) {
+      pm = lpm + 1; py = lpy;
+      if (pm > 12) { pm = 1; py++; }
+    } else {
+      pm = periodStartM; py = periodStartY;
+    }
     const pastPending = [];
-    let pm = periodStartM, py = periodStartY;
     while (py < selY || (py === selY && pm < selM)) {
       const st = computeMonthStatus(ss, category, py, pm);
       if (st === 'pending') pastPending.push({m:pm, y:py, st});
