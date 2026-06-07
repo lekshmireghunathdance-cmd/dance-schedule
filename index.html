@@ -488,11 +488,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
       <div id="ab-temp-slots"></div>
       <button class="add-slot-btn" onclick="abAddSlot('temp')">+ Add temporary slot</button>
-      <div class="field" style="margin-top:10px;margin-bottom:0"><label>Show on calendar</label>
-        <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
-          <button id="ab-show-regular" onclick="abSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
-          <button id="ab-show-temporary" onclick="abSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
-        </div>
+      <div class="field" style="margin-top:10px;margin-bottom:0">
+        <label>Temporary timing periods <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(dates when temp timing is shown instead of regular)</span></label>
+        <div id="ab-temp-periods" style="margin-bottom:6px"></div>
+        <button type="button" onclick="abAddTempPeriod()" style="font-size:12px;padding:4px 10px;border:1px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue)">+ Add period</button>
       </div>
     </div>
     <div class="modal-actions">
@@ -588,11 +587,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="timing-slot-header"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
       <div id="as-temp-slots"></div>
       <button class="add-slot-btn" onclick="asAddSlot('temp')">+ Add temporary slot</button>
-      <div class="field" style="margin-top:10px;margin-bottom:0"><label>Show on calendar</label>
-        <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
-          <button id="as-show-regular" onclick="asSetShow('regular')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:var(--blue-light);color:var(--blue)">Regular</button>
-          <button id="as-show-temporary" onclick="asSetShow('temporary')" style="flex:1;padding:7px;font-size:12px;font-family:'Roboto',sans-serif;font-weight:500;border:none;cursor:pointer;background:none;color:var(--muted);border-left:1px solid var(--border)">Temporary</button>
-        </div>
+      <div class="field" style="margin-top:10px;margin-bottom:0">
+        <label>Temporary timing periods <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(dates when temp timing is shown instead of regular)</span></label>
+        <div id="as-temp-periods" style="margin-bottom:6px"></div>
+        <button type="button" onclick="asAddTempPeriod()" style="font-size:12px;padding:4px 10px;border:1px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue)">+ Add period</button>
       </div>
     </div>
     <div class="modal-actions">
