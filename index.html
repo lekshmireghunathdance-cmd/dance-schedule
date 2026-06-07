@@ -757,11 +757,15 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
     <div id="twe-class-info" style="margin-bottom:12px"></div>
     <!-- Class type for the primary entity -->
     <div class="field"><label id="twe-type-label">Class type</label>
-      <select id="twe-class-type">
+      <select id="twe-class-type" onchange="tweClassTypeChanged()">
         <option value="scheduled">Scheduled</option>
         <option value="makeup">Makeup</option>
         <option value="additional">Additional</option>
       </select>
+    </div>
+    <div class="field" id="twe-makeup-wrap" style="display:none">
+      <label>Making up for</label>
+      <select id="twe-makeup-sel" style="font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif;width:100%"></select>
     </div>
     <!-- Timing -->
     <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
@@ -1541,9 +1545,12 @@ function getDisplayTime(c, refDate) {
   return {start:null, end:null, day:c.day, isTemp:false};
 }
 
+// ── Global today reference — updated each render, used by detail popups too ──
+let todayRef = localDateStr(new Date());
+
 function renderCalendar(){
+  todayRef = localDateStr(new Date()); // refresh on every render
   const allClasses=getClassesFromTimings();
-  const todayRef = localDateStr(new Date());
   const visible=allClasses.filter(c=>{
     if(c.season!=='both'&&c.season!==season) return false;
     const dt=getDisplayTime(c, todayRef);
@@ -2186,7 +2193,7 @@ function renderDetailContent() {
     if(!Array.isArray(weekEvs))return;
     weekEvs.forEach(ev=>{
       if(ev.batchId!==detailBatchId)return;
-      if(ev.cancelled)return; // don't show cancelled events in monthly list
+      // Include cancelled events — they are shown with strikethrough in the table
       const d=localDateStr(ev.date);
       if(d>=fromDate&&d<=toDate)eventMap[d]=ev;
     });
@@ -2202,11 +2209,17 @@ function renderDetailContent() {
     const attRec=Object.values(attendance).find(r=>r.batchId===detailBatchId&&r.date===d);
     let attCell='<span style="color:var(--subtle)">—</span>';
     if(attRec){
-      const present=attRec.students.filter(s=>!s.isGuest&&(s.status==='present'||s.status==='makeup'||s.status==='additional')).length;
+      const cancelledStudents=attRec.students.filter(s=>!s.isGuest&&s.status==='cancelled').length;
+      const presentStudents=attRec.students.filter(s=>!s.isGuest&&(s.status==='present'||s.status==='makeup'||s.status==='additional')).length;
+      const absentStudents=attRec.students.filter(s=>!s.isGuest&&(s.status==='absent'||s.status==='absent-nc')).length;
       const total=students.length;
-      const col=present===total?'#1b5e20':present>0?'#e65100':'#b71c1c';
-      const bg=present===total?'#e6f4ea':present>0?'#fff3e0':'#fce8e6';
-      attCell=`<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:${bg};color:${col}">${present} / ${total}</span>`;
+      if(cancelledStudents===total){
+        attCell=`<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:#fce8e6;color:#b71c1c">Cancelled</span>`;
+      } else {
+        const col=presentStudents===total?'#1b5e20':presentStudents>0?'#e65100':'#b71c1c';
+        const bg=presentStudents===total?'#e6f4ea':presentStudents>0?'#fff3e0':'#fce8e6';
+        attCell=`<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:${bg};color:${col}">${presentStudents} / ${total}</span>`;
+      }
     }
     let prefTzCell='';
     if(prefTz){
@@ -2218,10 +2231,16 @@ function renderDetailContent() {
       prefTzCell=`<td style="background:var(--blue-light)">${tzDateLabel} · ${istToTz(ev.start,prefTz)} ${prefTz}</td>`;
     }
     const isCancelled=ev.cancelled;
-    const rowStyle=isCancelled?'background:#fff5f5;text-decoration:line-through;color:#b71c1c':'';
+    // Determine if this event has makeup or additional classes recorded
+    const attRec2=Object.values(attendance).find(r=>r.batchId===detailBatchId&&r.date===d);
+    const hasMakeup=attRec2&&attRec2.students.some(s=>s.status==='makeup');
+    const hasAdditional=attRec2&&attRec2.students.some(s=>s.status==='additional');
+    const rowStyle=isCancelled?'background:#fff5f5;color:#b71c1c':hasMakeup?'background:#fffde7':hasAdditional?'background:#f3e5f5':'';
+    const strikeStyle=isCancelled?'text-decoration:line-through':'';
+    const classTypeLabel=isCancelled?'<span style="font-size:10px;background:#fce8e6;color:#b71c1c;padding:1px 5px;border-radius:8px;margin-left:4px">Cancelled</span>':hasMakeup?'<span style="font-size:10px;background:#fef7e0;color:#e65100;padding:1px 5px;border-radius:8px;margin-left:4px">Makeup</span>':hasAdditional?'<span style="font-size:10px;background:#ede7f6;color:#311b92;padding:1px 5px;border-radius:8px;margin-left:4px">Additional</span>':'';
     return `<tr style="${rowStyle}">
-      <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${i+1}</td>
-      <td style="padding:6px 10px;font-size:12px">${dateLabel} · ${fmtTime(ev.start)} IST</td>
+      <td style="padding:6px 10px;font-size:12px;color:var(--muted);${strikeStyle}">${i+1}</td>
+      <td style="padding:6px 10px;font-size:12px;${strikeStyle}">${dateLabel} · ${fmtTime(ev.start)} IST${classTypeLabel}</td>
       ${prefTzCell}
       <td style="padding:6px 10px">${attCell}</td>
     </tr>`;
@@ -2510,9 +2529,9 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       present:'<span class="att-cell-P" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>',
       absent:'<span class="att-cell-A" style="padding:2px 7px;border-radius:3px;font-size:11px">Absent</span>',
       'absent-nc':'<span class="att-cell-NC" style="padding:2px 7px;border-radius:3px;font-size:11px">Absent (N/C)</span>',
-      makeup:'<span class="att-cell-M" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>',
-      additional:'<span class="att-cell-Ad" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>',
-      cancelled:'<span style="font-size:11px;color:#b71c1c;padding:2px 7px">—</span>',
+      makeup:'<span class="att-cell-M" style="padding:2px 7px;border-radius:3px;font-size:11px">Makeup</span>',
+      additional:'<span class="att-cell-Ad" style="padding:2px 7px;border-radius:3px;font-size:11px">Additional</span>',
+      cancelled:'<span style="font-size:11px;color:#b71c1c;padding:2px 7px;background:#fce8e6;border-radius:3px">Cancelled</span>',
     };
     const attCell = hasAtt ? (attMap[status]||status) : '<span style="font-size:11px;color:var(--subtle)">—</span>';
 
@@ -3435,11 +3454,45 @@ function twaSave() {
   showToast('Class added');
   if (document.getElementById('modal-detail').classList.contains('open')) renderDetailContent();
   if (document.getElementById('modal-student').classList.contains('open')) refreshStudentAtt();
+  if (document.getElementById('modal-fee-tracker').classList.contains('open')) renderFeeTracker();
 }
 
 // ══════════════════════════════════════════════
 // TW EDIT CLASS
 // ══════════════════════════════════════════════
+function tweClassTypeChanged() {
+  const type = document.getElementById('twe-class-type').value;
+  const wrap = document.getElementById('twe-makeup-wrap');
+  if (!wrap) return;
+  if (type === 'makeup') {
+    const ev = twEvents.find(x=>x.id===twEditId);
+    if (!ev) { wrap.style.display='none'; return; }
+    // For 1:1 class use studentScope; for batch use first student (makeup is per-student, but event-level makeupFor is a common reference date)
+    const b = getBatch(ev.batchId);
+    const students = ev.studentScope
+      ? [ev.studentScope]
+      : (b?.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+    // Gather pending from all scoped students (union)
+    const allPending = [];
+    const seen = new Set();
+    students.forEach(name => {
+      getPendingDates(name, ev.batchId).forEach(p => {
+        if (!seen.has(p.date)) { seen.add(p.date); allPending.push(p); }
+      });
+    });
+    allPending.sort((a,b)=>a.date.localeCompare(b.date));
+    const selEl = document.getElementById('twe-makeup-sel');
+    selEl.innerHTML = allPending.length
+      ? allPending.map(p=>`<option value="${p.date}">${p.label}</option>`).join('')
+      : '<option value="">No pending classes found</option>';
+    // Pre-select existing makeupFor if set
+    if (ev.makeupFor) selEl.value = ev.makeupFor;
+    wrap.style.display = '';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
 function tweAddAddonRow() {
   const list = document.getElementById('twe-addon-list');
   const id = 'twe-addon-'+Date.now();
@@ -3569,6 +3622,7 @@ function tweConfirmCancel() {
   showToast('Class cancelled');
   if (document.getElementById('modal-detail').classList.contains('open')) renderDetailContent();
   if (document.getElementById('modal-student').classList.contains('open')) refreshStudentAtt();
+  if (document.getElementById('modal-fee-tracker').classList.contains('open')) renderFeeTracker();
 }
 
 function tweRemoveClass() {
@@ -3623,6 +3677,16 @@ function twOpenEdit(evId) {
 
   // Class type
   document.getElementById('twe-class-type').value = ev.classType || 'scheduled';
+  // Show/populate makeup date picker if already a makeup class
+  const makeupWrapEdit = document.getElementById('twe-makeup-wrap');
+  if (makeupWrapEdit) {
+    if ((ev.classType || 'scheduled') === 'makeup') {
+      tweClassTypeChanged(); // populates and shows the picker
+      if (ev.makeupFor) document.getElementById('twe-makeup-sel').value = ev.makeupFor;
+    } else {
+      makeupWrapEdit.style.display = 'none';
+    }
+  }
 
   // Timing
   document.getElementById('twe-date').value = d;
@@ -3682,6 +3746,13 @@ function twSaveEdit() {
   ev.start = document.getElementById('twe-start').value;
   ev.end = document.getElementById('twe-end').value;
   ev.classType = document.getElementById('twe-class-type').value;
+  // Capture makeupFor from the edit modal makeup date picker
+  if (ev.classType === 'makeup') {
+    const mfVal = document.getElementById('twe-makeup-sel')?.value;
+    ev.makeupFor = mfVal || ev.makeupFor || null;
+  } else {
+    ev.makeupFor = null;
+  }
 
   // Collect updated addon students
   const addonStudents = [];
@@ -3697,37 +3768,46 @@ function twSaveEdit() {
   ev.addonStudents = addonStudents.length ? addonStudents : undefined;
 
   // Save attendance if marked — propagate classType into attendance status
-  if (Object.keys(tweAttState).length > 0) {
+  // ALSO: if attendance already exists and classType changed, update existing records
+  const existingAttRec = attendance[twEditId];
+  if (Object.keys(tweAttState).length > 0 || existingAttRec) {
     const b = getBatch(ev.batchId);
     const d = localDateStr(ev.date);
     if (!attendance[twEditId]) attendance[twEditId] = {date:d, batchId:ev.batchId, classLabel:(b?.name||'')+' – '+d, twStart:ev.start, students:[]};
+    // Always update date and twStart in case they changed
+    attendance[twEditId].date = d;
+    attendance[twEditId].twStart = ev.start;
     // Build a map of addon student classTypes for lookup
     const addonTypeMap = {};
-    (ev.addonStudents||[]).forEach(a => { addonTypeMap[a.name] = a.classType || 'scheduled'; });
+    const addonMakeupMap = {};
+    (ev.addonStudents||[]).forEach(a => {
+      addonTypeMap[a.name] = a.classType || 'scheduled';
+      addonMakeupMap[a.name] = a.makeupFor || null;
+    });
+
+    // Helper: compute final status from classType + present/absent choice
+    function computeFinalStatus(markedStatus, studentClassType) {
+      if (markedStatus === 'present') {
+        if (studentClassType === 'makeup') return 'makeup';
+        if (studentClassType === 'additional') return 'additional';
+        return 'present';
+      }
+      return markedStatus; // 'absent' stays absent regardless of classType
+    }
+
+    // 1) Apply tweAttState (newly marked attendance this session)
     Object.entries(tweAttState).forEach(([name, markedStatus]) => {
-      // Determine if this student is an addon (has their own classType) or primary
       const isAddon = !!(ev.addonStudents||[]).find(a=>a.name===name);
       const studentClassType = isAddon ? (addonTypeMap[name]||'scheduled') : (ev.classType||'scheduled');
-      // Map classType + present/absent to final attendance status
-      let finalStatus = markedStatus; // 'present' or 'absent'
-      if (markedStatus === 'present') {
-        if (studentClassType === 'makeup') finalStatus = 'makeup';
-        else if (studentClassType === 'additional') finalStatus = 'additional';
-        else finalStatus = 'present';
-      }
-      // For absent: always store as 'absent' regardless of classType
-      // Find makeupFor if this is a makeup class
-      const makeupFor = (studentClassType === 'makeup' && ev.makeupFor) ? ev.makeupFor : null;
-      // Find addon-specific makeupFor
-      const addonMakeupFor = isAddon ? ((ev.addonStudents||[]).find(a=>a.name===name)?.makeupFor||null) : null;
-      const resolvedMakeupFor = makeupFor || addonMakeupFor;
+      const finalStatus = computeFinalStatus(markedStatus, studentClassType);
+      const resolvedMakeupFor = isAddon ? addonMakeupMap[name] : (ev.makeupFor || null);
       const batchIdForStudent = isAddon
         ? ((ev.addonStudents||[]).find(a=>a.name===name)?.batchId || ev.batchId)
         : ev.batchId;
       const existing = attendance[twEditId].students.find(s=>s.name===name);
       if (existing) {
         existing.status = finalStatus;
-        if (resolvedMakeupFor) existing.makeupFor = resolvedMakeupFor;
+        existing.makeupFor = resolvedMakeupFor || existing.makeupFor || null;
       } else {
         attendance[twEditId].students.push({
           name, batchId:batchIdForStudent, status:finalStatus,
@@ -3735,6 +3815,23 @@ function twSaveEdit() {
         });
       }
     });
+
+    // 2) Propagate classType changes to existing students NOT in tweAttState
+    //    (e.g., user changed class type from Scheduled→Makeup but didn't open attendance)
+    attendance[twEditId].students.forEach(s => {
+      if (tweAttState[s.name] !== undefined) return; // already handled above
+      if (s.status === 'cancelled') return; // don't touch cancelled
+      const isAddon = !!(ev.addonStudents||[]).find(a=>a.name===s.name);
+      const studentClassType = isAddon ? (addonTypeMap[s.name]||'scheduled') : (ev.classType||'scheduled');
+      // Re-derive status: if student was present/makeup/additional, update to reflect new classType
+      if (s.status === 'present' || s.status === 'makeup' || s.status === 'additional') {
+        s.status = computeFinalStatus('present', studentClassType);
+        // Update makeupFor
+        s.makeupFor = isAddon ? (addonMakeupMap[s.name]||null) : (ev.makeupFor||null);
+      }
+      // If absent, leave as absent regardless of classType
+    });
+
     cloudSave('attendance', JSON.stringify(attendance));
     // Re-check fee statuses after attendance change (catches Type D cycle completions)
     autoCheckFeeStatuses();
@@ -3749,6 +3846,9 @@ function twSaveEdit() {
   }
   if (document.getElementById('modal-student').classList.contains('open')) {
     refreshStudentAtt();
+  }
+  if (document.getElementById('modal-fee-tracker').classList.contains('open')) {
+    renderFeeTracker();
   }
 }
 
