@@ -1425,12 +1425,10 @@ function openStudentDetail(batchId, studentName) {
   }
   function timingTbl(slots, tzKey, label, lColor) {
     if(!slots||!slots.length)return'';
-    // Resolve the tz for THIS tab's season, not the outer prefTz closure
-    const tabTz = prefGroup ? prefGroup[tzKey] : null;
-    const prefCol = tabTz ? `<th style="background:var(--blue-light)">${tabTz}</th>` : '';
+    const prefCol = prefTz ? `<th style="background:var(--blue-light)">${prefTz}</th>` : '';
     const rows = slots.map(s=>`<tr>
       <td>${s.day}</td><td>${fmtR(s.startIST,s.endIST)}</td>
-      ${tabTz?`<td style="background:var(--blue-light)">${fmtTZ(s.day,s.startIST,s.endIST,tabTz)}</td>`:''}
+      ${prefTz?`<td style="background:var(--blue-light)">${fmtTZ(s.day,s.startIST,s.endIST,prefTz)}</td>`:''}
     </tr>`).join('');
     return `<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;color:${lColor}">${label}</div>
@@ -1521,26 +1519,30 @@ function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sideb
 
 // ── Calendar ──
 function getDisplayTime(c, refDate) {
-  // refDate: YYYY-MM-DD string for date-based temp switching
-  // If not provided, use today (for main calendar)
   const ref = refDate || localDateStr(new Date());
   const periods = c.tempPeriods || [];
-  const hasTempTimings = !!(c.tempStart || (c.tempTimings && c.tempTimings.length));
-  const inTempPeriod = hasTempTimings && isInTempPeriod(periods, ref);
+  // A class object is a temp entry if it has tempStart set.
+  // A class object is a regular entry that belongs to a batch with temp timings
+  // if batchHasTempTimings is true (and tempStart is not set on this entry).
+  const isTempEntry = !!c.tempStart;
+  const batchHasTemp = !!(c.batchHasTempTimings || isTempEntry);
+  const inTempPeriod = batchHasTemp && isInTempPeriod(periods, ref);
 
   if (inTempPeriod) {
-    // Inside a temp period → show temp timing
-    const ts = c.tempStart || (c.tempTimings&&c.tempTimings[0]?.startIST);
-    const te = c.tempEnd || (c.tempTimings&&c.tempTimings[0]?.endIST);
-    const td = c.tempDay || (c.tempTimings&&c.tempTimings[0]?.day) || c.day;
-    if (ts && te) return {start:ts, end:te, day:td, isTemp:true};
+    if (isTempEntry) {
+      // This IS the temp entry — show its times
+      return {start: c.tempStart, end: c.tempEnd, day: c.tempDay || c.day, isTemp: true};
+    }
+    // This is the REGULAR entry for a batch that has active temp timings —
+    // suppress it entirely so only the temp entry renders
+    return {start: null, end: null, day: c.day, isTemp: false};
   }
 
-  // Outside temp period: show regular timing if it exists
-  if (c.start) return {start:c.start, end:c.end, day:c.day, isTemp:false};
+  // Outside temp period (or batch has no temp timings at all):
+  if (c.start) return {start: c.start, end: c.end, day: c.day, isTemp: false};
 
-  // Temp-only class outside its period: hide it (return null start)
-  return {start:null, end:null, day:c.day, isTemp:false};
+  // Temp entry outside its period — hide it
+  return {start: null, end: null, day: c.day, isTemp: false};
 }
 
 function renderCalendar(){
@@ -2146,9 +2148,8 @@ function renderDetailContent() {
 
   let scheduleHtml='';
   if(sameWinter){
-    // sameAsWinter: show only one timing set, but still use the correct tz for each season's slots
-    scheduleHtml=timingTable(summerSlots,'summer','Regular timings','color:#1565c0')
-      +(tempSlots.length?timingTable(tempSlots,tempSeason==='winter'?'winter':'summer','Temporary timings'+tempLabel,'color:#e37400'):'');
+    scheduleHtml=timingTable(summerSlots,season==='summer'?'summer':'winter','Regular timings','color:#1565c0')
+      +(tempSlots.length?timingTable(tempSlots,season==='summer'?'summer':'winter','Temporary timings'+tempLabel,'color:#e37400'):'');
   } else {
     scheduleHtml=`<div style="display:flex;gap:4px;margin-bottom:10px">
       <button onclick="detailSetSeason('summer')" id="detail-tab-summer" style="padding:5px 14px;font-size:12px;font-weight:500;border:0.5px solid var(--border);border-radius:var(--radius);cursor:pointer;background:var(--blue);color:#fff">Summer</button>
@@ -2856,37 +2857,74 @@ function renderSlotsToContainer(containerId, slots) {
 function getClassesFromTimings() {
   const result = [];
   batches.forEach(b => {
-    const showCal = b.showOnCalendar || 'regular';
     const tempSeason = b.tempSeason || 'both';
     if (!Array.isArray(b.timings)) b.timings = [];
     if (!Array.isArray(b.tempTimings)) b.tempTimings = [];
-    // Skip if all students are paused (batch-level check not needed — individual filtering below)
     const batchTempPeriods = b.tempPeriods || [];
+    const batchHasTempTimings = b.tempTimings.length > 0;
+
+    // Regular timings.
+    // Tag with batchHasTempTimings so getDisplayTime can suppress them
+    // when inside an active temp period.
     (b.timings||[]).forEach(t => {
-      result.push({batchId:b.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, tempPeriods:batchTempPeriods, _fromTimings:true});
+      result.push({
+        batchId: b.id, day: t.day, season: t.season,
+        start: t.startIST, end: t.endIST,
+        tempPeriods: batchTempPeriods,
+        batchHasTempTimings,   // ← key flag
+        _fromTimings: true,
+      });
     });
-    if ((b.tempTimings||[]).length > 0) {
+
+    // Temp timings.
+    // start/end intentionally null — they have NO regular time.
+    // getDisplayTime returns their times only when inside a temp period.
+    if (batchHasTempTimings) {
       (b.tempTimings||[]).forEach(t => {
-        result.push({batchId:b.id, day:t.day, season:tempSeason, start:t.startIST||null, end:t.endIST||null, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, tempPeriods:batchTempPeriods, _fromTimings:true});
+        result.push({
+          batchId: b.id, day: t.day, season: tempSeason,
+          start: null, end: null,              // ← never show as regular
+          tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
+          tempPeriods: batchTempPeriods,
+          batchHasTempTimings: true,
+          _fromTimings: true,
+        });
       });
     }
   });
+
   individualStudents.forEach(s => {
-    const showCal = s.showOnCalendar || 'regular';
     const tempSeason = s.tempSeason || 'both';
     if (!Array.isArray(s.timings)) s.timings = [];
     if (!Array.isArray(s.tempTimings)) s.tempTimings = [];
     const indTempPeriods = s.tempPeriods || [];
+    const indHasTempTimings = s.tempTimings.length > 0;
+
     (s.timings||[]).forEach(t => {
-      result.push({batchId:s.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, tempPeriods:indTempPeriods, _fromTimings:true});
+      result.push({
+        batchId: s.id, day: t.day, season: t.season,
+        start: t.startIST, end: t.endIST,
+        tempPeriods: indTempPeriods,
+        batchHasTempTimings: indHasTempTimings,
+        _fromTimings: true,
+      });
     });
-    if ((s.tempTimings||[]).length > 0) {
+
+    if (indHasTempTimings) {
       (s.tempTimings||[]).forEach(t => {
-        result.push({batchId:s.id, day:t.day, season:tempSeason, start:t.startIST||null, end:t.endIST||null, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, tempPeriods:indTempPeriods, _fromTimings:true});
+        result.push({
+          batchId: s.id, day: t.day, season: tempSeason,
+          start: null, end: null,
+          tempStart: t.startIST, tempEnd: t.endIST, tempDay: t.day,
+          tempPeriods: indTempPeriods,
+          batchHasTempTimings: true,
+          _fromTimings: true,
+        });
       });
     }
   });
-  classes.forEach(c => { result.push({...c, _fromTimings:false}); });
+
+  classes.forEach(c => { result.push({...c, _fromTimings: false}); });
   return result;
 }
 
