@@ -669,7 +669,6 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
       <button class="header-btn" onclick="twPrevWeek()">← Prev</button>
       <button class="header-btn" onclick="twNextWeek()">Next →</button>
       <button class="header-btn" onclick="twRefreshFromCalendar()" title="Re-sync from main calendar">↺ Refresh</button>
-      <span id="tw-season-badge" style="font-size:11px;padding:2px 10px;border-radius:12px;font-weight:500;cursor:default"></span>
       <button class="header-btn primary" onclick="openTwAddClass()" style="background:var(--blue);color:#fff;border-color:var(--blue)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
         Add class
@@ -1163,12 +1162,11 @@ function setSeason(s){
   document.getElementById('btn-summer').classList.toggle('active-blue',s==='summer');
   document.getElementById('btn-winter').classList.toggle('active-blue',s==='winter');
   syncTzToSeason(s);renderCalendar();
-  // Update twSeason for future uncached weeks, but do NOT repopulate the current week —
-  // that would wipe any manual TW edits. User can use "↺ Refresh" in TW to explicitly resync.
+  // Sync TW season — if TW is open, re-populate and re-render
   twSeason = s;
   if (document.getElementById('modal-thisweek').classList.contains('open')) {
-    twUpdateSeasonBadge();
-    twRender(); // redraw only — existing events preserved
+    twPopulateFromCalendar();
+    twRender();
   }
 }
 function toggleIstOnly(){
@@ -1520,36 +1518,32 @@ function twSetSeason(s) {
 function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sidebar').classList.toggle('collapsed',!sidebarOpen);}
 
 // ── Calendar ──
-// todayRef is module-level so every function (renderDetailContent, buildStudentAttendanceSection,
-// renderFeeTracker, etc.) can call getDisplayTime without crashing.
-let todayRef = localDateStr(new Date());
-
 function getDisplayTime(c, refDate) {
-  const ref = refDate || todayRef;
+  // refDate: YYYY-MM-DD string for date-based temp switching
+  // If not provided, use today (for main calendar)
+  const ref = refDate || localDateStr(new Date());
   const periods = c.tempPeriods || [];
-  const hasTempTimings = !!(c.hasTempTimings || c.tempStart);
+  const hasTempTimings = !!(c.tempStart || (c.tempTimings && c.tempTimings.length));
   const inTempPeriod = hasTempTimings && isInTempPeriod(periods, ref);
 
   if (inTempPeriod) {
-    if (c.tempStart) {
-      // This IS the temp timing entry → show it
-      return {start:c.tempStart, end:c.tempEnd, day:c.tempDay||c.day, isTemp:true};
-    }
-    // This is the REGULAR entry for a batch that has active temp timings →
-    // suppress it so only the temp entry is visible on calendar and TW
-    return {start:null, end:null, day:c.day, isTemp:false};
+    // Inside a temp period → show temp timing
+    const ts = c.tempStart || (c.tempTimings&&c.tempTimings[0]?.startIST);
+    const te = c.tempEnd || (c.tempTimings&&c.tempTimings[0]?.endIST);
+    const td = c.tempDay || (c.tempTimings&&c.tempTimings[0]?.day) || c.day;
+    if (ts && te) return {start:ts, end:te, day:td, isTemp:true};
   }
 
-  // Outside temp period: show regular timing
+  // Outside temp period: show regular timing if it exists
   if (c.start) return {start:c.start, end:c.end, day:c.day, isTemp:false};
 
-  // Temp-only entry outside its period: hide
+  // Temp-only class outside its period: hide it (return null start)
   return {start:null, end:null, day:c.day, isTemp:false};
 }
 
 function renderCalendar(){
-  todayRef = localDateStr(new Date()); // keep module-level ref current
   const allClasses=getClassesFromTimings();
+  const todayRef = localDateStr(new Date());
   const visible=allClasses.filter(c=>{
     if(c.season!=='both'&&c.season!==season) return false;
     const dt=getDisplayTime(c, todayRef);
@@ -2173,6 +2167,7 @@ function renderDetailContent() {
   const toDate=`${detailYear}-${monthStr}-${String(new Date(detailYear,detailMonth,0).getDate()).padStart(2,'0')}`;
 
   // Project scheduled classes from batch timings
+  // Skip any date that was explicitly removed from TW for this batch
   const allCalClasses=getClassesFromTimings();
   const batchCalClasses=allCalClasses.filter(c=>c.batchId===detailBatchId&&(c.season==='both'||c.season===season));
   const eventMap={};
@@ -2181,6 +2176,11 @@ function renderDetailContent() {
     const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dy=String(d.getDate()).padStart(2,'0');
     const dateStr=`${y}-${m}-${dy}`;
     const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+    // Check if this date was explicitly removed from TW for this batch
+    const weekKey=localDateStr(getMondayOf(new Date(dateStr+'T12:00:00')));
+    const removedThisWeek=(twRemovedEvents[weekKey]||[]);
+    const wasRemoved=removedThisWeek.some(r=>r.batchId===detailBatchId&&r.date===dateStr&&!r.studentScope);
+    if(wasRemoved)continue;
     batchCalClasses.forEach(c=>{
       const dt=getDisplayTime(c, dateStr);
       if(!dt.start)return;
@@ -2233,27 +2233,42 @@ function renderDetailContent() {
     </tr>`;
   }).join('');
 
-  // Pending summary — all time, uses canonical getPendingClassesForStudent
-  const pendingRows=students.map(name=>{
-    const sKey=b.id+':'+name;
-    const sCat=(studentSettings[sKey]?.category)||'ohio-standard';
-    if(sCat==='true-per-class'||sCat==='rolling-cycle'){
-      return `<tr><td style="padding:6px 10px;font-weight:500">${name}</td><td colspan="2" style="padding:6px 10px;color:var(--subtle);font-size:12px">No pending system (Type ${sCat==='true-per-class'?'C':'D'})</td></tr>`;
-    }
-    const entries=getPendingClassesForStudent(name, b.id);
-    const unresolved=entries.filter(p=>!p.resolved);
-    const count=unresolved.length;
-    const chips=unresolved.map(p=>{
-      if(p.isStructural){
-        return `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;background:#e8eaf6;color:#3f51b5;margin:1px" title="Missed slot">${p.label}</span>`;
+  // Pending summary — all time, batch students only
+  const resolvedDates={};students.forEach(n=>{resolvedDates[n]=new Set();});
+  Object.values(attendance).forEach(rec=>{
+    rec.students.forEach(s=>{
+      if(!students.includes(s.name)||s.isGuest)return;
+      if(s.status==='makeup'&&s.makeupFor) resolvedDates[s.name]?.add(s.makeupFor.split(' ')[0]);
+    });
+  });
+  const pendingMap={};students.forEach(n=>{pendingMap[n]=[];});
+  Object.values(attendance).forEach(rec=>{
+    rec.students.forEach(s=>{
+      if(!students.includes(s.name)||s.isGuest)return;
+      // Get this student's category to determine pending logic
+      const sKey=b.id+':'+s.name;
+      const sCat=(studentSettings[sKey]?.category)||'ohio-standard';
+      // Type A: absent=pending; Type B: cancelled=pending; Type C/D: no pending
+      const isPending = sCat==='monthly-block'
+        ? s.status==='cancelled'
+        : (sCat==='ohio-standard')
+        ? s.status==='absent'
+        : false; // true-per-class and rolling-cycle have no pending/makeup
+      if(isPending&&!resolvedDates[s.name]?.has(rec.date)){
+        if(!pendingMap[s.name])pendingMap[s.name]=[];
+        if(!pendingMap[s.name].includes(rec.date))pendingMap[s.name].push(rec.date);
       }
-      const dt=new Date(p.date+'T12:00:00');
+    });
+  });
+  const pendingRows=students.map(name=>{
+    const dates=(pendingMap[name]||[]).sort();
+    const count=dates.length;
+    const chips=dates.map(d=>{
+      const dt=new Date(d+'T12:00:00');
       return `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;background:var(--hover);color:var(--muted);margin:1px">${dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>`;
     }).join('');
-    const countCell=count>0
-      ?`<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:#fce8e6;color:#b71c1c">${count} pending</span>`
-      :'<span style="color:#1b5e20;font-size:12px">✓ None</span>';
-    return `<tr><td style="padding:6px 10px;font-weight:500">${name}</td><td style="padding:6px 10px">${countCell}</td><td style="padding:6px 10px">${chips||'<span style="color:var(--subtle);font-size:12px">—</span>'}</td></tr>`;
+    const countCell=count>0?`<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:#fce8e6;color:#b71c1c">${count} class${count>1?'es':''}</span>`:'<span style="color:var(--subtle);font-size:12px">—</span>';
+    return `<tr><td style="padding:6px 10px;font-weight:500">${name}</td><td style="padding:6px 10px">${countCell}</td><td style="padding:6px 10px">${chips||'<span style="color:var(--subtle);font-size:12px">No pending</span>'}</td></tr>`;
   }).join('');
 
   document.getElementById('detail-content').innerHTML=`
@@ -2445,6 +2460,7 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   });
 
   // Scheduled dates from batch timings
+  // Skip dates explicitly removed from TW for this batch/student
   const scheduledDates = new Set();
   const allCalClasses = getClassesFromTimings();
   const batchCalClasses = allCalClasses.filter(c=>c.batchId===batchId&&(c.season==='both'||c.season===season)&&(!c.studentScope||c.studentScope===studentName));
@@ -2454,10 +2470,15 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dy=String(d.getDate()).padStart(2,'0');
       const dateStr=`${y}-${m}-${dy}`;
       const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
-      batchCalClasses.forEach(c=>{
-        const dt=getDisplayTime(c, dateStr);
-        if(dt.start && dt.day===dayName) scheduledDates.add(dateStr);
-      });
+      // Skip if this date was explicitly removed from TW for this batch/student
+      const weekKey=localDateStr(getMondayOf(new Date(dateStr+'T12:00:00')));
+      const removedThisWeek=(twRemovedEvents[weekKey]||[]);
+      const wasRemoved=removedThisWeek.some(r=>
+        r.batchId===batchId&&r.date===dateStr&&
+        (r.studentScope===studentName||!r.studentScope)
+      );
+      if(wasRemoved)continue;
+      batchCalClasses.forEach(c=>{ if(c.day===dayName) scheduledDates.add(dateStr); });
     }
   }
   Object.values(twWeekCache).forEach(weekEvs=>{
@@ -2466,7 +2487,15 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       const isMain=ev.batchId===batchId&&(!ev.studentScope||ev.studentScope===studentName);
       const isAddon=(ev.addonStudents||[]).some(a=>a.name===studentName);
       if(!isMain&&!isAddon)return;
+      // Skip removed events (they're absent from twWeekCache already, but guard anyway)
       const d=localDateStr(ev.date);
+      const weekKey=localDateStr(getMondayOf(new Date(d+'T12:00:00')));
+      const removedThisWeek=(twRemovedEvents[weekKey]||[]);
+      const wasRemoved=removedThisWeek.some(r=>
+        r.batchId===ev.batchId&&r.date===d&&
+        (r.studentScope===studentName||!r.studentScope)
+      );
+      if(wasRemoved)return;
       if(fromDate&&d<fromDate)return;
       if(toDate&&d>toDate)return;
       scheduledDates.add(d);
@@ -2549,65 +2578,79 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
     </tr>`;
   }).join('');
 
-  // Pending list — uses canonical getPendingClassesForStudent
+  // Pending list (A=absent, B=cancelled only)
   let pendingHtml = '';
   if (attModel==='monthly-cap8'||attModel==='monthly-block') {
-    const entries = getPendingClassesForStudent(studentName, batchId);
-    const unresolved = entries.filter(p=>!p.resolved);
-    const resolvedList = entries.filter(p=>p.resolved);
-    const hasStructural = entries.some(p=>p.isStructural);
+    // Track makeup resolutions (dates that have been made up)
+    const resolvedDates = new Set();
+    Object.values(attendance).forEach(rec=>{
+      rec.students.forEach(s=>{
+        if(s.name!==studentName)return;
+        if(s.status==='makeup'&&s.makeupFor) resolvedDates.add(s.makeupFor.split(' ')[0]);
+      });
+    });
 
-    if (entries.length) {
-      const rows = entries.map(p=>{
-        let statusCell;
-        if (p.resolvedByMakeup) {
-          const madeUpRec = Object.values(attendance).find(r=>
-            r.students.some(s=>s.name===studentName&&s.status==='makeup'&&s.makeupFor&&
-              (s.makeupFor.split('T')[0].split(' ')[0]===p.date||s.makeupFor===p.date)));
-          const madeUpDate = madeUpRec ? madeUpRec.date : null;
-          statusCell = `<span style="color:#1b5e20;font-size:11px">✓ Made up</span>`
-            +(madeUpDate?`<div style="font-size:10px;color:var(--muted)">On ${new Date(madeUpDate+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>`:'');
-        } else {
-          statusCell = '<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:#fce8e6;color:#b71c1c">Pending</span>';
-        }
-        const typeTag = p.isStructural
-          ? `<span style="font-size:10px;background:#e8eaf6;color:#3f51b5;padding:1px 5px;border-radius:8px;margin-left:5px">Missed slot</span>`
-          : p.type==='cancelled'
-          ? `<span style="font-size:10px;background:#fce8e6;color:#b71c1c;padding:1px 5px;border-radius:8px;margin-left:5px">Cancelled</span>`
-          : '';
-        return `<tr style="${p.resolved?'opacity:0.55':''}">
-          <td style="padding:6px 10px;font-size:12px">${p.label}${typeTag}</td>
-          <td style="padding:6px 10px">${statusCell}</td>
-        </tr>`;
+    const allTimeAtt = {};
+    if (attModel==='monthly-cap8') {
+      // Type A: absent from scheduled class → pending (needs makeup)
+      Object.values(attendance).forEach(rec=>{
+        rec.students.forEach(s=>{
+          if(s.name!==studentName)return;
+          if(s.status==='absent'&&!resolvedDates.has(rec.date)&&!allTimeAtt[rec.date])
+            allTimeAtt[rec.date]={date:rec.date,time:rec.twStart||''};
+        });
+      });
+    } else {
+      // Type B: ONLY cancelled classes → pending (absent does NOT create pending)
+      // But only if < 8 counted classes already in that month
+      // First, count classes per month
+      const monthCounts = {}; // "YYYY-MM" → count of counted classes
+      Object.values(attendance).forEach(rec=>{
+        const ym = rec.date.slice(0,7);
+        rec.students.forEach(s=>{
+          if(s.name!==studentName)return;
+          // Counted classes for Type B: present, absent (scheduled), additional
+          if(s.status==='present'||s.status==='absent'||s.status==='additional'){
+            if(!monthCounts[ym])monthCounts[ym]=0;
+            monthCounts[ym]++;
+          }
+        });
+      });
+      Object.values(attendance).forEach(rec=>{
+        rec.students.forEach(s=>{
+          if(s.name!==studentName)return;
+          if(s.status!=='cancelled')return;
+          if(resolvedDates.has(rec.date))return;
+          if(allTimeAtt[rec.date])return;
+          // Check if 8 counted classes already done in that month
+          const ym = rec.date.slice(0,7);
+          const countSoFar = monthCounts[ym]||0;
+          if(countSoFar >= 8) return; // already at cap, cancellation not pending
+          allTimeAtt[rec.date]={date:rec.date,time:rec.twStart||''};
+        });
+      });
+    }
+
+    const allPending = Object.values(allTimeAtt).sort((a,b)=>a.date.localeCompare(b.date));
+    if (allPending.length) {
+      const pendingRows = allPending.map(p=>{
+        const dt=new Date(p.date+'T12:00:00');
+        const label=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+(p.time?' · '+fmtTime(p.time)+' IST':'');
+        const madeUpRec = Object.values(attendance).find(r=>r.students.some(s=>s.name===studentName&&s.status==='makeup'&&s.makeupFor&&s.makeupFor.startsWith(p.date)));
+        const madeUpDate = madeUpRec ? madeUpRec.date : null;
+        const statusCell = madeUpDate
+          ? `<span style="color:#1b5e20;font-size:11px">Made up</span><div style="font-size:10px;color:var(--muted)">On ${new Date(madeUpDate+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>`
+          : '<span style="padding:2px 8px;border-radius:10px;font-size:11px;background:#fce8e6;color:#b71c1c">Pending</span>';
+        return `<tr><td style="padding:6px 10px;font-size:12px">${label}</td><td style="padding:6px 10px">${statusCell}</td></tr>`;
       }).join('');
-
-      const structNote = hasStructural
-        ? `<div style="font-size:11px;color:#3f51b5;background:#e8eaf6;border-radius:var(--radius);padding:6px 10px;margin-bottom:8px">
-            <strong>Missed slots</strong>: this month had fewer than 8 classes and not all shortfall is explained by cancellations. These free slots can also be made up.
-           </div>`
-        : '';
-      const unresolvedCount = unresolved.length;
-      const resolvedCount = resolvedList.length;
-      const label = attModel==='monthly-block' ? 'Pending makeups (Type B)' : 'Pending classes (Type A)';
+      const pendingType = attModel==='monthly-block' ? 'Cancelled (pending makeup)' : 'Pending classes';
       pendingHtml = `<div style="margin-top:14px">
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#b71c1c;margin-bottom:8px">
-          ${label}
-          <span style="background:#fce8e6;color:#b71c1c;padding:1px 7px;border-radius:10px;font-size:11px">${unresolvedCount} pending</span>
-          ${resolvedCount?`<span style="background:#e6f4ea;color:#1b5e20;padding:1px 7px;border-radius:10px;font-size:11px">${resolvedCount} resolved</span>`:''}
-        </div>
-        ${structNote}
-        <table class="timing-table">
-          <thead><tr><th>${attModel==='monthly-block'?'Class / Slot':'To make up for'}</th><th>Status</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#b71c1c;margin-bottom:8px">${pendingType} <span style="background:#fce8e6;color:#b71c1c;padding:1px 7px;border-radius:10px;font-size:11px">${allPending.length}</span></div>
+        <table class="timing-table"><thead><tr><th>${attModel==='monthly-block'?'Cancelled class':'To make up for'}</th><th>Status</th></tr></thead><tbody>${pendingRows}</tbody></table>
       </div>`;
     } else {
-      pendingHtml = '<div style="margin-top:10px;font-size:12px;color:#1b5e20">✓ No pending classes</div>';
+      pendingHtml = '<div style="margin-top:10px;font-size:12px;color:#1b5e20">No pending classes</div>';
     }
-  } else if (attModel==='true-per-class') {
-    pendingHtml = '<div style="margin-top:10px;font-size:12px;color:var(--muted)">Type C: no makeup system — every attended class is counted directly.</div>';
-  } else if (attModel==='rolling-cycle') {
-    pendingHtml = '<div style="margin-top:10px;font-size:12px;color:var(--muted)">Type D: rolling 8-class cycles — no separate pending system.</div>';
   }
 
   return `<div style="overflow-x:auto"><table class="timing-table">
@@ -2833,61 +2876,33 @@ function renderSlotsToContainer(containerId, slots) {
 function getClassesFromTimings() {
   const result = [];
   batches.forEach(b => {
+    const showCal = b.showOnCalendar || 'regular';
     const tempSeason = b.tempSeason || 'both';
     if (!Array.isArray(b.timings)) b.timings = [];
     if (!Array.isArray(b.tempTimings)) b.tempTimings = [];
+    // Skip if all students are paused (batch-level check not needed — individual filtering below)
     const batchTempPeriods = b.tempPeriods || [];
-    const batchHasTempTimings = b.tempTimings.length > 0;
-
-    // Regular timings — carry hasTempTimings so getDisplayTime can suppress them in-period
     (b.timings||[]).forEach(t => {
-      result.push({
-        batchId:b.id, day:t.day, season:t.season,
-        start:t.startIST, end:t.endIST,
-        tempPeriods:batchTempPeriods,
-        hasTempTimings:batchHasTempTimings,
-        _fromTimings:true
-      });
+      result.push({batchId:b.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, tempPeriods:batchTempPeriods, _fromTimings:true});
     });
-    // Temp timings — no regular start; only appear when inside a temp period
-    if (batchHasTempTimings) {
+    if ((b.tempTimings||[]).length > 0) {
       (b.tempTimings||[]).forEach(t => {
-        result.push({
-          batchId:b.id, day:t.day, season:tempSeason,
-          start:null, end:null,
-          tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day,
-          tempPeriods:batchTempPeriods,
-          hasTempTimings:true,
-          _fromTimings:true
-        });
+        result.push({batchId:b.id, day:t.day, season:tempSeason, start:t.startIST||null, end:t.endIST||null, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, tempPeriods:batchTempPeriods, _fromTimings:true});
       });
     }
   });
   individualStudents.forEach(s => {
+    const showCal = s.showOnCalendar || 'regular';
     const tempSeason = s.tempSeason || 'both';
     if (!Array.isArray(s.timings)) s.timings = [];
     if (!Array.isArray(s.tempTimings)) s.tempTimings = [];
     const indTempPeriods = s.tempPeriods || [];
-    const indHasTempTimings = s.tempTimings.length > 0;
     (s.timings||[]).forEach(t => {
-      result.push({
-        batchId:s.id, day:t.day, season:t.season,
-        start:t.startIST, end:t.endIST,
-        tempPeriods:indTempPeriods,
-        hasTempTimings:indHasTempTimings,
-        _fromTimings:true
-      });
+      result.push({batchId:s.id, day:t.day, season:t.season, start:t.startIST, end:t.endIST, tempPeriods:indTempPeriods, _fromTimings:true});
     });
-    if (indHasTempTimings) {
+    if ((s.tempTimings||[]).length > 0) {
       (s.tempTimings||[]).forEach(t => {
-        result.push({
-          batchId:s.id, day:t.day, season:tempSeason,
-          start:null, end:null,
-          tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day,
-          tempPeriods:indTempPeriods,
-          hasTempTimings:true,
-          _fromTimings:true
-        });
+        result.push({batchId:s.id, day:t.day, season:tempSeason, start:t.startIST||null, end:t.endIST||null, tempStart:t.startIST, tempEnd:t.endIST, tempDay:t.day, tempPeriods:indTempPeriods, _fromTimings:true});
       });
     }
   });
@@ -3318,135 +3333,31 @@ function twaStudentTypeChanged() {
   }
 }
 
-// ── Canonical pending-class logic ─────────────────────────────────────────
-// Single source of truth used by: student popup, batch popup, makeup dropdowns.
-//
-// Type A (monthly-cap8): every absent = 1 pending slot.
-// Type B (monthly-block):
-//   shortfall = max(0, 8 − counted)   where counted = present+absent+additional
-//   The shortfall slots are filled first by cancelled classes (oldest first).
-//   Any remaining shortfall after exhausting cancellations = "structural gaps"
-//   (months where the student simply didn't attend enough, with nothing cancelled).
-//   Structural gaps show in the pending list and the makeup dropdown labelled
-//   "<Month> — missed slot N".
-// Type C / D: no pending system.
-//
-// Returns [{date, label, type:'absent'|'cancelled'|'structural', resolved, resolvedByMakeup}]
-function getPendingClassesForStudent(studentName, batchId) {
+function getPendingDates(studentName, batchId) {
   const ssKey = batchId+':'+studentName;
   const ss = studentSettings[ssKey] || {};
   const category = ss.category || 'ohio-standard';
-  const attModel = {
-    'ohio-standard':'monthly-cap8','monthly-block':'monthly-block',
-    'true-per-class':'true-per-class','rolling-cycle':'rolling-cycle',
-    'monthly-cap8':'monthly-cap8',
-  }[category] || 'monthly-cap8';
-
-  if (attModel==='true-per-class' || attModel==='rolling-cycle') return [];
-
-  // Explicit makeup resolutions: a makeupFor value resolves the date it points to.
-  const makeupResolved = new Set();
+  const attModel = {'ohio-standard':'monthly-cap8','monthly-block':'monthly-block','true-per-class':'true-per-class','rolling-cycle':'rolling-cycle'}[category]||'monthly-cap8';
+  const resolved = new Set();
+  Object.values(attendance).forEach(rec => {
+    rec.students.forEach(s => {
+      if (s.name===studentName && s.status==='makeup' && s.makeupFor)
+        resolved.add(s.makeupFor.split(' ')[0]);
+    });
+  });
+  const pending = [];
   Object.values(attendance).forEach(rec => {
     rec.students.forEach(s => {
       if (s.name!==studentName) return;
-      if (s.status==='makeup' && s.makeupFor)
-        makeupResolved.add(s.makeupFor.split('T')[0].split(' ')[0]);
+      const isPending = attModel==='monthly-cap8' ? s.status==='absent' : s.status==='cancelled';
+      if (isPending && !resolved.has(rec.date)) {
+        const dt = new Date(rec.date+'T12:00:00');
+        const label = dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+(rec.twStart?' · '+fmtTime(rec.twStart)+' IST':'');
+        pending.push({date:rec.date, label});
+      }
     });
   });
-
-  // ── Type A ───────────────────────────────────────────────────────────────
-  if (attModel==='monthly-cap8') {
-    const entries=[];
-    const seen=new Set();
-    Object.values(attendance).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{
-      rec.students.forEach(s=>{
-        if (s.name!==studentName||s.status!=='absent'||seen.has(rec.date)) return;
-        seen.add(rec.date);
-        const dt=new Date(rec.date+'T12:00:00');
-        const label=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})
-          +(rec.twStart?' · '+fmtTime(rec.twStart)+' IST':'');
-        entries.push({date:rec.date, label, type:'absent',
-          resolved:makeupResolved.has(rec.date), resolvedByMakeup:makeupResolved.has(rec.date)});
-      });
-    });
-    return entries;
-  }
-
-  // ── Type B ───────────────────────────────────────────────────────────────
-  // Step 1: count present+absent+additional per month
-  const monthCounted = {}; // ym → number
-  Object.values(attendance).forEach(rec=>{
-    const ym=rec.date.slice(0,7);
-    rec.students.forEach(s=>{
-      if (s.name!==studentName) return;
-      if (s.status==='present'||s.status==='absent'||s.status==='additional')
-        monthCounted[ym]=(monthCounted[ym]||0)+1;
-    });
-  });
-
-  // Step 2: collect cancelled dates per month (sorted oldest-first, deduplicated)
-  const cancelledByMonth = {}; // ym → [{date,twStart}]
-  Object.values(attendance).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{
-    const ym=rec.date.slice(0,7);
-    rec.students.forEach(s=>{
-      if (s.name!==studentName||s.status!=='cancelled') return;
-      if (!cancelledByMonth[ym]) cancelledByMonth[ym]=[];
-      if (!cancelledByMonth[ym].find(x=>x.date===rec.date))
-        cancelledByMonth[ym].push({date:rec.date, twStart:rec.twStart||''});
-    });
-  });
-
-  // Step 3: build entries per month that has a shortfall
-  const allMonths=new Set([...Object.keys(monthCounted),...Object.keys(cancelledByMonth)]);
-  const entries=[];
-
-  allMonths.forEach(ym=>{
-    const counted=monthCounted[ym]||0;
-    const shortfall=Math.max(0, 8-counted);
-    if (shortfall===0) return; // month is full — nothing pending
-
-    const cancelled=cancelledByMonth[ym]||[];
-    let slotsLeft=shortfall;
-
-    // Cancelled classes absorb shortfall slots first (oldest first)
-    cancelled.forEach(c=>{
-      if (slotsLeft<=0) return;
-      const resolved=makeupResolved.has(c.date);
-      const dt=new Date(c.date+'T12:00:00');
-      const label=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})
-        +(c.twStart?' · '+fmtTime(c.twStart)+' IST':'');
-      entries.push({date:c.date, label, type:'cancelled', resolved, resolvedByMakeup:resolved});
-      if (!resolved) slotsLeft--;
-    });
-
-    // Remaining shortfall → structural gaps (no cancellation to attach to)
-    for (let i=0;i<slotsLeft;i++){
-      const gapId=ym+'-gap-'+i;
-      const resolved=makeupResolved.has(gapId);
-      const [y,mo]=ym.split('-');
-      const moName=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1];
-      entries.push({
-        date:gapId, label:`${moName} ${y} — missed slot ${i+1}`,
-        type:'structural', resolved, resolvedByMakeup:resolved,
-        isStructural:true, ym,
-      });
-    }
-  });
-
-  // Sort: real dates before structural gaps within the same month
-  entries.sort((a,b)=>{
-    const ak=a.isStructural?a.ym+'-99':a.date;
-    const bk=b.isStructural?b.ym+'-99':b.date;
-    return ak.localeCompare(bk);
-  });
-  return entries;
-}
-
-// Adapter used by makeup date-pickers — returns only unresolved pending entries
-function getPendingDates(studentName, batchId) {
-  return getPendingClassesForStudent(studentName, batchId)
-    .filter(p=>!p.resolved)
-    .map(p=>({date:p.date, label:p.label, isStructural:p.isStructural||false}));
+  return pending;
 }
 
 function twaAddAddonRow() {
@@ -3933,10 +3844,7 @@ function renderFeeTracker() {
       const dt = new Date(year, month-1, d);
       const dateStr = localDateStr(dt);
       const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()];
-      studentCal.forEach(c => {
-        const disp = getDisplayTime(c, dateStr);
-        if (disp.start && disp.day === dayName) schedLookup[key].add(dateStr);
-      });
+      studentCal.forEach(c => { if (c.day === dayName) schedLookup[key].add(dateStr); });
     }
     // Also add TW cache dates
     Object.values(twWeekCache).forEach(weekEvs => {
@@ -4298,7 +4206,6 @@ function openThisWeek(){
   if(!twWeekCache[twWeekKey()]){twPopulateFromCalendar();}
   else{twEvents=twWeekCache[twWeekKey()];twMergeNewTimingEvents();}
   twRender();
-  twUpdateSeasonBadge();
   document.getElementById('tw-date-input').value=localDateStr(twWeekStart);
   document.getElementById('modal-thisweek').classList.add('open');
 }
@@ -4314,18 +4221,6 @@ function twSetWeek(){
 function twPrevWeek(){twWeekStart=addDays(twWeekStart,-7);document.getElementById('tw-date-input').value=localDateStr(twWeekStart);if(!twWeekCache[twWeekKey()]){twPopulateFromCalendar();}else{twEvents=twWeekCache[twWeekKey()];twMergeNewTimingEvents();}twRender();}
 function twNextWeek(){twWeekStart=addDays(twWeekStart,7);document.getElementById('tw-date-input').value=localDateStr(twWeekStart);if(!twWeekCache[twWeekKey()]){twPopulateFromCalendar();}else{twEvents=twWeekCache[twWeekKey()];twMergeNewTimingEvents();}twRender();}
 function twRefreshFromCalendar(){if(!confirm('Refresh from main calendar? Your edits for this week will be replaced.'))return;twPopulateFromCalendar();twRender();showToast('Refreshed from calendar');}
-
-function twUpdateSeasonBadge(){
-  const badge=document.getElementById('tw-season-badge');
-  if(!badge)return;
-  if(twSeason==='summer'){
-    badge.textContent='☀ Summer';
-    badge.style.background='#fff8e1';badge.style.color='#e65100';
-  } else {
-    badge.textContent='❄ Winter';
-    badge.style.background='#e3f2fd';badge.style.color='#1565c0';
-  }
-}
 
 function twPopulateFromCalendar(){
   const allClasses=getClassesFromTimings();
