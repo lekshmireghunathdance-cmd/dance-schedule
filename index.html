@@ -1425,10 +1425,12 @@ function openStudentDetail(batchId, studentName) {
   }
   function timingTbl(slots, tzKey, label, lColor) {
     if(!slots||!slots.length)return'';
-    const prefCol = prefTz ? `<th style="background:var(--blue-light)">${prefTz}</th>` : '';
+    // Resolve the tz for THIS tab's season, not the outer prefTz closure
+    const tabTz = prefGroup ? prefGroup[tzKey] : null;
+    const prefCol = tabTz ? `<th style="background:var(--blue-light)">${tabTz}</th>` : '';
     const rows = slots.map(s=>`<tr>
       <td>${s.day}</td><td>${fmtR(s.startIST,s.endIST)}</td>
-      ${prefTz?`<td style="background:var(--blue-light)">${fmtTZ(s.day,s.startIST,s.endIST,prefTz)}</td>`:''}
+      ${tabTz?`<td style="background:var(--blue-light)">${fmtTZ(s.day,s.startIST,s.endIST,tabTz)}</td>`:''}
     </tr>`).join('');
     return `<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;color:${lColor}">${label}</div>
@@ -2144,8 +2146,9 @@ function renderDetailContent() {
 
   let scheduleHtml='';
   if(sameWinter){
-    scheduleHtml=timingTable(summerSlots,season==='summer'?'summer':'winter','Regular timings','color:#1565c0')
-      +(tempSlots.length?timingTable(tempSlots,season==='summer'?'summer':'winter','Temporary timings'+tempLabel,'color:#e37400'):'');
+    // sameAsWinter: show only one timing set, but still use the correct tz for each season's slots
+    scheduleHtml=timingTable(summerSlots,'summer','Regular timings','color:#1565c0')
+      +(tempSlots.length?timingTable(tempSlots,tempSeason==='winter'?'winter':'summer','Temporary timings'+tempLabel,'color:#e37400'):'');
   } else {
     scheduleHtml=`<div style="display:flex;gap:4px;margin-bottom:10px">
       <button onclick="detailSetSeason('summer')" id="detail-tab-summer" style="padding:5px 14px;font-size:12px;font-weight:500;border:0.5px solid var(--border);border-radius:var(--radius);cursor:pointer;background:var(--blue);color:#fff">Summer</button>
@@ -2167,7 +2170,6 @@ function renderDetailContent() {
   const toDate=`${detailYear}-${monthStr}-${String(new Date(detailYear,detailMonth,0).getDate()).padStart(2,'0')}`;
 
   // Project scheduled classes from batch timings
-  // Skip any date that was explicitly removed from TW for this batch
   const allCalClasses=getClassesFromTimings();
   const batchCalClasses=allCalClasses.filter(c=>c.batchId===detailBatchId&&(c.season==='both'||c.season===season));
   const eventMap={};
@@ -2176,15 +2178,10 @@ function renderDetailContent() {
     const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dy=String(d.getDate()).padStart(2,'0');
     const dateStr=`${y}-${m}-${dy}`;
     const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
-    // Check if this date was explicitly removed from TW for this batch
-    const weekKey=localDateStr(getMondayOf(new Date(dateStr+'T12:00:00')));
-    const removedThisWeek=(twRemovedEvents[weekKey]||[]);
-    const wasRemoved=removedThisWeek.some(r=>r.batchId===detailBatchId&&r.date===dateStr&&!r.studentScope);
-    if(wasRemoved)continue;
     batchCalClasses.forEach(c=>{
-      const dt=getDisplayTime(c, dateStr);
+      const dt=getDisplayTime(c, todayRef);
       if(!dt.start)return;
-      if(dt.day===dayName&&!eventMap[dateStr])
+      if(c.day===dayName&&!eventMap[dateStr])
         eventMap[dateStr]={id:'proj_'+dateStr,batchId:detailBatchId,date:new Date(d),start:dt.start,end:dt.end,_projected:true};
     });
   }
@@ -2460,7 +2457,6 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
   });
 
   // Scheduled dates from batch timings
-  // Skip dates explicitly removed from TW for this batch/student
   const scheduledDates = new Set();
   const allCalClasses = getClassesFromTimings();
   const batchCalClasses = allCalClasses.filter(c=>c.batchId===batchId&&(c.season==='both'||c.season===season)&&(!c.studentScope||c.studentScope===studentName));
@@ -2470,14 +2466,6 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dy=String(d.getDate()).padStart(2,'0');
       const dateStr=`${y}-${m}-${dy}`;
       const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
-      // Skip if this date was explicitly removed from TW for this batch/student
-      const weekKey=localDateStr(getMondayOf(new Date(dateStr+'T12:00:00')));
-      const removedThisWeek=(twRemovedEvents[weekKey]||[]);
-      const wasRemoved=removedThisWeek.some(r=>
-        r.batchId===batchId&&r.date===dateStr&&
-        (r.studentScope===studentName||!r.studentScope)
-      );
-      if(wasRemoved)continue;
       batchCalClasses.forEach(c=>{ if(c.day===dayName) scheduledDates.add(dateStr); });
     }
   }
@@ -2487,15 +2475,7 @@ function buildStudentAttendanceSection(studentName, batchId, fromDate, toDate) {
       const isMain=ev.batchId===batchId&&(!ev.studentScope||ev.studentScope===studentName);
       const isAddon=(ev.addonStudents||[]).some(a=>a.name===studentName);
       if(!isMain&&!isAddon)return;
-      // Skip removed events (they're absent from twWeekCache already, but guard anyway)
       const d=localDateStr(ev.date);
-      const weekKey=localDateStr(getMondayOf(new Date(d+'T12:00:00')));
-      const removedThisWeek=(twRemovedEvents[weekKey]||[]);
-      const wasRemoved=removedThisWeek.some(r=>
-        r.batchId===ev.batchId&&r.date===d&&
-        (r.studentScope===studentName||!r.studentScope)
-      );
-      if(wasRemoved)return;
       if(fromDate&&d<fromDate)return;
       if(toDate&&d>toDate)return;
       scheduledDates.add(d);
