@@ -382,61 +382,112 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-
 
 <!-- ADD / EDIT STUDENT — Step 1 -->
 <div class="overlay" id="modal-add-student-1">
-  <div class="modal modal-sm">
+  <div class="modal modal-sm" style="width:420px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h2 style="margin-bottom:0" id="as-title">Add student</h2>
       <span id="as-step-label" style="font-size:11px;font-weight:500;color:var(--blue)"></span>
     </div>
     <div class="field"><label>Student name</label><input id="as-name" type="text" placeholder="Student name"/></div>
-    <div class="field"><label>Batch <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(leave empty for individual)</span></label>
+    <div class="field">
+      <label>Batch <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(leave empty for individual)</span></label>
       <select id="as-batch" onchange="asBatchChanged()">
         <option value="">No batch — individual student</option>
       </select>
     </div>
-    <!-- Fee category -->
-    <div class="field" id="as-category-wrap">
+    <div class="field">
       <label>Fee category</label>
       <select id="as-category" onchange="asCategoryChanged()">
         <option value="">— select later —</option>
-        <option value="monthly-cap8">Type A — Monthly, cap 8</option>
-        <option value="monthly-block">Type B — Monthly block</option>
-        <option value="true-per-class">Type C — Per class</option>
-        <option value="rolling-cycle">Type D — Rolling 8-class cycle</option>
+        <option value="monthly-cap8">Type A — Ohio Standard (monthly, cap 8)</option>
+        <option value="monthly-block">Type B — Monthly Block</option>
+        <option value="true-per-class">Type C — True Per-Class</option>
+        <option value="rolling-cycle">Type D — Rolling Fee Cycle</option>
       </select>
     </div>
-    <!-- Fee fields (shown/hidden based on category) -->
-    <div id="as-fee-fields" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 80px;gap:8px" class="field">
-        <div><label>Fee rate</label><input id="as-rate" type="number" min="0" step="0.01" placeholder="e.g. 3000"/></div>
-        <div><label>Currency</label><select id="as-currency"><option value="INR">INR</option><option value="USD">USD</option></select></div>
-      </div>
-      <!-- Types A/B/C: last paid month -->
-      <div id="as-lastpaid-wrap">
-        <div class="field"><label>Last fee paid for</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <select id="as-lp-month">
-              <option value="1">January</option><option value="2">February</option><option value="3">March</option>
-              <option value="4">April</option><option value="5">May</option><option value="6">June</option>
-              <option value="7">July</option><option value="8">August</option><option value="9">September</option>
-              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-            </select>
-            <select id="as-lp-year"></select>
-          </div>
+
+    <!-- TYPE A fields -->
+    <div id="as-fields-a" style="display:none">
+      <div class="field"><label>Attendance &amp; fee period starts from</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-a-period-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-a-period-year"></select>
         </div>
       </div>
-      <!-- Type D only: tracking start date and first class count -->
-      <div id="as-typed-wrap" style="display:none">
-        <div class="field"><label>Tracking starts from</label>
-          <input id="as-track-start" type="date" style="width:100%"/>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">Date from which fee cycles are counted.</div>
+      <div class="field"><label>Per class fee rate</label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-a-rate" type="number" min="0" step="0.01" placeholder="e.g. 400"/>
+          <select id="as-a-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
         </div>
-        <div class="field"><label>First class count <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(position in first cycle, 1–8)</span></label>
-          <input id="as-first-count" type="number" min="1" max="8" value="1" style="width:70px"/>
+      </div>
+      <div class="field"><label>Last fee paid for</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-a-paid-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-a-paid-year"></select>
         </div>
       </div>
     </div>
+
+    <!-- TYPE B fields -->
+    <div id="as-fields-b" style="display:none">
+      <div class="field"><label>Per month fee</label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-b-rate" type="number" min="0" step="0.01" placeholder="e.g. 3000"/>
+          <select id="as-b-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Attendance &amp; fee period starts from</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-b-period-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-b-period-year"></select>
+        </div>
+      </div>
+      <div class="field"><label>Last fee paid for</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-b-paid-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-b-paid-year"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPE C fields -->
+    <div id="as-fields-c" style="display:none">
+      <div class="field"><label>Per class fee</label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-c-rate" type="number" min="0" step="0.01" placeholder="e.g. 500"/>
+          <select id="as-c-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Attendance &amp; fee period starts from</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-c-period-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-c-period-year"></select>
+        </div>
+      </div>
+      <div class="field"><label>Last fee paid for</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="as-c-paid-month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+          <select id="as-c-paid-year"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPE D fields -->
+    <div id="as-fields-d" style="display:none">
+      <div class="field"><label>Per period fee <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(per 8 classes)</span></label>
+        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+          <input id="as-d-rate" type="number" min="0" step="0.01" placeholder="e.g. 2800"/>
+          <select id="as-d-currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Last fee paid for</label><input id="as-d-paid-date" type="date" style="width:100%"/></div>
+      <div class="field"><label>Current fee period started on</label><input id="as-d-cycle-start" type="date" style="width:100%"/></div>
+      <div class="field"><label>First class count <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--subtle)">(position in first cycle, 1–8)</span></label>
+        <input id="as-d-first-count" type="number" min="1" max="8" value="1" style="width:70px"/>
+      </div>
+    </div>
+
     <div class="modal-actions">
-      <button class="btn-danger" id="as-del-btn" onclick="deleteStudent()" style="display:none">Remove student</button>
+      <button class="btn-danger" id="as-del-btn" onclick="deleteStudent()" style="display:none">Remove</button>
       <button class="btn-cancel" onclick="closeModal('modal-add-student-1')">Cancel</button>
       <button class="btn-primary" id="as-next-btn" onclick="asSaveOrNext()">Save</button>
     </div>
@@ -1248,12 +1299,11 @@ function renderSidebar() {
   // ── Batches ──
   document.getElementById('batch-list').innerHTML = batches.map(b => {
     const col = getColor(b.color);
-    const bid = b.id; // safe — IDs are 'b_<number>'
-    return `<div class="batch-row" onclick="openDetail('${bid}')">
+    return `<div class="batch-row" data-bid="${b.id}">
       <div class="batch-dot" style="background:${col.border}"></div>
       <span class="batch-name">${b.name}</span>
       <div class="batch-actions">
-        <button class="icon-btn" onclick="event.stopPropagation();openAddBatch('${bid}')" title="Edit batch">
+        <button class="icon-btn" data-edit-bid="${b.id}" title="Edit batch">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -1262,6 +1312,14 @@ function renderSidebar() {
       </div>
     </div>`;
   }).join('');
+  // Wire batch row clicks via JS — avoids any inline onclick parsing issues
+  document.querySelectorAll('#batch-list .batch-row').forEach(row => {
+    row.addEventListener('click', e => {
+      const editBtn = e.target.closest('[data-edit-bid]');
+      if (editBtn) { openAddBatch(editBtn.dataset.editBid); return; }
+      openDetail(row.dataset.bid);
+    });
+  });
   const batchEmpty = document.getElementById('batch-empty');
   if (batchEmpty) batchEmpty.style.display = batches.length === 0 ? 'block' : 'none';
 
@@ -1654,6 +1712,40 @@ function openAddStudentFlow(batchId, studentName) {
   const ssKey = (batchId || '') + ':' + (studentName || '');
   document.getElementById('as-category').value = studentSettings[ssKey]?.category || '';
 
+  // Category and fee fields
+  document.getElementById('as-category').value = studentSettings[ssKey]?.category || '';
+  asCategoryChanged();
+  const ss = studentSettings[ssKey] || {};
+  // Pre-fill whichever type's fields are relevant
+  if (ss.category === 'monthly-cap8') {
+    if (document.getElementById('as-a-rate')) document.getElementById('as-a-rate').value = ss.rate||'';
+    if (document.getElementById('as-a-currency')) document.getElementById('as-a-currency').value = ss.currency||'INR';
+    if (document.getElementById('as-a-period-month')) document.getElementById('as-a-period-month').value = ss.periodMonth||'';
+    if (document.getElementById('as-a-period-year')) document.getElementById('as-a-period-year').value = ss.periodYear||'';
+    if (document.getElementById('as-a-paid-month')) document.getElementById('as-a-paid-month').value = ss.lastPaidMonth||'';
+    if (document.getElementById('as-a-paid-year')) document.getElementById('as-a-paid-year').value = ss.lastPaidYear||'';
+  } else if (ss.category === 'monthly-block') {
+    if (document.getElementById('as-b-rate')) document.getElementById('as-b-rate').value = ss.rate||'';
+    if (document.getElementById('as-b-currency')) document.getElementById('as-b-currency').value = ss.currency||'INR';
+    if (document.getElementById('as-b-period-month')) document.getElementById('as-b-period-month').value = ss.periodMonth||'';
+    if (document.getElementById('as-b-period-year')) document.getElementById('as-b-period-year').value = ss.periodYear||'';
+    if (document.getElementById('as-b-paid-month')) document.getElementById('as-b-paid-month').value = ss.lastPaidMonth||'';
+    if (document.getElementById('as-b-paid-year')) document.getElementById('as-b-paid-year').value = ss.lastPaidYear||'';
+  } else if (ss.category === 'true-per-class') {
+    if (document.getElementById('as-c-rate')) document.getElementById('as-c-rate').value = ss.rate||'';
+    if (document.getElementById('as-c-currency')) document.getElementById('as-c-currency').value = ss.currency||'INR';
+    if (document.getElementById('as-c-period-month')) document.getElementById('as-c-period-month').value = ss.periodMonth||'';
+    if (document.getElementById('as-c-period-year')) document.getElementById('as-c-period-year').value = ss.periodYear||'';
+    if (document.getElementById('as-c-paid-month')) document.getElementById('as-c-paid-month').value = ss.lastPaidMonth||'';
+    if (document.getElementById('as-c-paid-year')) document.getElementById('as-c-paid-year').value = ss.lastPaidYear||'';
+  } else if (ss.category === 'rolling-cycle') {
+    if (document.getElementById('as-d-rate')) document.getElementById('as-d-rate').value = ss.rate||'';
+    if (document.getElementById('as-d-currency')) document.getElementById('as-d-currency').value = ss.currency||'INR';
+    if (document.getElementById('as-d-paid-date')) document.getElementById('as-d-paid-date').value = ss.lastPaidDate||'';
+    if (document.getElementById('as-d-cycle-start')) document.getElementById('as-d-cycle-start').value = ss.cycleStartDate||'';
+    if (document.getElementById('as-d-first-count')) document.getElementById('as-d-first-count').value = ss.firstClassCount||1;
+  }
+
   asBatchChanged();
   openModal('modal-add-student-1');
 }
@@ -1666,10 +1758,9 @@ function asBatchChanged() {
 }
 
 function asSaveOrNext() {
-  const name    = document.getElementById('as-name').value.trim();
-  const batchId = document.getElementById('as-batch').value;
+  const name     = document.getElementById('as-name').value.trim();
+  const batchId  = document.getElementById('as-batch').value;
   const category = document.getElementById('as-category').value;
-
   if (!name) { showToast('Please enter a student name'); return; }
 
   if (batchId) {
@@ -1678,37 +1769,51 @@ function asSaveOrNext() {
     if (b) {
       const current = (b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
       if (asEditStudentName && asEditStudentName !== name) {
-        // Rename: remove old name, add new name
         const idx = current.indexOf(asEditStudentName);
         if (idx !== -1) current[idx] = name;
-        // Migrate settings key
-        const oldKey = batchId + ':' + asEditStudentName;
-        const newKey = batchId + ':' + name;
+        const oldKey = batchId+':'+asEditStudentName;
+        const newKey = batchId+':'+name;
         if (studentSettings[oldKey]) { studentSettings[newKey] = studentSettings[oldKey]; delete studentSettings[oldKey]; }
       } else if (!current.includes(name)) {
         current.push(name);
       }
       b.students = current.join(', ');
     }
-    // Save category and fee fields in studentSettings
-    const ssKey = batchId + ':' + name;
+
+    // Save all fee settings per type
+    const ssKey = batchId+':'+name;
     if (!studentSettings[ssKey]) studentSettings[ssKey] = {};
-    if (category) studentSettings[ssKey].category = category;
-    // Fee fields
-    const rate = document.getElementById('as-rate')?.value;
-    const currency = document.getElementById('as-currency')?.value;
-    if (rate) studentSettings[ssKey].rate = rate;
-    if (currency) studentSettings[ssKey].currency = currency;
-    if (category !== 'rolling-cycle') {
-      const lpMonth = document.getElementById('as-lp-month')?.value;
-      const lpYear  = document.getElementById('as-lp-year')?.value;
-      if (lpMonth) studentSettings[ssKey].lastPaidMonth = lpMonth;
-      if (lpYear)  studentSettings[ssKey].lastPaidYear  = lpYear;
-    } else {
-      const trackStart  = document.getElementById('as-track-start')?.value;
-      const firstCount  = document.getElementById('as-first-count')?.value;
-      if (trackStart)  studentSettings[ssKey].trackStartDate  = trackStart;
-      if (firstCount)  studentSettings[ssKey].firstClassCount = parseInt(firstCount);
+    const ss = studentSettings[ssKey];
+    if (category) ss.category = category;
+
+    if (category === 'monthly-cap8') {
+      ss.rate         = document.getElementById('as-a-rate')?.value || ss.rate;
+      ss.currency     = document.getElementById('as-a-currency')?.value || ss.currency || 'INR';
+      ss.periodMonth  = document.getElementById('as-a-period-month')?.value || ss.periodMonth;
+      ss.periodYear   = document.getElementById('as-a-period-year')?.value  || ss.periodYear;
+      ss.lastPaidMonth= document.getElementById('as-a-paid-month')?.value   || ss.lastPaidMonth;
+      ss.lastPaidYear = document.getElementById('as-a-paid-year')?.value    || ss.lastPaidYear;
+    } else if (category === 'monthly-block') {
+      ss.rate         = document.getElementById('as-b-rate')?.value || ss.rate;
+      ss.currency     = document.getElementById('as-b-currency')?.value || ss.currency || 'INR';
+      ss.periodMonth  = document.getElementById('as-b-period-month')?.value || ss.periodMonth;
+      ss.periodYear   = document.getElementById('as-b-period-year')?.value  || ss.periodYear;
+      ss.lastPaidMonth= document.getElementById('as-b-paid-month')?.value   || ss.lastPaidMonth;
+      ss.lastPaidYear = document.getElementById('as-b-paid-year')?.value    || ss.lastPaidYear;
+    } else if (category === 'true-per-class') {
+      ss.rate         = document.getElementById('as-c-rate')?.value || ss.rate;
+      ss.currency     = document.getElementById('as-c-currency')?.value || ss.currency || 'INR';
+      ss.periodMonth  = document.getElementById('as-c-period-month')?.value || ss.periodMonth;
+      ss.periodYear   = document.getElementById('as-c-period-year')?.value  || ss.periodYear;
+      ss.lastPaidMonth= document.getElementById('as-c-paid-month')?.value   || ss.lastPaidMonth;
+      ss.lastPaidYear = document.getElementById('as-c-paid-year')?.value    || ss.lastPaidYear;
+    } else if (category === 'rolling-cycle') {
+      ss.rate           = document.getElementById('as-d-rate')?.value || ss.rate;
+      ss.currency       = document.getElementById('as-d-currency')?.value || ss.currency || 'INR';
+      ss.lastPaidDate   = document.getElementById('as-d-paid-date')?.value  || ss.lastPaidDate;
+      ss.cycleStartDate = document.getElementById('as-d-cycle-start')?.value|| ss.cycleStartDate;
+      ss.trackStartDate = ss.cycleStartDate;
+      ss.firstClassCount= parseInt(document.getElementById('as-d-first-count')?.value||'1') || ss.firstClassCount || 1;
     }
 
     save('batches', batches);
@@ -2068,71 +2173,259 @@ function renderStudentDetail() {
   const ssKey = batchId + ':' + studentName;
   const ss   = studentSettings[ssKey] || {};
   const col  = getColor(b?.color || 'c17');
+  const category = ss.category || '';
 
   const catNames = {
-    'monthly-cap8':   'Type A — Monthly, cap 8',
-    'monthly-block':  'Type B — Monthly block',
-    'true-per-class': 'Type C — Per class',
-    'rolling-cycle':  'Type D — Rolling 8-class cycle',
+    'monthly-cap8':  'Type A — Ohio Standard',
+    'monthly-block': 'Type B — Monthly Block',
+    'true-per-class':'Type C — True Per-Class',
+    'rolling-cycle': 'Type D — Rolling Fee Cycle',
   };
-  const catLabel = ss.category ? (catNames[ss.category] || ss.category) : '— not set —';
+  const catLabel = category ? (catNames[category]||category) : '— not set —';
 
-  // Date range: show last 3 months to next month
+  // ── Class schedule section ──────────────────────────────────────────
+  const tzGroup   = b?.tzGroup || 'IST';
+  const isIST     = tzGroup === 'IST';
+  const prefGroup = TZ_GROUPS.find(g => g.label === tzGroup) || null;
+  const sameWinter = b?.sameAsWinter || false;
+
+  function schedTimingTable(slots, tzKey, title, titleColor) {
+    if (!slots || !slots.length) return '';
+    const tabTz  = prefGroup ? prefGroup[tzKey] : null;
+    const prefCol = tabTz ? `<th style="background:var(--blue-light)">${tabTz}</th>` : '';
+    const rows = slots.map(s => {
+      let tzCell = '';
+      if (tabTz) {
+        const off = TZ_OFFSETS[tabTz]||0;
+        const mins = toMins(s.startIST)+off;
+        const days7 = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const di = days7.indexOf(s.day); let d = s.day;
+        if (mins<0&&di>=0) d=days7[(di+6)%7];
+        if (mins>=1440&&di>=0) d=days7[(di+1)%7];
+        tzCell = `<td style="background:var(--blue-light)">${d}, ${istToTz(s.startIST,tabTz)}${s.endIST?' – '+istToTz(s.endIST,tabTz):''} ${tabTz}</td>`;
+      }
+      return `<tr><td>${s.day}</td><td>${fmtTime(s.startIST)}${s.endIST?' – '+fmtTime(s.endIST):''} IST</td>${tzCell}</tr>`;
+    }).join('');
+    return `<div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:${titleColor};margin-bottom:5px">${title}</div>
+      <table class="timing-table"><thead><tr><th>Day</th><th>IST</th>${prefCol}</tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  }
+
+  const summerSlots = (b?.timings||[]).filter(t=>t.season==='summer');
+  const winterSlots = (b?.timings||[]).filter(t=>t.season==='winter');
+  const tempSlots   = b?.tempTimings||[];
+  const tempPeriods = b?.tempPeriods||[];
+  const today2 = localDateStr(new Date());
+  const activePeriod = tempPeriods.find(p=>today2>=p.from&&today2<=p.to);
+
+  let schedHtml = '';
+  if (sameWinter) {
+    schedHtml = schedTimingTable(summerSlots,'summer','Regular timings (same in winter)','#1565c0');
+  } else {
+    schedHtml = `<div style="display:flex;gap:4px;margin-bottom:8px">
+      <button onclick="sdSetSeason('summer')" id="sd-tab-summer" style="padding:4px 12px;font-size:12px;font-weight:500;border:0.5px solid var(--border);border-radius:var(--radius);cursor:pointer;background:var(--blue);color:#fff">Summer</button>
+      <button onclick="sdSetSeason('winter')" id="sd-tab-winter" style="padding:4px 12px;font-size:12px;font-weight:500;border:0.5px solid var(--border);border-radius:var(--radius);cursor:pointer;background:none;color:var(--muted)">Winter</button>
+    </div>
+    <div id="sd-sched-summer">${schedTimingTable(summerSlots,'summer','Summer timings','#e65100')}${tempSlots.length?schedTimingTable(tempSlots,'summer','Temporary timings','#e37400'):''}</div>
+    <div id="sd-sched-winter" style="display:none">${winterSlots.length?schedTimingTable(winterSlots,'winter','Winter timings','#1565c0'):'<div style="font-size:12px;color:var(--muted)">No winter timings.</div>'}${tempSlots.length?schedTimingTable(tempSlots,'winter','Temporary timings','#e37400'):''}</div>`;
+  }
+  if (tempSlots.length && tempPeriods.length) {
+    schedHtml += activePeriod
+      ? `<div style="font-size:11px;background:#fff3e0;color:#e37400;padding:4px 10px;border-radius:var(--radius);margin-top:6px">⏱ Temp timing active until ${activePeriod.to}</div>`
+      : `<div style="font-size:11px;color:var(--subtle);margin-top:4px">Temp periods defined (none active today)</div>`;
+  }
+
+  // ── Attendance section ───────────────────────────────────────────────
+  // Month/year selector
   const now = new Date();
-  const fromDate = localDateStr(new Date(now.getFullYear(), now.getMonth()-3, 1));
-  const toDate   = localDateStr(new Date(now.getFullYear(), now.getMonth()+2, 0));
+  const sdMonth = window._sdMonth || (now.getMonth()+1);
+  const sdYear  = window._sdYear  || now.getFullYear();
+  const sdMonthStr = String(sdMonth).padStart(2,'0');
+  const fromDate   = `${sdYear}-${sdMonthStr}-01`;
+  const toDate     = `${sdYear}-${sdMonthStr}-${String(new Date(sdYear,sdMonth,0).getDate()).padStart(2,'0')}`;
 
-  // Collect scheduled dates using canonical function
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthOpts = MONTH_NAMES.map((n,i)=>`<option value="${i+1}"${i+1===sdMonth?' selected':''}>${n}</option>`).join('');
+  const yearOpts  = [-2,-1,0,1].map(d=>sdYear+d).map(y=>`<option value="${y}"${y===sdYear?' selected':''}>${y}</option>`).join('');
+
+  // Get scheduled dates for selected month
   const scheduledDates = getScheduledDates(batchId, fromDate, toDate, studentName);
 
-  // Attendance records for this student
+  // Attendance lookup for this student
   const attByDate = {};
   Object.values(attendance).forEach(rec => {
-    rec.students?.forEach(s => {
+    (rec.students||[]).forEach(s => {
       if (s.name !== studentName) return;
       const d = rec.date;
       if (!attByDate[d] || s.batchId === batchId)
-        attByDate[d] = {status:s.status, makeupFor:s.makeupFor||null, twStart:rec.twStart||''};
+        attByDate[d] = {status:s.status, makeupFor:s.makeupFor||null, twStart:rec.twStart||'', classType:rec.classType||'scheduled'};
+    });
+  });
+  // Also inject cancelled from TW cache
+  Object.values(twWeekCache).forEach(weekEvs => {
+    if (!Array.isArray(weekEvs)) return;
+    weekEvs.forEach(ev => {
+      if (!ev.cancelled || ev.batchId !== batchId) return;
+      const d = localDateStr(new Date(ev.date));
+      if (!attByDate[d]) attByDate[d] = {status:'cancelled', makeupFor:null, twStart:ev.start||''};
     });
   });
 
-  // Add any attendance-only dates (history)
   Object.keys(attByDate).forEach(d => scheduledDates.add(d));
+  const allDates = Array.from(scheduledDates).sort().filter(d=>d>=fromDate&&d<=toDate);
 
-  const allDates = Array.from(scheduledDates).sort();
+  // Attendance table — columns differ by type
+  // Count column header
+  const countHeader = category === 'rolling-cycle' ? 'Class count' : 'Counted #';
 
-  const ATT_LABELS = {
-    present:   `<span class="att-cell-P" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>`,
-    absent:    `<span class="att-cell-A" style="padding:2px 7px;border-radius:3px;font-size:11px">Absent</span>`,
-    makeup:    `<span class="att-cell-M" style="padding:2px 7px;border-radius:3px;font-size:11px">Makeup</span>`,
-    additional:`<span class="att-cell-Ad" style="padding:2px 7px;border-radius:3px;font-size:11px">Additional</span>`,
-    cancelled: `<span style="font-size:11px;color:#b71c1c;padding:2px 7px;background:#fce8e6;border-radius:3px">Cancelled</span>`,
-  };
+  // Running count for display
+  let runningCount = 0;
+  if (category === 'rolling-cycle') runningCount = (parseInt(ss.firstClassCount)||1) - 1;
 
   const attRows = allDates.map(d => {
     const rec    = attByDate[d];
     const status = rec?.status || null;
-    const dateObj  = new Date(d+'T12:00:00');
-    const dateLabel = dateObj.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+', '+d;
-    const isCancelled = status === 'cancelled';
-    const attCell = rec ? (ATT_LABELS[status] || status) : '<span style="color:var(--subtle);font-size:11px">—</span>';
+    const evRec  = Object.values(twWeekCache).flatMap(w=>Array.isArray(w)?w:[]).find(ev=>localDateStr(new Date(ev.date))===d&&ev.batchId===batchId);
+    // Determine class type: from TW event or from attendance record
+    let classType = 'Scheduled';
+    if (status === 'makeup')    classType = 'Makeup';
+    if (status === 'additional')classType = 'Additional';
+    if (status === 'cancelled') classType = 'Cancelled';
+    // Only show Makeup and Additional for types that have them
+    if (category === 'true-per-class' && classType === 'Makeup') classType = 'Additional';
+    if (category === 'rolling-cycle'  && classType === 'Makeup') classType = 'Additional';
 
-    // Type label for the class
-    let typeStr = 'Scheduled', typeColor = 'color:var(--muted)';
-    if (status === 'cancelled')  { typeStr='Cancelled';  typeColor='color:#b71c1c;font-weight:500'; }
-    else if (status === 'makeup')    { typeStr='Makeup';     typeColor='color:#e65100;font-weight:500'; }
-    else if (status === 'additional'){ typeStr='Additional'; typeColor='color:#311b92;font-weight:500'; }
-    else if (!rec)                   { typeStr='Scheduled';  typeColor='color:var(--subtle)'; }
-    const rowBg = !rec ? 'background:#fafafa' : isCancelled ? 'background:#fff5f5' : '';
+    const dateObj   = new Date(d+'T12:00:00');
+    const dateLabel = dateObj.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+    const istTime   = rec?.twStart ? ` · ${fmtTime(rec.twStart)} IST` : '';
+
+    const ATT_LABELS = {
+      present:   `<span class="att-cell-P" style="padding:2px 7px;border-radius:3px;font-size:11px">Present</span>`,
+      absent:    `<span class="att-cell-A" style="padding:2px 7px;border-radius:3px;font-size:11px">Absent</span>`,
+      makeup:    `<span class="att-cell-M" style="padding:2px 7px;border-radius:3px;font-size:11px">Makeup</span>`,
+      additional:`<span class="att-cell-Ad" style="padding:2px 7px;border-radius:3px;font-size:11px">Additional</span>`,
+      cancelled: `<span style="font-size:11px;color:#b71c1c;padding:2px 7px;background:#fce8e6;border-radius:3px">Cancelled</span>`,
+    };
+    const attCell = status ? (ATT_LABELS[status]||status) : '<span style="color:var(--subtle);font-size:11px">—</span>';
+
+    // Count this class
+    const c = countClass(status||'', category);
+    if (c > 0) runningCount++;
+    let countCell = '';
+    if (status === null) {
+      countCell = '<span style="color:var(--subtle);font-size:11px">—</span>';
+    } else if (status === 'cancelled') {
+      countCell = '<span style="color:var(--subtle);font-size:11px">—</span>';
+    } else if (c === 0) {
+      countCell = '<span style="font-size:11px;color:var(--muted)">0</span>';
+    } else {
+      if (category === 'monthly-cap8' || category === 'monthly-block') {
+        countCell = runningCount <= 8
+          ? `<span style="font-size:12px;font-weight:600;color:var(--blue)">${runningCount}</span>`
+          : `<span style="font-size:11px;color:var(--muted)">${runningCount} (over cap)</span>`;
+      } else if (category === 'rolling-cycle') {
+        const pos = ((runningCount-1)%8)+1;
+        countCell = `<span style="font-size:12px;font-weight:600;color:var(--blue)">${pos}/8</span>`;
+      } else {
+        countCell = `<span style="font-size:12px;font-weight:600;color:var(--blue)">${runningCount}</span>`;
+      }
+    }
+
+    const typeColor = classType==='Cancelled'?'color:#b71c1c':classType==='Makeup'?'color:#e65100':classType==='Additional'?'color:#311b92':'color:var(--muted)';
+    const rowBg = status==='cancelled'?'background:#fff5f5':!rec?'background:#fafafa':'';
+
     return `<tr style="${rowBg}">
-      <td style="padding:6px 10px;font-size:12px;white-space:nowrap">${dateLabel}</td>
-      <td style="padding:6px 10px;font-size:12px"><span style="${typeColor}">${typeStr}</span></td>
+      <td style="padding:6px 10px;font-size:12px;white-space:nowrap">${dateLabel}${istTime}</td>
+      <td style="padding:6px 10px;font-size:12px"><span style="${typeColor}">${classType}</span></td>
       <td style="padding:6px 10px">${attCell}</td>
+      <td style="padding:6px 10px;text-align:center">${countCell}</td>
     </tr>`;
   }).join('');
 
+  // ── Pending section ──────────────────────────────────────────────────
   const pendingSection = buildPendingSection(studentName, batchId);
 
+  // ── Fee section ──────────────────────────────────────────────────────
+  let feeHtml = '';
+  const rate     = parseFloat(ss.rate) || 0;
+  const currency = ss.currency || 'INR';
+  const curSym   = currency === 'USD' ? '$' : '₹';
+
+  if (category && rate) {
+    const counted = Math.min(runningCount, category==='monthly-cap8'||category==='monthly-block' ? 8 : Infinity);
+    const feeAmount = category === 'monthly-block' ? rate
+      : category === 'rolling-cycle' ? rate
+      : rate * counted;
+
+    // Current fee cycle
+    const curM = sdMonth, curY = sdYear;
+    const feeStatus = category !== 'rolling-cycle'
+      ? (computeDisplayFeeStatus(`${batchId}:${studentName}`, category, curY, curM) || 'pending')
+      : null;
+
+    const statusBadges = {
+      paid:    `<span style="background:#e6f4ea;color:#1b5e20;padding:2px 8px;border-radius:8px;font-size:12px">✓ Paid</span>`,
+      pending: `<span style="background:#fff3e0;color:#e37400;padding:2px 8px;border-radius:8px;font-size:12px">Pending</span>`,
+      ongoing: `<span style="background:#e8f0fe;color:#1a73e8;padding:2px 8px;border-radius:8px;font-size:12px">Ongoing</span>`,
+    };
+
+    if (category === 'monthly-cap8') {
+      feeHtml = `
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <div class="section-title">Fee — Type A</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+            <div><span style="color:var(--muted);font-size:11px">Total classes</span><div style="font-weight:500">${runningCount}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Counted (max 8)</span><div style="font-weight:500">${counted}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Fee this month</span><div style="font-weight:600;color:var(--blue)">${curSym}${feeAmount.toLocaleString()}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Status</span><div>${statusBadges[feeStatus]||''}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Last paid for</span><div style="font-size:12px">${ss.lastPaidMonth?MONTH_NAMES[parseInt(ss.lastPaidMonth)-1]+' '+ss.lastPaidYear:'—'}</div></div>
+          </div>
+          <button onclick="cycleMarkPaid('${ssKey}',${curY},${curM})" style="margin-top:10px;font-size:12px;padding:5px 14px;border:1px solid #34a853;border-radius:var(--radius);background:none;cursor:pointer;color:#1b5e20;font-family:'Roboto',sans-serif">Mark ${MONTH_NAMES[curM-1]} ${curY} as paid</button>
+        </div>`;
+    } else if (category === 'monthly-block') {
+      feeHtml = `
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <div class="section-title">Fee — Type B</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+            <div><span style="color:var(--muted);font-size:11px">Monthly fee</span><div style="font-weight:600;color:var(--blue)">${curSym}${feeAmount.toLocaleString()}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Status</span><div>${statusBadges[feeStatus]||''}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Last paid for</span><div style="font-size:12px">${ss.lastPaidMonth?MONTH_NAMES[parseInt(ss.lastPaidMonth)-1]+' '+ss.lastPaidYear:'—'}</div></div>
+          </div>
+          <button onclick="cycleMarkPaid('${ssKey}',${curY},${curM})" style="margin-top:10px;font-size:12px;padding:5px 14px;border:1px solid #34a853;border-radius:var(--radius);background:none;cursor:pointer;color:#1b5e20;font-family:'Roboto',sans-serif">Mark ${MONTH_NAMES[curM-1]} ${curY} as paid</button>
+        </div>`;
+    } else if (category === 'true-per-class') {
+      feeHtml = `
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <div class="section-title">Fee — Type C</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+            <div><span style="color:var(--muted);font-size:11px">Classes this month</span><div style="font-weight:500">${runningCount}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Fee this month</span><div style="font-weight:600;color:var(--blue)">${curSym}${feeAmount.toLocaleString()}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Status</span><div>${statusBadges[feeStatus]||''}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Last paid for</span><div style="font-size:12px">${ss.lastPaidMonth?MONTH_NAMES[parseInt(ss.lastPaidMonth)-1]+' '+ss.lastPaidYear:'—'}</div></div>
+          </div>
+          <button onclick="cycleMarkPaid('${ssKey}',${curY},${curM})" style="margin-top:10px;font-size:12px;padding:5px 14px;border:1px solid #34a853;border-radius:var(--radius);background:none;cursor:pointer;color:#1b5e20;font-family:'Roboto',sans-serif">Mark ${MONTH_NAMES[curM-1]} ${curY} as paid</button>
+        </div>`;
+    } else if (category === 'rolling-cycle') {
+      const cycleStart = ss.currentCycleStart || ss.cycleStartDate || '—';
+      const cyclePos   = ss.currentClassCount || 1;
+      const lastPaidCycleKey = Object.keys(ss).filter(k=>k.startsWith('feeStatus_cycle_')).sort().reverse()[0];
+      const lastPaidCycle = lastPaidCycleKey ? lastPaidCycleKey.replace('feeStatus_cycle_','') : '—';
+      const lastPaidStatus= lastPaidCycleKey ? ss[lastPaidCycleKey] : '—';
+      feeHtml = `
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <div class="section-title">Fee — Type D</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+            <div><span style="color:var(--muted);font-size:11px">Per period fee</span><div style="font-weight:600;color:var(--blue)">${curSym}${rate.toLocaleString()}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Current cycle position</span><div style="font-weight:500">${cyclePos}/8</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Current cycle started</span><div style="font-size:12px">${cycleStart}</div></div>
+            <div><span style="color:var(--muted);font-size:11px">Last cycle</span><div style="font-size:12px">${lastPaidCycle} — ${lastPaidStatus}</div></div>
+          </div>
+        </div>`;
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────
   document.getElementById('student-detail-content').innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <div style="width:12px;height:12px;border-radius:3px;background:${col.border};flex-shrink:0"></div>
@@ -2140,24 +2433,60 @@ function renderStudentDetail() {
         <div style="font-size:19px;font-weight:500">${studentName}</div>
         <div style="font-size:12px;color:var(--muted)">${b?.name||'Individual'} · <span style="color:var(--blue)">${catLabel}</span></div>
       </div>
-      <div style="margin-left:auto;display:flex;gap:6px">
-        <button id="sd-edit-btn" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif">Edit</button>
-      </div>
+      <div style="margin-left:auto"><button id="sd-edit-btn" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:var(--radius);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif">Edit</button></div>
     </div>
 
     <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px">
-      <div class="section-title">Attendance (last 3 months)</div>
-      ${allDates.length
-        ? `<div style="overflow-x:auto"><table class="timing-table">
-            <thead><tr><th>Date</th><th>Type</th><th>Status</th></tr></thead>
-            <tbody>${attRows}</tbody></table></div>`
-        : `<div style="font-size:12px;color:var(--muted);padding:8px 0">No classes in this period.</div>`}
-      ${pendingSection}
-    </div>`;
+      <div class="section-title">Class schedule</div>
+      ${schedHtml}
+    </div>
 
-  // Wire edit button safely via JS (avoids name/batchId quoting issues)
-  const editBtn = document.getElementById('sd-edit-btn');
-  if (editBtn) editBtn.addEventListener('click', () => openAddStudentFlow(batchId, studentName));
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px">
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Attendance</span>
+        <div style="display:flex;gap:6px">
+          <select id="sd-month-sel" onchange="sdApplyMonth()" style="font-size:12px;padding:4px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">${monthOpts}</select>
+          <select id="sd-year-sel"  onchange="sdApplyMonth()" style="font-size:12px;padding:4px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-family:'Roboto',sans-serif">${yearOpts}</select>
+        </div>
+      </div>
+      ${allDates.length
+        ? `<div style="overflow-x:auto;margin-top:10px"><table class="timing-table">
+            <thead><tr><th>Date &amp; time (IST)</th><th>Type</th><th>Attendance</th><th style="text-align:center">${countHeader}</th></tr></thead>
+            <tbody>${attRows}</tbody></table></div>`
+        : `<div style="font-size:12px;color:var(--muted);padding:8px 0">No classes scheduled this month.</div>`}
+      ${pendingSection}
+    </div>
+    ${feeHtml}`;
+
+  // Wire buttons via JS
+  document.getElementById('sd-edit-btn')?.addEventListener('click', () => openAddStudentFlow(batchId, studentName));
+}
+
+function sdSetSeason(s) {
+  document.getElementById('sd-sched-summer')?.style && (document.getElementById('sd-sched-summer').style.display=s==='summer'?'':'none');
+  document.getElementById('sd-sched-winter')?.style  && (document.getElementById('sd-sched-winter').style.display =s==='winter'?'':'none');
+  const ts=document.getElementById('sd-tab-summer'), tw=document.getElementById('sd-tab-winter');
+  if(ts){ts.style.background=s==='summer'?'var(--blue)':'none';ts.style.color=s==='summer'?'#fff':'var(--muted)';}
+  if(tw){tw.style.background=s==='winter'?'var(--blue)':'none';tw.style.color=s==='winter'?'#fff':'var(--muted)';}
+}
+
+function sdApplyMonth() {
+  window._sdMonth = parseInt(document.getElementById('sd-month-sel').value);
+  window._sdYear  = parseInt(document.getElementById('sd-year-sel').value);
+  renderStudentDetail();
+}
+
+// Mark a monthly fee as paid from the student popup
+function cycleMarkPaid(ssKey, year, month) {
+  saveFeeStatus(ssKey, year, month, 'paid');
+  // Update lastPaidMonth/Year
+  if (!studentSettings[ssKey]) studentSettings[ssKey] = {};
+  studentSettings[ssKey].lastPaidMonth = String(month);
+  studentSettings[ssKey].lastPaidYear  = String(year);
+  save('studentSettings', studentSettings);
+  renderStudentDetail();
+  if (document.getElementById('modal-fee-tracker').classList.contains('open')) renderFeeTracker();
+  showToast('Fee marked as paid');
 }
 
 function refreshStudentDetail() {
@@ -2238,8 +2567,12 @@ function twPopulateFromCalendar() {
         );
         if (wasRemoved) return;
 
-        // Deduplicate: don't add if already in evs for same batch+date
-        const alreadyExists = evs.some(ev => ev.batchId === entity.id && localDateStr(new Date(ev.date)) === dStr);
+        // Deduplicate: don't add if already have same batch+date+start
+        const alreadyExists = evs.some(ev =>
+          ev.batchId === entity.id &&
+          localDateStr(new Date(ev.date)) === dStr &&
+          ev.start === slot.start
+        );
         if (alreadyExists) return;
 
         evs.push({
@@ -3078,25 +3411,23 @@ function autoCheckFeeStatuses() {
 
 function asCategoryChanged() {
   const cat = document.getElementById('as-category').value;
-  const feeFields  = document.getElementById('as-fee-fields');
-  const lpWrap     = document.getElementById('as-lastpaid-wrap');
-  const typeDWrap  = document.getElementById('as-typed-wrap');
-
-  feeFields.style.display  = cat ? '' : 'none';
-  lpWrap.style.display     = cat !== 'rolling-cycle' ? '' : 'none';
-  typeDWrap.style.display  = cat === 'rolling-cycle' ? '' : 'none';
-
-  // Populate year selects if not already done
-  const yearSel = document.getElementById('as-lp-year');
-  if (yearSel && !yearSel.options.length) {
-    const now = new Date();
-    for (let y = now.getFullYear() - 2; y <= now.getFullYear() + 1; y++) {
-      const opt = document.createElement('option');
-      opt.value = y; opt.textContent = y;
-      if (y === now.getFullYear()) opt.selected = true;
-      yearSel.appendChild(opt);
+  ['a','b','c','d'].forEach(t => {
+    const el = document.getElementById('as-fields-'+t);
+    if (el) el.style.display = (cat === {'a':'monthly-cap8','b':'monthly-block','c':'true-per-class','d':'rolling-cycle'}[t]) ? '' : 'none';
+  });
+  // Populate year selects on first use
+  const now = new Date();
+  ['as-a-period-year','as-a-paid-year','as-b-period-year','as-b-paid-year','as-c-period-year','as-c-paid-year'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel && !sel.options.length) {
+      for (let y = now.getFullYear()-2; y <= now.getFullYear()+1; y++) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        if (y === now.getFullYear()) opt.selected = true;
+        sel.appendChild(opt);
+      }
     }
-  }
+  });
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
