@@ -294,10 +294,15 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
         <div class="field"><label>Last fee paid for</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-c-lpm"></select><select id="s-c-lpy"></select></div></div>
       </div>
       <div id="s-fee-D" style="display:none">
-        <div class="field"><label>Current fee period started on</label><input id="s-d-cs" type="date" style="width:100%"/></div>
+        <div class="field"><label>Current fee cycle started on</label><input id="s-d-cs" type="date" style="width:100%"/></div>
         <div class="field"><label>Starting class number in current cycle (X/8)</label><input id="s-d-sc" type="number" min="1" max="8" value="1" style="width:60px"/></div>
         <div class="field"><label>Fee per 8-class cycle</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-d-rate" type="number" min="0" placeholder="2800"/><select id="s-d-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
-        <div class="field"><label>Previous fee cycle end date</label><input id="s-d-prev" type="date" style="width:100%"/></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="field"><label>Previous fee cycle start date</label><input id="s-d-prev-start" type="date" style="width:100%"/></div>
+          <div class="field"><label>Previous fee cycle end date</label><input id="s-d-prev" type="date" style="width:100%"/></div>
+        </div>
+        <div class="field"><label>Previous fee cycle status</label><select id="s-d-prev-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
+        <div class="warn" style="font-size:11px;margin-top:4px">The first/current cycle is never prorated. Previous cycle dates are used only to display the immediately previous completed cycle and should not be counted into the current running cycle.</div>
       </div>
     </div>
     <div class="mf">
@@ -357,7 +362,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <input type="date" id="tw-dt" onchange="twSetWeek()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif"/>
       <button class="hbtn" onclick="twPrev()">← Prev</button>
       <button class="hbtn" onclick="twNext()">Next →</button>
-      <button class="hbtn" onclick="twRefresh()">↺ Refresh</button>
+      
       <button class="hbtn" onclick="openTwAdd()" style="background:var(--oral);color:var(--ora)">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add Class
       </button>
@@ -740,9 +745,10 @@ function computeFeeAmt(studentName,batchId,year,month){
 function feeKey(y,m){return'fs_'+y+'_'+String(m).padStart(2,'0');}
 function cycleFeeKey(dt){return'fs_cycle_'+dt;}
 
+function feeStatusValue(v){return typeof v==='object'&&v?v.status:v;}
 function computeDisplayFeeStatus(ssKey,cat,year,month){
   const s=ss[ssKey]||{};
-  const stored=s[feeKey(year,month)];
+  const stored=feeStatusValue(s[feeKey(year,month)]);
   if(stored==='paid')return'paid';
   const lpm=parseInt(s.lastPaidMonth)||0,lpy=parseInt(s.lastPaidYear)||0;
   if(lpm&&lpy&&(year*100+month)<=(lpy*100+lpm))return'paid';
@@ -758,29 +764,73 @@ function computeDisplayFeeStatus(ssKey,cat,year,month){
 
 function saveFeeStatus(ssKey,year,month,status){
   if(!ss[ssKey])ss[ssKey]={};
-  ss[ssKey][feeKey(year,month)]=status;
+  const prev=typeof ss[ssKey][feeKey(year,month)]==='object'?ss[ssKey][feeKey(year,month)]:{};
+  ss[ssKey][feeKey(year,month)]={...prev,status,payDate:status==='paid'?(prev.payDate||localDS(new Date())):null};
   if(status==='paid'){const s2=ss[ssKey];const lpy=parseInt(s2.lastPaidYear)||0,lpm=parseInt(s2.lastPaidMonth)||0;if(year*100+month>=lpy*100+lpm){s2.lastPaidYear=String(year);s2.lastPaidMonth=String(month);}}
   save('ss',ss);
 }
 
+function getStudentCountedAttendanceDates(batchId,studentName,cat,fromDate){
+  const dates=[];
+  Object.values(att).forEach(rec=>{
+    if(rec.date<fromDate)return;
+    (rec.students||[]).forEach(s2=>{
+      if(s2.batchId===batchId&&s2.name===studentName&&countClass(s2.status,cat)>0)dates.push({date:rec.date,evId:rec.evId||null});
+    });
+  });
+  dates.sort((a,b)=>a.date.localeCompare(b.date));
+  return dates;
+}
+function getRollingCycles(batchId,studentName){
+  const ssKey=batchId+':'+studentName;const s=ss[ssKey]||{};
+  if(s.category!=='D')return[];
+  const rate=parseFloat(s.rate)||0;const cs=s.cycleStartDate||s.trackStartDate;if(!cs)return[];
+  const cycles=[];
+  if(s.prevCycleStartDate&&s.prevCycleEndDate){
+    const ck=cycleFeeKey(s.prevCycleStartDate);
+    const stored=s[ck]||{};
+    cycles.push({key:s.prevCycleStartDate,start:s.prevCycleStartDate,end:s.prevCycleEndDate,count:8,status:stored.status||s.prevCycleStatus||'pending',payDate:stored.payDate||null,amount:rate,previous:true});
+  }
+  const dates=getStudentCountedAttendanceDates(batchId,studentName,'D',cs).map(x=>x.date);
+  let pos=parseInt(s.startingClassNum)||1;let start=cs;let last=null;
+  if(!dates.length){
+    cycles.push({key:start,start,end:null,count:Math.max(pos-1,0),status:feeStatusValue(s[cycleFeeKey(start)])||'ongoing',payDate:s[cycleFeeKey(start)]?.payDate||null,amount:rate,current:true,nextClass:pos});
+    return cycles.sort((a,b)=>a.start.localeCompare(b.start));
+  }
+  for(const d of dates){
+    last=d;
+    if(pos===8){
+      const ck=cycleFeeKey(start);const stored=s[ck]||{};
+      cycles.push({key:start,start,end:d,count:8,status:stored.status||'pending',payDate:stored.payDate||null,amount:rate,current:false});
+      start=null;pos=1;last=null;
+    }else{
+      if(!start)start=d;
+      pos++;
+    }
+  }
+  if(start){
+    const ck=cycleFeeKey(start);const stored=s[ck]||{};
+    cycles.push({key:start,start,end:null,count:pos===1?0:pos-1,status:stored.status||'ongoing',payDate:stored.payDate||null,amount:rate,current:true,nextClass:pos});
+  }else{
+    // Last class completed a cycle. The next cycle starts only when the next counted class is entered.
+    cycles.push({key:'next_'+(last||cs),start:null,end:null,count:0,status:'ongoing',amount:rate,current:true,nextClass:1,pendingStart:true});
+  }
+  return cycles.sort((a,b)=>(a.start||'9999').localeCompare(b.start||'9999'));
+}
 function autoCheckFeeStatuses(){
   let changed=false;
   Object.keys(ss).forEach(ssKey=>{
     const s=ss[ssKey];if(!s||s.category!=='D')return;
     const[batchId,...np]=ssKey.split(':');const sName=np.join(':');
-    const cs=s.cycleStartDate||s.trackStartDate;if(!cs)return;
-    const sc=parseInt(s.startingClassNum)||1;
-    const attended=[];
-    Object.values(att).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{
-      if(rec.batchId!==batchId||rec.date<cs)return;
-      (rec.students||[]).forEach(s2=>{if(s2.name===sName&&countClass(s2.status,'D')>0)attended.push(rec.date);});
+    const cycles=getRollingCycles(batchId,sName);
+    cycles.forEach(c=>{
+      if(!c.key||String(c.key).startsWith('next_'))return;
+      const ck=cycleFeeKey(c.key);
+      if(!s[ck]){s[ck]={status:c.status||'ongoing',payDate:c.payDate||null};changed=true;}
+      else if(typeof s[ck]==='string'){s[ck]={status:s[ck],payDate:null};changed=true;}
     });
-    let pos=sc,cycleStart=cs;
-    for(const date of attended){
-      if(pos===8){const ck=cycleFeeKey(cycleStart);if(!s[ck]){s[ck]={status:'pending'};changed=true;}cycleStart=date;pos=1;}
-      else pos++;
-    }
-    if(s.currentCycleStart!==cycleStart||s.currentClassCount!==pos){s.currentCycleStart=cycleStart;s.currentClassCount=pos;changed=true;}
+    const current=cycles.find(c=>c.current);
+    if(current&&current.start){if(s.currentCycleStart!==current.start||s.currentClassCount!==current.nextClass){s.currentCycleStart=current.start;s.currentClassCount=current.nextClass;changed=true;}}
   });
   if(changed)save('ss',ss);
 }
@@ -987,14 +1037,14 @@ function prefillFee(sObj){
   if(c==='A'){sv('s-a-pm',sObj.periodMonth);sv('s-a-py',sObj.periodYear);sv('s-a-rate',sObj.rate);sv('s-a-cur',sObj.currency||'INR');sv('s-a-lpm',sObj.lastPaidMonth);sv('s-a-lpy',sObj.lastPaidYear);}
   else if(c==='B'){sv('s-b-pm',sObj.periodMonth);sv('s-b-py',sObj.periodYear);sv('s-b-rate',sObj.rate);sv('s-b-cur',sObj.currency||'INR');sv('s-b-lpm',sObj.lastPaidMonth);sv('s-b-lpy',sObj.lastPaidYear);}
   else if(c==='C'){sv('s-c-pm',sObj.periodMonth);sv('s-c-py',sObj.periodYear);sv('s-c-rate',sObj.rate);sv('s-c-cur',sObj.currency||'INR');sv('s-c-lpm',sObj.lastPaidMonth);sv('s-c-lpy',sObj.lastPaidYear);}
-  else if(c==='D'){sv('s-d-cs',sObj.cycleStartDate);sv('s-d-sc',sObj.startingClassNum||1);sv('s-d-rate',sObj.rate);sv('s-d-cur',sObj.currency||'INR');sv('s-d-prev',sObj.prevCycleEndDate);}
+  else if(c==='D'){sv('s-d-cs',sObj.cycleStartDate);sv('s-d-sc',sObj.startingClassNum||1);sv('s-d-rate',sObj.rate);sv('s-d-cur',sObj.currency||'INR');sv('s-d-prev-start',sObj.prevCycleStartDate);sv('s-d-prev',sObj.prevCycleEndDate);sv('s-d-prev-status',sObj.prevCycleStatus||'pending');}
 }
 function readFee(cat){
   const gv=id=>document.getElementById(id)?.value||'';
   if(cat==='A')return{rate:gv('s-a-rate'),currency:gv('s-a-cur')||'INR',periodMonth:gv('s-a-pm'),periodYear:gv('s-a-py'),lastPaidMonth:gv('s-a-lpm'),lastPaidYear:gv('s-a-lpy')};
   if(cat==='B')return{rate:gv('s-b-rate'),currency:gv('s-b-cur')||'INR',periodMonth:gv('s-b-pm'),periodYear:gv('s-b-py'),lastPaidMonth:gv('s-b-lpm'),lastPaidYear:gv('s-b-lpy')};
   if(cat==='C')return{rate:gv('s-c-rate'),currency:gv('s-c-cur')||'INR',periodMonth:gv('s-c-pm'),periodYear:gv('s-c-py'),lastPaidMonth:gv('s-c-lpm'),lastPaidYear:gv('s-c-lpy')};
-  if(cat==='D')return{rate:gv('s-d-rate'),currency:gv('s-d-cur')||'INR',cycleStartDate:gv('s-d-cs'),startingClassNum:parseInt(gv('s-d-sc'))||1,prevCycleEndDate:gv('s-d-prev'),trackStartDate:gv('s-d-cs')};
+  if(cat==='D')return{rate:gv('s-d-rate'),currency:gv('s-d-cur')||'INR',cycleStartDate:gv('s-d-cs'),startingClassNum:parseInt(gv('s-d-sc'))||1,prevCycleStartDate:gv('s-d-prev-start'),prevCycleEndDate:gv('s-d-prev'),prevCycleStatus:gv('s-d-prev-status')||'pending',trackStartDate:gv('s-d-cs')};
   return{};
 }
 function sStep1Save(){
@@ -1051,7 +1101,7 @@ function deleteStudentConfirm(){
 // SECTION 13 — BATCH DETAIL POPUP
 // ═══════════════════════════════════════════════════
 function openBatchDetail(batchId){detBid=batchId;renderBatchDetail();openOv('ov-bd');}
-function bdEditBatch(){openAddBatch(detBid);}
+function bdEditBatch(){closeOv('ov-bd');openAddBatch(detBid);}
 function bdDeleteConfirm(){showConfirm('Delete this batch? Students will become individual students. History preserved.',()=>{bEditId=detBid;deleteBatch();closeOv('ov-bd');});}
 
 function renderBatchDetail(){
@@ -1176,8 +1226,8 @@ function openStudentDetail(batchId,studentName){
   const now=new Date();if(!sdMonth)sdMonth=now.getMonth()+1;if(!sdYear)sdYear=now.getFullYear();
   renderStudentDetail();document.getElementById('sd-save').style.display='none';openOv('ov-sd');
 }
-function sdEditMode(){sdEdit=true;sdUnsaved=false;document.getElementById('sd-save').style.display='';renderStudentDetail();}
-function sdSave(){openAddStudent(sdBid,sdNm);sdEdit=false;sdUnsaved=false;document.getElementById('sd-save').style.display='none';}
+function sdEditMode(){closeOv('ov-sd');openAddStudent(sdBid,sdNm);}
+function sdSave(){sdEdit=false;sdUnsaved=false;document.getElementById('sd-save').style.display='none';renderStudentDetail();}
 function sdExitCheck(){if(sdUnsaved){showConfirm('You have unsaved changes. Discard and exit?',()=>{sdUnsaved=false;closeOv('ov-sd');});}else closeOv('ov-sd');}
 
 function renderStudentDetail(){
@@ -1216,6 +1266,7 @@ function renderStudentDetail(){
   const pendHtml=buildPendingSection(sdBid,sdNm,cat);
   // Fee tracker
   const feeHtml=buildFeeTracker(sdBid,sdNm,cat,sObj);
+  const payHistHtml=buildPaymentHistory(sdBid,sdNm,cat,sObj);
 
   document.getElementById('sd-content').innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1233,7 +1284,7 @@ function renderStudentDetail(){
       <div style="overflow-x:auto;margin-top:8px">${rows}</div>
       ${pendHtml}
     </div>
-    <div style="border-top:1px solid var(--bdr);padding-top:14px"><div class="stitle">Fee Tracker</div>${feeHtml}</div>`;
+    <div style="border-top:1px solid var(--bdr);padding-top:14px"><div class="stitle">Fee Tracker</div>${feeHtml}<div style="margin-top:14px"><div class="stitle">Payment History</div>${payHistHtml}</div></div>`;
 }
 function sdTab(t){document.getElementById('sds-su').style.display=t==='su'?'':'none';document.getElementById('sds-wi').style.display=t==='wi'?'':'none';document.getElementById('sdt-su').classList.toggle('act',t==='su');document.getElementById('sdt-wi').classList.toggle('act',t==='wi');}
 function sdApplyMonth(){sdMonth=parseInt(document.getElementById('sdm-sel').value);sdYear=parseInt(document.getElementById('sdy-sel').value);renderStudentDetail();}
@@ -1261,17 +1312,16 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
   });
   // Timing projections not yet in TW
   const entity=batchId.startsWith('ind_')?indStudents.find(s=>s.id===batchId):getBatch(batchId);
-  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);const slots=resolveClassForDate(entity,ds);if(slots.length>0&&!evRows.find(r=>r.date===ds)){evRows.push({date:ds,start:slots[0].start,end:slots[0].end,classType:'scheduled',isTemp:slots[0].isTemp,cancelled:false,status:null,makeupFor:null,evId:null});}}}
+  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;if(!evRows.find(r=>r.date===ds&&r.start===slot.start)){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null});}});}}
   evRows.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
   if(!evRows.length)return'<div style="font-size:12px;color:var(--mut)">No classes scheduled this month.</div>';
 
   let running=0,cyclePos=0;
+  const dCycleMap={};
   if(cat==='D'){
     const sObj=ss[batchId+':'+studentName]||{};
-    const cs=sObj.cycleStartDate||sObj.trackStartDate;const sc=parseInt(sObj.startingClassNum)||1;
-    const pastAtt=[];
-    Object.values(att).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{if(rec.batchId!==batchId||rec.date>=fromDate)return;(rec.students||[]).forEach(s2=>{if(s2.name===studentName&&countClass(s2.status,'D')>0)pastAtt.push(rec.date);});});
-    let p=sc;for(const date of pastAtt){if(p===8)p=1;else p++;}cyclePos=p-1;
+    const cs=sObj.cycleStartDate||sObj.trackStartDate;let pos=parseInt(sObj.startingClassNum)||1;
+    if(cs){getStudentCountedAttendanceDates(batchId,studentName,'D',cs).forEach(x=>{dCycleMap[x.date]=pos;if(pos===8)pos=1;else pos++;});}
   }
 
   const countHdr=cat==='D'?'Cycle #':(cat==='A'||cat==='B')?'Count':'Count';
@@ -1291,7 +1341,7 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
     }
     // Count cell
     let cntCell='<span style="color:var(--sub)">—</span>';
-    if(!isCancelled&&row.status){const c=countClass(row.status,cat);if(c>0){running++;if(cat==='D'){cyclePos++;if(cyclePos>8)cyclePos=1;cntCell=`<strong>${cyclePos}/8</strong>`;}else if(cat==='A'||cat==='B')cntCell=`<strong>${running<=8?running:running+' ⚠'}</strong>`;else cntCell=`<strong>${running}</strong>`;}else cntCell=`<span style="color:var(--mut)">0</span>`;}else if(!row.status)cntCell=`<span style="color:var(--sub)">—</span>`;
+    if(!isCancelled&&row.status){const c=countClass(row.status,cat);if(c>0){running++;if(cat==='D'){const dp=dCycleMap[row.date]||1;cntCell=`<strong>${dp}/8</strong>`;}else if(cat==='A'||cat==='B')cntCell=`<strong>${running<=8?running:running+' ⚠'}</strong>`;else cntCell=`<strong>${running}</strong>`;}else cntCell=`<span style="color:var(--mut)">0</span>`;}else if(!row.status)cntCell=`<span style="color:var(--sub)">—</span>`;
     const tmpTag=row.isTemp?`<span style="font-size:9px;background:var(--oral);color:var(--ora);padding:1px 4px;border-radius:4px;margin-left:4px">Temp</span>`:'';
     const mfNote=row.makeupFor?`<div style="font-size:10px;color:var(--mut)">For: ${fmtDDMM(new Date(row.makeupFor+'T12:00:00'))}</div>`:'';
     return`<tr style="${isCancelled?'background:#fff5f5;opacity:.7':''}"><td style="white-space:nowrap">${dl}${tzLbl}${tmpTag}</td><td style="${typeColor}">${typeLabel}${mfNote}</td><td>${attCell}</td><td style="text-align:center">${cntCell}</td></tr>`;
@@ -1335,12 +1385,17 @@ function buildFeeTracker(batchId,studentName,cat,sObj){
   const now=new Date(),cy=now.getFullYear(),cm=now.getMonth()+1;
 
   if(cat==='D'){
-    const cs=sObj.cycleStartDate||sObj.trackStartDate;if(!cs)return'<div style="font-size:12px;color:var(--mut)">Set cycle start date first.</div>';
-    const curCycleKey=cycleFeeKey(sObj.currentCycleStart||cs);const cyclePos=sObj.currentClassCount||parseInt(sObj.startingClassNum)||1;
-    const curSt=(sObj[curCycleKey]?.status)||'ongoing';
+    const cycles=getRollingCycles(batchId,studentName);
+    if(!cycles.length)return'<div style="font-size:12px;color:var(--mut)">Set cycle details first.</div>';
     const rows=[];
-    rows.push(`<tr><td>${sObj.currentCycleStart||cs} – current</td><td>${sym}${rate.toLocaleString('en-IN')} <span style="font-size:10px;color:var(--mut)">(Class ${cyclePos}/8)</span></td><td><span class="f${curSt==='paid'?'pd':curSt==='pending'?'pnd':'on'}">${curSt.charAt(0).toUpperCase()+curSt.slice(1)}</span></td><td>${curSt!=='paid'?`<button class="bp" style="font-size:11px;padding:3px 10px" onclick="markCyclePaid('${ssKey}','${sObj.currentCycleStart||cs}')">Mark Paid</button>`:`<button class="bc" style="font-size:11px;padding:3px 10px" onclick="undoCyclePaid('${ssKey}','${sObj.currentCycleStart||cs}')">Undo</button>`}</td></tr>`);
-    Object.keys(sObj).filter(k=>k.startsWith('fs_cycle_')&&k!==curCycleKey).sort().reverse().forEach(ck=>{const cdata=sObj[ck]||{};const st=cdata.status||'pending';const pd=ck.replace('fs_cycle_','');rows.push(`<tr><td>${pd}</td><td>${sym}${rate.toLocaleString('en-IN')}</td><td><span class="f${st==='paid'?'pd':st==='pending'?'pnd':'on'}">${st.charAt(0).toUpperCase()+st.slice(1)}</span></td><td>${st!=='paid'?`<button class="bp" style="font-size:11px;padding:3px 10px" onclick="markCyclePaid('${ssKey}','${pd}')">Mark Paid</button>`:`<button class="bc" style="font-size:11px;padding:3px 10px" onclick="undoCyclePaid('${ssKey}','${pd}')">Undo</button>`}</td></tr>`);});
+    cycles.forEach(c=>{
+      if(c.status==='paid'&&!c.current)return; // paid historical rows go to Payment History
+      const label=c.pendingStart?'Next cycle starts with next counted class':`${c.start||'—'} – ${c.end||'current'}`;
+      const status=c.status||'ongoing';
+      const countTxt=c.current?`Class ${c.nextClass||1}/8 running`:`8/8 completed`;
+      const btn=status!=='paid'?`<button class="bp" style="font-size:11px;padding:3px 10px" onclick="markCyclePaid('${ssKey}','${c.key}')">Mark Paid</button>`:`<button class="bc" style="font-size:11px;padding:3px 10px" onclick="undoCyclePaid('${ssKey}','${c.key}')">Undo</button>`;
+      rows.push(`<tr><td>${label}</td><td>${sym}${rate.toLocaleString('en-IN')} <span style="font-size:10px;color:var(--mut)">(${countTxt})</span></td><td><span class="${status==='paid'?'fpd':status==='pending'?'fpnd':'fon'}">${status.charAt(0).toUpperCase()+status.slice(1)}</span></td><td>${c.pendingStart?'—':btn}</td></tr>`);
+    });
     return`<table class="tt"><thead><tr><th>Cycle</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
   }
 
@@ -1348,20 +1403,39 @@ function buildFeeTracker(batchId,studentName,cat,sObj){
   const rows=[];
   for(let y=pY,m=pM;;m++){if(m>12){m=1;y++;}if(y>cy||(y===cy&&m>cm))break;
     const feeStatus=computeDisplayFeeStatus(ssKey,cat,y,m);if(!feeStatus)continue;
+    if(feeStatus==='paid' && !(y===cy&&m===cm))continue; // old paid rows shown in history
     const feeAmt=computeFeeAmt(studentName,batchId,y,m);
     const pLabel=`${MONTHS[m-1]} ${y}`;
     const btn=feeStatus!=='paid'?`<button class="bp" style="font-size:11px;padding:3px 10px" onclick="markMonthPaid('${ssKey}',${y},${m})">Mark Paid</button>`:`<button class="bc" style="font-size:11px;padding:3px 10px" onclick="undoMonthPaid('${ssKey}',${y},${m})">Undo</button>`;
     rows.push(`<tr><td>${pLabel}</td><td>${feeAmt.label}</td><td><span class="${feeStatus==='paid'?'fpd':feeStatus==='pending'?'fpnd':'fon'}">${feeStatus.charAt(0).toUpperCase()+feeStatus.slice(1)}</span></td><td>${btn}</td></tr>`);
     if(y===cy&&m===cm)break;
   }
-  if(!rows.length)return'<div style="font-size:12px;color:var(--mut)">No fee periods to display.</div>';
+  if(!rows.length)return'<div style="font-size:12px;color:var(--mut)">No pending or current fee periods.</div>';
   return`<table class="tt"><thead><tr><th>Period</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+function buildPaymentHistory(batchId,studentName,cat,sObj){
+  const ssKey=batchId+':'+studentName;const cur=sObj.currency||'INR',sym=cur==='USD'?'$':'₹';const rate=parseFloat(sObj.rate)||0;
+  const rows=[];
+  if(cat==='D'){
+    getRollingCycles(batchId,studentName).forEach(c=>{
+      if(c.status==='paid'){rows.push(`<tr><td>${c.start||'—'} – ${c.end||'current'}</td><td>${sym}${rate.toLocaleString('en-IN')}</td><td>${c.payDate||'—'}</td><td><button class="bc" style="font-size:11px;padding:3px 10px" onclick="undoCyclePaid('${ssKey}','${c.key}')">Undo</button></td></tr>`);}
+    });
+  }else{
+    Object.keys(sObj).filter(k=>k.startsWith('fs_')&&!k.startsWith('fs_cycle_')).sort().forEach(k=>{
+      const v=sObj[k];const st=feeStatusValue(v);if(st!=='paid')return;
+      const parts=k.replace('fs_','').split('_');const y=parseInt(parts[0]),m=parseInt(parts[1]);
+      const feeAmt=computeFeeAmt(studentName,batchId,y,m);
+      rows.push(`<tr><td>${MONTHS[m-1]} ${y}</td><td>${feeAmt.label}</td><td>${v?.payDate||'—'}</td><td><button class="bc" style="font-size:11px;padding:3px 10px" onclick="undoMonthPaid('${ssKey}',${y},${m})">Undo</button></td></tr>`);
+    });
+  }
+  if(!rows.length)return'<div style="font-size:12px;color:var(--mut)">No paid fee records yet.</div>';
+  return`<table class="tt"><thead><tr><th>Period / Cycle</th><th>Amount</th><th>Payment Date</th><th>Action</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 function markMonthPaid(ssKey,y,m){saveFeeStatus(ssKey,y,m,'paid');renderStudentDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();showToast('Marked as paid');}
-function undoMonthPaid(ssKey,y,m){if(!ss[ssKey])return;const now=new Date();const st=(y===now.getFullYear()&&m===now.getMonth()+1)?'ongoing':'pending';ss[ssKey][feeKey(y,m)]=st;const s2=ss[ssKey];if(parseInt(s2.lastPaidYear)===y&&parseInt(s2.lastPaidMonth)===m){delete s2.lastPaidYear;delete s2.lastPaidMonth;}save('ss',ss);renderStudentDetail();showToast('Payment undone');}
+function undoMonthPaid(ssKey,y,m){if(!ss[ssKey])return;const now=new Date();const st=(y===now.getFullYear()&&m===now.getMonth()+1)?'ongoing':'pending';ss[ssKey][feeKey(y,m)]={status:st,payDate:null};const s2=ss[ssKey];if(parseInt(s2.lastPaidYear)===y&&parseInt(s2.lastPaidMonth)===m){delete s2.lastPaidYear;delete s2.lastPaidMonth;}save('ss',ss);renderStudentDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();showToast('Payment undone');}
 function markCyclePaid(ssKey,cs){if(!ss[ssKey])ss[ssKey]={};ss[ssKey][cycleFeeKey(cs)]={status:'paid',payDate:localDS(new Date())};save('ss',ss);renderStudentDetail();showToast('Marked as paid');}
-function undoCyclePaid(ssKey,cs){if(!ss[ssKey])return;ss[ssKey][cycleFeeKey(cs)]={status:'pending'};save('ss',ss);renderStudentDetail();showToast('Payment undone');}
+function undoCyclePaid(ssKey,cs){if(!ss[ssKey])return;ss[ssKey][cycleFeeKey(cs)]={status:'pending',payDate:null};save('ss',ss);renderStudentDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();showToast('Payment undone');}
 function refreshSD(){if(document.getElementById('ov-sd').classList.contains('open'))renderStudentDetail();}
 
 // ═══════════════════════════════════════════════════
@@ -1369,16 +1443,16 @@ function refreshSD(){if(document.getElementById('ov-sd').classList.contains('ope
 // ═══════════════════════════════════════════════════
 function openTW(){
   if(!twWkStart)twWkStart=getMon(new Date());
-  const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));twMerge();}
+  const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));}
   document.getElementById('tw-dt').value=localDS(twWkStart);twRender();openOv('ov-tw');
 }
-function twSetWeek(){const v=document.getElementById('tw-dt').value;if(!v)return;twWkStart=getMon(new Date(v+'T12:00:00'));document.getElementById('tw-dt').value=localDS(twWkStart);const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));twMerge();}twRender();}
+function twSetWeek(){const v=document.getElementById('tw-dt').value;if(!v)return;twWkStart=getMon(new Date(v+'T12:00:00'));document.getElementById('tw-dt').value=localDS(twWkStart);const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));}twRender();}
 function twPrev(){twWkStart=addDays(twWkStart,-7);twSetWeekGo();}function twNext(){twWkStart=addDays(twWkStart,7);twSetWeekGo();}
-function twSetWeekGo(){document.getElementById('tw-dt').value=localDS(twWkStart);const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));twMerge();}twRender();}
-function twPopulate(){const evs=[];[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{const wr=(twRemoved[twKey()]||[]).some(r=>r.batchId===entity.id&&r.date===ds&&!r.studentScope);if(wr)return;if(evs.some(ev=>ev.batchId===entity.id&&localDS(new Date(ev.date))===ds&&ev.start===slot.start))return;evs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});});}});twEvs=evs;twWkCache[twKey()]=evs;}
-function twMerge(){const wk=twKey();[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{if((twRemoved[wk]||[]).some(r=>r.batchId===entity.id&&r.date===ds&&!r.studentScope))return;if(twEvs.some(ev=>ev.batchId===entity.id&&localDS(new Date(ev.date))===ds&&ev.start===slot.start))return;twEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});});}});twWkCache[twKey()]=twEvs;}
+function twSetWeekGo(){document.getElementById('tw-dt').value=localDS(twWkStart);const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));}twRender();}
+function twPopulate(){const evs=[];[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{const wr=(twRemoved[twKey()]||[]).some(r=>r.batchId===entity.id&&r.date===ds&&(!r.start||r.start===slot.start)&&!r.studentScope);if(wr)return;if(evs.some(ev=>ev.batchId===entity.id&&localDS(new Date(ev.date))===ds&&ev.start===slot.start))return;evs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});});}});twEvs=evs;twWkCache[twKey()]=evs;}
+function twMerge(){const wk=twKey();[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{if((twRemoved[wk]||[]).some(r=>r.batchId===entity.id&&r.date===ds&&!r.studentScope))return;if(twEvs.some(ev=>ev.batchId===entity.id&&localDS(new Date(ev.date))===ds&&ev.start===slot.start))return;twEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});});}});twWkCache[twKey()]=twEvs;}
 function twSave(){twWkCache[twKey()]=twEvs;const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));}
-function twRefresh(){if(!confirm('Rebuild from schedule? Manual edits replaced.'))return;twPopulate();twRender();showToast('Refreshed');}
+function twRefresh(){showToast('Refresh removed: TW keeps saved edits.');}
 
 function twRender(){
   const days=Array.from({length:7},(_,i)=>addDays(twWkStart,i));
@@ -1421,13 +1495,25 @@ let _twDragId=null;
 function twDragStart(e,id){_twDragId=id;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',id);}
 function twDragOver(e){e.preventDefault();e.currentTarget.classList.add('dov');}
 function twDragLeave(e){e.currentTarget.classList.remove('dov');}
+function markOriginalRemoved(ev,origDs){
+  if(ev.classType!=='scheduled')return;
+  const wk=twKey();if(!twRemoved[wk])twRemoved[wk]=[];
+  const od=ev.originDate||origDs,os=ev.originStart||ev.start;
+  if(!twRemoved[wk].some(r=>r.batchId===ev.batchId&&r.date===od&&r.start===os&&(!r.studentScope||r.studentScope===ev.studentScope))){twRemoved[wk].push({batchId:ev.batchId,date:od,start:os,studentScope:ev.studentScope||null});}
+}
 function twDrop(e,targetDs){
   e.preventDefault();e.currentTarget.classList.remove('dov');
   const id=e.dataTransfer.getData('text/plain');const ev=twEvs.find(x=>x.id===id);if(!ev)return;
-  const origDs=localDS(new Date(ev.date));
-  if(origDs!==targetDs){const wk=twKey();if(!twRemoved[wk])twRemoved[wk]=[];if(!twRemoved[wk].some(r=>r.batchId===ev.batchId&&r.date===origDs&&!r.studentScope))twRemoved[wk].push({batchId:ev.batchId,date:origDs,studentScope:null});}
-  ev.date=new Date(targetDs+'T12:00:00');twSave();twRender();refreshSD();
+  const origDs=localDS(new Date(ev.date));const dur=toMins(ev.end)-toMins(ev.start);
+  const rect=e.currentTarget.getBoundingClientRect();const y=Math.max(0,Math.min(e.clientY-rect.top,TW_H));
+  const mins=Math.round((y/TWX)/15)*15+TW_S*60;
+  const ns=minsToIST(Math.max(TW_S*60,Math.min(mins,(TW_E*60)-15)));
+  const ne=minsToIST(Math.min(TW_E*60,toMins(ns)+dur));
+  markOriginalRemoved(ev,origDs);
+  ev.date=new Date(targetDs+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
+  twSave();twRender();refreshSD();
   if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
+  if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
 }
 
 // ADD CLASS
@@ -1529,8 +1615,7 @@ function tweSave(){
   const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;
   const nd=document.getElementById('twe-dt').value,ns=document.getElementById('twe-st').value,ne=document.getElementById('twe-en').value;
   if(toMins(ne)<=toMins(ns)){showToast('End must be after start');return;}
-  const origDs=localDS(new Date(ev.date));ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;
-  if(origDs!==nd&&ev.classType==='scheduled'){const wk=twKey();if(!twRemoved[wk])twRemoved[wk]=[];if(!twRemoved[wk].some(r=>r.batchId===ev.batchId&&r.date===origDs&&!r.studentScope))twRemoved[wk].push({batchId:ev.batchId,date:origDs,studentScope:null});}
+  const origDs=localDS(new Date(ev.date));markOriginalRemoved(ev,origDs);ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
   const addons=[];document.querySelectorAll('#twe-addons .ao-row').forEach(row=>{const sv=row.querySelector('select').value;if(!sv)return;const[bid,nm]=sv.split('|');const type=row.querySelector('.ao-type')?.value||'additional';addons.push({name:nm,batchId:bid,classType:type,makeupFor:null});});ev.addonStudents=addons;
   twSave();closeOv('ov-twe');twRender();refreshSD();if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
 }
@@ -1548,11 +1633,10 @@ function tweDoCancel(){
 function tweRemoveConfirm(){
   showConfirm('Remove this class? Attendance deleted.',()=>{
     const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;
-    const wk=twKey(),ds=localDS(new Date(ev.date));if(!twRemoved[wk])twRemoved[wk]=[];
-    if(!twRemoved[wk].some(r=>r.batchId===ev.batchId&&r.date===ds&&!r.studentScope))twRemoved[wk].push({batchId:ev.batchId,date:ds,studentScope:null});
+    const ds=localDS(new Date(ev.date));markOriginalRemoved(ev,ds);
     if(att[twEditId]){delete att[twEditId];save('att',att);}
     twEvs=twEvs.filter(x=>x.id!==twEditId);twSave();twRender();closeOv('ov-twe');refreshSD();
-    if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();showToast('Class removed');
+    if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();showToast('Class removed');
   });
 }
 
@@ -1604,10 +1688,10 @@ function renderAtt(){
     const counted=(cat==='A'||cat==='B')?Math.min(raw,8):raw;
     const feeStatus=cat&&cat!=='D'?computeDisplayFeeStatus(k,cat,year,month):null;
     const feeAmt=computeFeeAmt(r.name,r.batchId,year,month);
-    if(feeAmt.amount!=null){totalDue+=feeAmt.amount;if(feeStatus==='paid')totalColl+=feeAmt.amount;}
+    if(cat!=='D'&&feeAmt.amount!=null){totalDue+=feeAmt.amount;if(feeStatus==='paid')totalColl+=feeAmt.amount;}
     let feeCell='—';
     if(feeStatus){const badges={paid:`<span class="fpd" onclick="openStudentDetail('${r.batchId}','${r.name}')">Paid</span>`,pending:`<span class="fpnd" onclick="openStudentDetail('${r.batchId}','${r.name}')">Pending</span>`,ongoing:`<span class="fon" onclick="openStudentDetail('${r.batchId}','${r.name}')">Ongoing</span>`};feeCell=`${badges[feeStatus]||feeStatus}<div style="font-size:10px;color:var(--mut);margin-top:1px">${feeAmt.label}</div>`;}
-    else if(cat==='D'){const pos=sObj.currentClassCount||1;feeCell=`<span class="fon" onclick="openStudentDetail('${r.batchId}','${r.name}')">${pos}/8</span>`;}
+    else if(cat==='D'){const cycles=getRollingCycles(r.batchId,r.name).filter(c=>{if(!c.start&&!c.end)return false;const st=c.start||fromDate,en=c.end||toDate;return st<=toDate&&en>=fromDate;});if(cycles.length){feeCell=cycles.map(c=>{const st=c.status||'ongoing';if(c.amount!=null){totalDue+=c.amount;if(st==='paid')totalColl+=c.amount;}return `<div style="border-bottom:1px solid #ddd;padding:2px 0"><span class="${st==='paid'?'fpd':st==='pending'?'fpnd':'fon'}" onclick="openStudentDetail('${r.batchId}','${r.name}')">${st}</span><div style="font-size:10px;color:var(--mut)">${c.start||'—'} – ${c.end||'current'} · ₹${(c.amount||0).toLocaleString('en-IN')}</div></div>`;}).join('');}else feeCell='<span class="fon">Ongoing</span>';}
     html+=`<tr><td class="sn" onclick="openStudentDetail('${r.batchId}','${r.name}')">${r.name}</td><td class="bn">${r.batchName}</td>${cells}<td class="sr" style="right:110px;text-align:center;font-weight:600;font-size:11px">${counted}</td><td class="sr" style="right:0;padding:3px 5px">${feeCell}</td></tr>`;
   });
   html+=`</tbody></table>
