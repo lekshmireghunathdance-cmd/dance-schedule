@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<!-- saved from url=(0136)file:///Users/lekshmireghunath/Documents/Codex/2026-06-10/files-mentioned-by-the-user-additional/outputs/dance-schedule-repaired-v9.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dance Schedule</title>
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link href="./Dance Schedule_files/css2" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -127,26 +127,26 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <!-- HEADER -->
 <header class="hdr">
   <button class="burger" onclick="toggleSidebar()">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect y="4" width="24" height="2" rx="1"/><rect y="11" width="24" height="2" rx="1"/><rect y="18" width="24" height="2" rx="1"/></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect y="4" width="24" height="2" rx="1"></rect><rect y="11" width="24" height="2" rx="1"></rect><rect y="18" width="24" height="2" rx="1"></rect></svg>
   </button>
   <span class="logo">Dance <span>Schedule</span></span>
   <div class="hsp"></div>
-  <span id="season-badge" class="sbadge"></span>
+  <span id="season-badge" class="sbadge" style="background: rgb(255, 248, 225); color: rgb(230, 81, 0);">☀ Summer</span>
   <button class="hbtn" id="btn-ist" onclick="toggleIst()">IST only</button>
   <div class="tz-wrap" id="tz-wrap">
     <button class="tz-btn" onclick="toggleTzDd()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"></path></svg>
       <span id="tz-lbl">EDT</span>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
     </button>
-    <div class="tz-dd" id="tz-dd"></div>
+    <div class="tz-dd" id="tz-dd"><div class="tz-opt active" onclick="setTz(&#39;EDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>EDT – Eastern Summer</div><div class="tz-opt" onclick="setTz(&#39;EST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>EST – Eastern Winter</div><div class="tz-opt" onclick="setTz(&#39;CDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>CDT – Central Summer</div><div class="tz-opt" onclick="setTz(&#39;CST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>CST – Central Winter</div><div class="tz-opt" onclick="setTz(&#39;PDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>PDT – Pacific Summer</div><div class="tz-opt" onclick="setTz(&#39;PST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>PST – Pacific Winter</div><div class="tz-opt" onclick="setTz(&#39;AEDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>AEDT – Australian Summer</div><div class="tz-opt" onclick="setTz(&#39;AEST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>AEST – Australian Winter</div><div class="tz-opt" onclick="setTz(&#39;BST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>BST – British Summer</div><div class="tz-opt" onclick="setTz(&#39;GMT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>GMT – Greenwich Mean Time</div></div>
   </div>
   <button class="hbtn" onclick="openTW()" style="background:var(--oral);color:var(--ora);font-weight:500">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
     This Week
   </button>
   <button class="hbtn" onclick="openAtt()" style="background:var(--bluel);color:var(--blue);font-weight:500">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>
     Attendance
   </button>
   <button class="hbtn" onclick="openSettings()">⚙ Settings</button>
@@ -156,32 +156,108 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="body">
   <aside class="sidebar" id="sidebar">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 10px">
-      <button id="btn-ab" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-family:'Roboto',sans-serif;font-weight:500">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Add batch
+      <button id="btn-ab" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-family:&#39;Roboto&#39;,sans-serif;font-weight:500">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>Add batch
       </button>
-      <button id="btn-as" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:none;color:var(--blue);border:1px solid var(--blue);border-radius:var(--r);cursor:pointer;font-size:11px;font-family:'Roboto',sans-serif;font-weight:500">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Add student
+      <button id="btn-as" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:none;color:var(--blue);border:1px solid var(--blue);border-radius:var(--r);cursor:pointer;font-size:11px;font-family:&#39;Roboto&#39;,sans-serif;font-weight:500">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>Add student
       </button>
     </div>
     <div class="sb-sec">
-      <div class="sb-lbl" onclick="toggleSec('batches')">
+      <div class="sb-lbl" onclick="toggleSec(&#39;batches&#39;)">
         <span>Batches</span>
-        <svg id="cv-batches" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg>
+        <svg id="cv-batches" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"></path></svg>
       </div>
-      <div id="sb-batches"><div id="batch-list"></div><div id="batch-empty" style="font-size:11px;color:var(--sub);padding:6px 4px;display:none">No batches yet.</div></div>
+      <div id="sb-batches"><div id="batch-list"><div class="brow" data-bid="b_1781057778848" onclick="openBatchDetail(&#39;b_1781057778848&#39;)"><div class="bdot" style="background:#4285f4"></div><span class="bname">Ohio 1</span></div><div class="brow" data-bid="b_1781058881620" onclick="openBatchDetail(&#39;b_1781058881620&#39;)"><div class="bdot" style="background:#34a853"></div><span class="bname">Ohio 1A</span></div><div class="brow" data-bid="b_1781060124523" onclick="openBatchDetail(&#39;b_1781060124523&#39;)"><div class="bdot" style="background:#fbbc04"></div><span class="bname">Ohio 2</span></div><div class="brow" data-bid="b_1781075231897" onclick="openBatchDetail(&#39;b_1781075231897&#39;)"><div class="bdot" style="background:#e91e63"></div><span class="bname">Ohio 3</span></div><div class="brow" data-bid="b_1781099643379" onclick="openBatchDetail(&#39;b_1781099643379&#39;)"><div class="bdot" style="background:#7c4dff"></div><span class="bname">Ohio 4</span></div><div class="brow" data-bid="b_1781140968063" onclick="openBatchDetail(&#39;b_1781140968063&#39;)"><div class="bdot" style="background:#00bcd4"></div><span class="bname">Ohio 5</span></div></div><div id="batch-empty" style="font-size: 11px; color: var(--sub); padding: 6px 4px; display: none;">No batches yet.</div></div>
     </div>
     <div class="sb-div"></div>
     <div class="sb-sec">
-      <div class="sb-lbl" onclick="toggleSec('students')">
+      <div class="sb-lbl" onclick="toggleSec(&#39;students&#39;)">
         <span>Students</span>
-        <svg id="cv-students" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg>
+        <svg id="cv-students" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"></path></svg>
       </div>
-      <div id="sb-students"><div id="student-list"></div><div id="student-empty" style="font-size:11px;color:var(--sub);padding:6px 4px;display:none">No students yet.</div></div>
+      <div id="sb-students"><div id="student-list"><div class="brow" data-bid="b_1781099643379" data-sn="Aadvi" onclick="sbStudentClick(this)"><div class="bdot" style="background:#7c4dff"></div><span class="bname">Aadvi</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 4</span></div><div class="brow" data-bid="b_1781075231897" data-sn="Aadya%20C" onclick="sbStudentClick(this)"><div class="bdot" style="background:#e91e63"></div><span class="bname">Aadya C</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 3</span></div><div class="brow" data-bid="b_1781099643379" data-sn="Aadya%20I" onclick="sbStudentClick(this)"><div class="bdot" style="background:#7c4dff"></div><span class="bname">Aadya I</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 4</span></div><div class="brow" data-bid="b_1781060124523" data-sn="Aarohi" onclick="sbStudentClick(this)"><div class="bdot" style="background:#fbbc04"></div><span class="bname">Aarohi</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 2</span></div><div class="brow" data-bid="b_1781140968063" data-sn="Aditi" onclick="sbStudentClick(this)"><div class="bdot" style="background:#00bcd4"></div><span class="bname">Aditi</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 5</span></div><div class="brow" data-bid="b_1781075231897" data-sn="Aishwarya" onclick="sbStudentClick(this)"><div class="bdot" style="background:#e91e63"></div><span class="bname">Aishwarya</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 3</span></div><div class="brow" data-bid="b_1781075231897" data-sn="Akshaya" onclick="sbStudentClick(this)"><div class="bdot" style="background:#e91e63"></div><span class="bname">Akshaya</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 3</span></div><div class="brow" data-bid="ind_1781067860990" data-sn="Amrutha" onclick="sbStudentClick(this)"><div class="bdot" style="background:#607d8b"></div><span class="bname">Amrutha</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Individual</span></div><div class="brow" data-bid="b_1781057778848" data-sn="Ava" onclick="sbStudentClick(this)"><div class="bdot" style="background:#4285f4"></div><span class="bname">Ava</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 1</span></div><div class="brow" data-bid="b_1781140968063" data-sn="Daksha" onclick="sbStudentClick(this)"><div class="bdot" style="background:#00bcd4"></div><span class="bname">Daksha</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 5</span></div><div class="brow" data-bid="b_1781057778848" data-sn="Harini" onclick="sbStudentClick(this)"><div class="bdot" style="background:#4285f4"></div><span class="bname">Harini</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 1</span></div><div class="brow" data-bid="b_1781058881620" data-sn="Karthika" onclick="sbStudentClick(this)"><div class="bdot" style="background:#34a853"></div><span class="bname">Karthika</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 1A</span></div><div class="brow" data-bid="b_1781058881620" data-sn="Lasya" onclick="sbStudentClick(this)"><div class="bdot" style="background:#34a853"></div><span class="bname">Lasya</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 1A</span></div><div class="brow" data-bid="b_1781060124523" data-sn="Mahati" onclick="sbStudentClick(this)"><div class="bdot" style="background:#fbbc04"></div><span class="bname">Mahati</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 2</span></div><div class="brow" data-bid="b_1781099643379" data-sn="Nidhi" onclick="sbStudentClick(this)"><div class="bdot" style="background:#7c4dff"></div><span class="bname">Nidhi</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 4</span></div><div class="brow" data-bid="b_1781060124523" data-sn="Nihasvi" onclick="sbStudentClick(this)"><div class="bdot" style="background:#fbbc04"></div><span class="bname">Nihasvi</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 2</span></div><div class="brow" data-bid="ind_1781059530843" data-sn="Nishna" onclick="sbStudentClick(this)"><div class="bdot" style="background:#607d8b"></div><span class="bname">Nishna</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Individual</span></div><div class="brow" data-bid="b_1781140968063" data-sn="Nitya" onclick="sbStudentClick(this)"><div class="bdot" style="background:#00bcd4"></div><span class="bname">Nitya</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 5</span></div><div class="brow" data-bid="b_1781099643379" data-sn="Risha" onclick="sbStudentClick(this)"><div class="bdot" style="background:#7c4dff"></div><span class="bname">Risha</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 4</span></div><div class="brow" data-bid="b_1781060124523" data-sn="Rithika" onclick="sbStudentClick(this)"><div class="bdot" style="background:#fbbc04"></div><span class="bname">Rithika</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 2</span></div><div class="brow" data-bid="b_1781060124523" data-sn="Sai" onclick="sbStudentClick(this)"><div class="bdot" style="background:#fbbc04"></div><span class="bname">Sai</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 2</span></div><div class="brow" data-bid="ind_1781100057495" data-sn="Swathy" onclick="sbStudentClick(this)"><div class="bdot" style="background:#607d8b"></div><span class="bname">Swathy</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Individual</span></div><div class="brow" data-bid="b_1781060124523" data-sn="Varshita" onclick="sbStudentClick(this)"><div class="bdot" style="background:#fbbc04"></div><span class="bname">Varshita</span><span style="font-size:9px;color:var(--sub);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ohio 2</span></div></div><div id="student-empty" style="font-size: 11px; color: var(--sub); padding: 6px 4px; display: none;">No students yet.</div></div>
     </div>
     <div class="sb-div"></div>
     <div class="sb-sec"><div style="font-size:9px;color:var(--sub);padding:3px">Auto-saved to cloud</div></div>
   </aside>
-  <main class="cal-outer"><div id="cal-inner"></div></main>
+  <main class="cal-outer"><div id="cal-inner"><div class="cal-grid" style="grid-template-columns:52px 52px repeat(7,minmax(88px,1fr))"><div class="cal-hc" style="font-size:9px;font-weight:600;color:var(--sub);display:flex;align-items:flex-end;justify-content:flex-end;padding:0 5px 5px;border-right:1px solid var(--bdr)">IST</div><div class="cal-hc" style="font-size:9px;font-weight:600;color:var(--blue);display:flex;align-items:flex-end;padding:0 5px 5px;border-right:1px solid var(--bdr)">EDT</div><div class="cal-hdr" style="">Mon<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">08-06</span></div><div class="cal-hdr" style="">Tue<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">09-06</span></div><div class="cal-hdr" style="">Wed<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">10-06</span></div><div class="cal-hdr" style="color:var(--ora);">Thu<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">11-06</span></div><div class="cal-hdr" style="">Fri<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">05-06</span></div><div class="cal-hdr" style="">Sat<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">06-06</span></div><div class="cal-hdr" style="">Sun<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">07-06</span></div><div style="display:flex;flex-direction:column;background:var(--sur)"><div class="cal-tm" style="height:66px">4am</div><div class="cal-tm" style="height:66px">5am</div><div class="cal-tm" style="height:66px">6am</div><div class="cal-tm" style="height:66px">7am</div><div class="cal-tm" style="height:66px">8am</div><div class="cal-tm" style="height:66px">9am</div><div class="cal-tm" style="height:66px">10am</div><div class="cal-tm" style="height:66px">11am</div><div class="cal-tm" style="height:66px">12pm</div><div class="cal-tm" style="height:66px">1pm</div><div class="cal-tm" style="height:66px">2pm</div><div class="cal-tm" style="height:66px">3pm</div><div class="cal-tm" style="height:66px">4pm</div><div class="cal-tm" style="height:66px">5pm</div><div class="cal-tm" style="height:66px">6pm</div><div class="cal-tm" style="height:66px">7pm</div><div class="cal-tm" style="height:66px">8pm</div><div class="cal-tm" style="height:66px">9pm</div><div class="cal-tm" style="height:66px">10pm</div><div class="cal-tm" style="height:66px">11pm</div></div><div style="display:flex;flex-direction:column;background:var(--sur)"><div class="cal-tmtz" style="height:66px">6:30pm</div><div class="cal-tmtz" style="height:66px">7:30pm</div><div class="cal-tmtz" style="height:66px">8:30pm</div><div class="cal-tmtz" style="height:66px">9:30pm</div><div class="cal-tmtz" style="height:66px">10:30pm</div><div class="cal-tmtz" style="height:66px">11:30pm</div><div class="cal-tmtz" style="height:66px">12:30am</div><div class="cal-tmtz" style="height:66px">1:30am</div><div class="cal-tmtz" style="height:66px">2:30am</div><div class="cal-tmtz" style="height:66px">3:30am</div><div class="cal-tmtz" style="height:66px">4:30am</div><div class="cal-tmtz" style="height:66px">5:30am</div><div class="cal-tmtz" style="height:66px">6:30am</div><div class="cal-tmtz" style="height:66px">7:30am</div><div class="cal-tmtz" style="height:66px">8:30am</div><div class="cal-tmtz" style="height:66px">9:30am</div><div class="cal-tmtz" style="height:66px">10:30am</div><div class="cal-tmtz" style="height:66px">11:30am</div><div class="cal-tmtz" style="height:66px">12:30pm</div><div class="cal-tmtz" style="height:66px">1:30pm</div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div><div class="cal-ev" style="top:462.00000000000006px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Amrutha">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Amrutha</div>
+        <div style="font-size:9px;opacity:.8">11am</div>
+        <div style="font-size:9px;opacity:.6">1:30am</div>
+      </div><div class="cal-ev tmp" style="top:891.0000000000001px;height:66px;left:calc(0% + 2px);right:calc(50% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Ohio 1 (temp)">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 1</div>
+        <div style="font-size:9px;opacity:.8">5:30pm</div>
+        <div style="font-size:9px;opacity:.6">8am</div>
+      </div><div class="cal-ev tmp" style="top:924.0000000000001px;height:66px;left:calc(50% + 2px);right:calc(0% + 2px);background:#e0f7fa;border-color:#00bcd4;color:#006064" title="Ohio 5 (temp)">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 5</div>
+        <div style="font-size:9px;opacity:.8">6pm</div>
+        <div style="font-size:9px;opacity:.6">8:30am</div>
+      </div><div class="cal-ev" style="top:1056px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Nishna">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Nishna</div>
+        <div style="font-size:9px;opacity:.8">8pm</div>
+        <div style="font-size:9px;opacity:.6">10:30am</div>
+      </div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div><div class="cal-ev" style="top:1056px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Nishna">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Nishna</div>
+        <div style="font-size:9px;opacity:.8">8pm</div>
+        <div style="font-size:9px;opacity:.6">10:30am</div>
+      </div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div><div class="cal-ev tmp" style="top:66px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e6f4ea;border-color:#34a853;color:#1b5e20" title="Ohio 1A (temp)">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 1A</div>
+        <div style="font-size:9px;opacity:.8">5am</div>
+        <div style="font-size:9px;opacity:.6">7:30pm</div>
+      </div><div class="cal-ev" style="top:363.00000000000006px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Swathy">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Swathy</div>
+        <div style="font-size:9px;opacity:.8">9:30am</div>
+        <div style="font-size:9px;opacity:.6">12am</div>
+      </div><div class="cal-ev tmp" style="top:891.0000000000001px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Ohio 1 (temp)">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 1</div>
+        <div style="font-size:9px;opacity:.8">5:30pm</div>
+        <div style="font-size:9px;opacity:.6">8am</div>
+      </div><div class="cal-ev tmp" style="top:1056px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e0f7fa;border-color:#00bcd4;color:#006064" title="Ohio 5 (temp)">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 5</div>
+        <div style="font-size:9px;opacity:.8">8pm</div>
+        <div style="font-size:9px;opacity:.6">10:30am</div>
+      </div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div><div class="cal-ev" style="top:363.00000000000006px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Swathy">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Swathy</div>
+        <div style="font-size:9px;opacity:.8">9:30am</div>
+        <div style="font-size:9px;opacity:.6">12am</div>
+      </div><div class="cal-ev" style="top:462.00000000000006px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Amrutha">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Amrutha</div>
+        <div style="font-size:9px;opacity:.8">11am</div>
+        <div style="font-size:9px;opacity:.6">1:30am</div>
+      </div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div><div class="cal-ev" style="top:66px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#ede7f6;border-color:#7c4dff;color:#311b92" title="Ohio 4">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 4</div>
+        <div style="font-size:9px;opacity:.8">5am</div>
+        <div style="font-size:9px;opacity:.6">7:30pm</div>
+      </div><div class="cal-ev tmp" style="top:891.0000000000001px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e8f0fe;border-color:#4285f4;color:#1a237e" title="Ohio 1 (temp)">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 1</div>
+        <div style="font-size:9px;opacity:.8">5:30pm</div>
+        <div style="font-size:9px;opacity:.6">8am</div>
+      </div><div class="cal-ev tmp" style="top:1056px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#e6f4ea;border-color:#34a853;color:#1b5e20" title="Ohio 1A (temp)">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 1A</div>
+        <div style="font-size:9px;opacity:.8">8pm</div>
+        <div style="font-size:9px;opacity:.6">10:30am</div>
+      </div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div><div class="cal-ev" style="top:924.0000000000001px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#fce4ec;border-color:#e91e63;color:#880e4f" title="Ohio 3">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 3</div>
+        <div style="font-size:9px;opacity:.8">6pm</div>
+        <div style="font-size:9px;opacity:.6">8:30am</div>
+      </div><div class="cal-ev" style="top:1056px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#fef7e0;border-color:#fbbc04;color:#e65100" title="Ohio 2">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 2</div>
+        <div style="font-size:9px;opacity:.8">8pm</div>
+        <div style="font-size:9px;opacity:.6">10:30am</div>
+      </div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div><div class="cal-ev" style="top:924.0000000000001px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#fce4ec;border-color:#e91e63;color:#880e4f" title="Ohio 3">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 3</div>
+        <div style="font-size:9px;opacity:.8">6pm</div>
+        <div style="font-size:9px;opacity:.6">8:30am</div>
+      </div><div class="cal-ev" style="top:990.0000000000001px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#ede7f6;border-color:#7c4dff;color:#311b92" title="Ohio 4">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 4</div>
+        <div style="font-size:9px;opacity:.8">7pm</div>
+        <div style="font-size:9px;opacity:.6">9:30am</div>
+      </div><div class="cal-ev" style="top:1056px;height:66px;left:calc(0% + 2px);right:calc(0% + 2px);background:#fef7e0;border-color:#fbbc04;color:#e65100" title="Ohio 2">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ohio 2</div>
+        <div style="font-size:9px;opacity:.8">8pm</div>
+        <div style="font-size:9px;opacity:.6">10:30am</div>
+      </div></div></div></div></main>
 </div>
 
 <!-- GLOBAL SETTINGS -->
@@ -190,12 +266,12 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <h2>⚙ Global Settings</h2>
     <div class="field"><label>Year</label><select id="gs-yr"><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field"><label>Summer starts on</label><input id="gs-su" type="date"/></div>
-      <div class="field"><label>Winter starts on</label><input id="gs-wi" type="date"/></div>
+      <div class="field"><label>Summer starts on</label><input id="gs-su" type="date"></div>
+      <div class="field"><label>Winter starts on</label><input id="gs-wi" type="date"></div>
     </div>
     <div style="background:var(--bg);border-radius:var(--r);padding:10px;font-size:12px;color:var(--mut);margin-bottom:8px" id="gs-showing">Currently showing: —</div>
     <div class="field"><label>Display timezone</label><select id="gs-tz"></select></div>
-    <div class="mf"><button class="bc" onclick="closeOv('ov-settings')">Cancel</button><button class="bp" onclick="saveSettings()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-settings&#39;)">Cancel</button><button class="bp" onclick="saveSettings()">Save</button></div>
   </div>
 </div>
 
@@ -206,7 +282,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <h2 style="margin-bottom:0" id="b1-ttl">Add Batch Details</h2>
       <span style="font-size:11px;color:var(--blue);font-weight:500">Step 1 of 2</span>
     </div>
-    <div class="field"><label>Batch name</label><input id="b-nm" type="text" placeholder="e.g. Ohio 1"/></div>
+    <div class="field"><label>Batch name</label><input id="b-nm" type="text" placeholder="e.g. Ohio 1"></div>
     <div class="field"><label>Students <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--sub)">(comma-separated)</span></label><textarea id="b-sts" placeholder="Ava, Harini, ..."></textarea></div>
     <div class="field"><label>Preferred timezone</label>
       <select id="b-tz"><option value="IST">IST</option><option value="Eastern">Eastern (EDT/EST)</option><option value="Central">Central (CDT/CST)</option><option value="Pacific">Pacific (PDT/PST)</option><option value="Australian">Australian (AEDT/AEST)</option><option value="British">British (BST/GMT)</option></select>
@@ -214,7 +290,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <div class="field"><label>Colour</label><div class="cg" id="b-cg"></div></div>
     <div class="mf">
       <button class="bd" id="b-del" onclick="deleteBatch()" style="display:none">Delete batch</button>
-      <button class="bc" onclick="closeOv('ov-b1')">Cancel</button>
+      <button class="bc" onclick="closeOv(&#39;ov-b1&#39;)">Cancel</button>
       <button class="bp" onclick="bStep2()">Save &amp; Next →</button>
     </div>
   </div>
@@ -228,23 +304,23 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <span style="font-size:11px;color:var(--blue);font-weight:500">Step 2 of 2</span>
     </div>
     <div style="font-size:12px;color:var(--mut);margin-bottom:12px" id="b2-lbl"></div>
-    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-su"></div><button class="addslot" onclick="bAddSlot('su')">+ Add slot</button></div>
-    <div class="ts-wrap" id="b-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-wi"></div><button class="addslot" onclick="bAddSlot('wi')">+ Add slot</button></div>
+    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-su"></div><button class="addslot" onclick="bAddSlot(&#39;su&#39;)">+ Add slot</button></div>
+    <div class="ts-wrap" id="b-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-wi"></div><button class="addslot" onclick="bAddSlot(&#39;wi&#39;)">+ Add slot</button></div>
     <div class="field" style="margin:6px 0 8px;padding:0 2px">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt)">
-        <input type="checkbox" id="b-same" onchange="bToggleSame()" style="width:14px;height:14px;cursor:pointer"/> Same as summer timings
+        <input type="checkbox" id="b-same" onchange="bToggleSame()" style="width:14px;height:14px;cursor:pointer"> Same as summer timings
       </label>
     </div>
     <div class="ts-wrap"><div class="ts-ttl tp">⏱ Temporary Timings <span style="font-size:9px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--mut)">(replaces regular during date ranges below)</span></div>
       <div class="field" style="margin-bottom:6px"><label>Applies during</label><select id="b-tpss"><option value="both">Both seasons</option><option value="summer">Summer only</option><option value="winter">Winter only</option></select></div>
       <div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
-      <div id="b-tp"></div><button class="addslot" onclick="bAddSlot('tp')">+ Add slot</button>
+      <div id="b-tp"></div><button class="addslot" onclick="bAddSlot(&#39;tp&#39;)">+ Add slot</button>
       <div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Active date ranges</div>
         <div id="b-tp-periods"></div>
-        <button onclick="bAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif">+ Add date range</button>
+        <button onclick="bAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif">+ Add date range</button>
       </div>
     </div>
-    <div class="mf"><button class="bc" onclick="closeOv('ov-b2')">Cancel</button><button class="bp" onclick="saveBatch()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-b2&#39;)">Cancel</button><button class="bp" onclick="saveBatch()">Save</button></div>
   </div>
 </div>
 
@@ -252,11 +328,11 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-bd" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
-      <span id="bd-ttl" style="font-family:'Google Sans',sans-serif;font-size:17px;font-weight:500"></span>
+      <span id="bd-ttl" style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:17px;font-weight:500"></span>
       <div style="flex:1"></div>
       <button class="bc" onclick="bdEditBatch()">Edit Batch Details</button>
       <button class="bd" style="margin-right:0" onclick="bdDeleteConfirm()">Delete Batch</button>
-      <button class="bc" onclick="closeOv('ov-bd')">Exit</button>
+      <button class="bc" onclick="closeOv(&#39;ov-bd&#39;)">Exit</button>
     </div>
     <div style="flex:1;overflow:auto;padding:20px"><div id="bd-content"></div></div>
   </div>
@@ -269,7 +345,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <h2 style="margin-bottom:0" id="s1-ttl">Add Student Details</h2>
       <span id="s1-step" style="font-size:11px;color:var(--blue);font-weight:500"></span>
     </div>
-    <div class="field"><label>Student name</label><input id="s-nm" type="text" placeholder="Student name"/></div>
+    <div class="field"><label>Student name</label><input id="s-nm" type="text" placeholder="Student name"></div>
     <div class="field"><label>Batch <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--sub)">(empty = individual)</span></label><select id="s-bat" onchange="sBatChange()"><option value="">No batch — individual student</option></select></div>
     <div class="field"><label>Preferred timezone</label>
       <select id="s-tz"><option value="IST">IST</option><option value="Eastern">Eastern</option><option value="Central">Central</option><option value="Pacific">Pacific</option><option value="Australian">Australian</option><option value="British">British</option></select>
@@ -277,29 +353,27 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <div class="field"><label>Student type</label>
       <select id="s-cat" onchange="sCatChange()"><option value="">— select —</option><option value="A">Type A — Ohio Standard</option><option value="B">Type B — Monthly Block</option><option value="C">Type C — True Per-Class</option><option value="D">Type D — Rolling Cycle</option></select>
     </div>
+    <div class="field"><label>Add from</label><input id="s-add-from" type="date"></div>
     <div id="s-fee-wrap" style="display:none">
       <div id="s-fee-A" style="display:none">
-        <div class="field"><label>Period starts from</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-a-pm"></select><select id="s-a-py"></select></div></div>
-        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-a-rate" type="number" min="0" placeholder="400"/><select id="s-a-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-a-rate" type="number" min="0" placeholder="400"><select id="s-a-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div class="field"><label>Last fee paid for</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-a-lpm"></select><select id="s-a-lpy"></select></div></div>
       </div>
       <div id="s-fee-B" style="display:none">
-        <div class="field"><label>Period starts from</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-b-pm"></select><select id="s-b-py"></select></div></div>
-        <div class="field"><label>Per month fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-b-rate" type="number" min="0" placeholder="3000"/><select id="s-b-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Per month fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-b-rate" type="number" min="0" placeholder="3000"><select id="s-b-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div class="field"><label>Last fee paid for</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-b-lpm"></select><select id="s-b-lpy"></select></div></div>
       </div>
       <div id="s-fee-C" style="display:none">
-        <div class="field"><label>Period starts from</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-c-pm"></select><select id="s-c-py"></select></div></div>
-        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-c-rate" type="number" min="0" placeholder="500"/><select id="s-c-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-c-rate" type="number" min="0" placeholder="500"><select id="s-c-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div class="field"><label>Last fee paid for</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-c-lpm"></select><select id="s-c-lpy"></select></div></div>
       </div>
       <div id="s-fee-D" style="display:none">
-        <div class="field"><label>Current fee cycle started on</label><input id="s-d-cs" type="date" style="width:100%"/></div>
-        <div class="field"><label>Starting class number in current cycle (X/8)</label><input id="s-d-sc" type="number" min="1" max="8" value="1" style="width:60px"/></div>
-        <div class="field"><label>Fee per 8-class cycle</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-d-rate" type="number" min="0" placeholder="2800"/><select id="s-d-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Current fee cycle started on</label><input id="s-d-cs" type="date" style="width:100%"></div>
+        <div class="field"><label>Starting class number in current cycle (X/8)</label><input id="s-d-sc" type="number" min="1" max="8" value="1" style="width:60px"></div>
+        <div class="field"><label>Fee per 8-class cycle</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-d-rate" type="number" min="0" placeholder="2800"><select id="s-d-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="field"><label>Previous fee cycle start date</label><input id="s-d-prev-start" type="date" style="width:100%"/></div>
-          <div class="field"><label>Previous fee cycle end date</label><input id="s-d-prev" type="date" style="width:100%"/></div>
+          <div class="field"><label>Previous fee cycle start date</label><input id="s-d-prev-start" type="date" style="width:100%"></div>
+          <div class="field"><label>Previous fee cycle end date</label><input id="s-d-prev" type="date" style="width:100%"></div>
         </div>
         <div class="field"><label>Previous fee cycle status</label><select id="s-d-prev-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
         <div class="warn" style="font-size:11px;margin-top:4px">The first/current cycle is never prorated. Previous cycle dates are used only to display the immediately previous completed cycle and should not be counted into the current running cycle.</div>
@@ -307,7 +381,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     </div>
     <div class="mf">
       <button class="bd" id="s-del" onclick="deleteStudentConfirm()" style="display:none">Delete student</button>
-      <button class="bc" onclick="closeOv('ov-s1')">Cancel</button>
+      <button class="bc" onclick="closeOv(&#39;ov-s1&#39;)">Cancel</button>
       <button class="bp" id="s-save" onclick="sStep1Save()">Save</button>
     </div>
   </div>
@@ -321,22 +395,22 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <span style="font-size:11px;color:var(--blue);font-weight:500">Step 2 of 2</span>
     </div>
     <div style="font-size:12px;color:var(--mut);margin-bottom:12px" id="s2-lbl"></div>
-    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-su"></div><button class="addslot" onclick="sAddSlot('su')">+ Add slot</button></div>
-    <div class="ts-wrap" id="s-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-wi"></div><button class="addslot" onclick="sAddSlot('wi')">+ Add slot</button></div>
+    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-su"></div><button class="addslot" onclick="sAddSlot(&#39;su&#39;)">+ Add slot</button></div>
+    <div class="ts-wrap" id="s-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-wi"></div><button class="addslot" onclick="sAddSlot(&#39;wi&#39;)">+ Add slot</button></div>
     <div class="field" style="margin:6px 0 8px;padding:0 2px">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt)">
-        <input type="checkbox" id="s-same" onchange="sToggleSame()" style="width:14px;height:14px;cursor:pointer"/> Same as summer timings
+        <input type="checkbox" id="s-same" onchange="sToggleSame()" style="width:14px;height:14px;cursor:pointer"> Same as summer timings
       </label>
     </div>
     <div class="ts-wrap"><div class="ts-ttl tp">⏱ Temporary Timings</div>
       <div class="field" style="margin-bottom:6px"><label>Applies during</label><select id="s-tpss"><option value="both">Both seasons</option><option value="summer">Summer only</option><option value="winter">Winter only</option></select></div>
-      <div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-tp"></div><button class="addslot" onclick="sAddSlot('tp')">+ Add slot</button>
+      <div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-tp"></div><button class="addslot" onclick="sAddSlot(&#39;tp&#39;)">+ Add slot</button>
       <div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Active date ranges</div>
         <div id="s-tp-periods"></div>
-        <button onclick="sAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif">+ Add date range</button>
+        <button onclick="sAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif">+ Add date range</button>
       </div>
     </div>
-    <div class="mf"><button class="bc" onclick="closeOv('ov-s2')">Cancel</button><button class="bp" onclick="sStep2Save()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-s2&#39;)">Cancel</button><button class="bp" onclick="sStep2Save()">Save</button></div>
   </div>
 </div>
 
@@ -344,7 +418,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-sd" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
-      <span id="sd-ttl" style="font-family:'Google Sans',sans-serif;font-size:17px;font-weight:500"></span>
+      <span id="sd-ttl" style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:17px;font-weight:500"></span>
       <div style="flex:1"></div>
       <button class="bp" id="sd-save" onclick="sdSave()" style="display:none">Save</button>
       <button class="bc" id="sd-edit" onclick="sdEditMode()">Edit Student Details</button>
@@ -358,17 +432,17 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-tw" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:10px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
-      <span style="font-family:'Google Sans',sans-serif;font-size:16px;font-weight:500;color:var(--ora)">📅 This Week</span>
-      <input type="date" id="tw-dt" onchange="twSetWeek()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif"/>
+      <span style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:16px;font-weight:500;color:var(--ora)">📅 This Week</span>
+      <input type="date" id="tw-dt" onchange="twSetWeek()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
       <button class="hbtn" onclick="twPrev()">← Prev</button>
       <button class="hbtn" onclick="twNext()">Next →</button>
       
       <button class="hbtn" onclick="openTwAdd()" style="background:var(--oral);color:var(--ora)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add Class
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg> Add Class
       </button>
       <div style="flex:1"></div>
       <span style="font-size:10px;color:var(--sub)">Drag to move · Mark attendance in student popup</span>
-      <button class="hbtn" onclick="closeOv('ov-tw')" style="color:var(--red)">✕ Close</button>
+      <button class="hbtn" onclick="closeOv(&#39;ov-tw&#39;)" style="color:var(--red)">✕ Close</button>
     </div>
     <div style="flex:1;overflow:auto"><div id="tw-inner"></div></div>
   </div>
@@ -379,13 +453,13 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
     <h2>Add a Class</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="field"><label>Date</label><input id="twa-dt" type="date"/></div>
-      <div class="field"><label>Start (IST)</label><input id="twa-st" type="time"/></div>
-      <div class="field"><label>End (IST)</label><input id="twa-en" type="time"/></div>
+      <div class="field"><label>Date</label><input id="twa-dt" type="date"></div>
+      <div class="field"><label>Start (IST)</label><input id="twa-st" type="time"></div>
+      <div class="field"><label>End (IST)</label><input id="twa-en" type="time"></div>
     </div>
     <div class="field">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:10px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px">
-        <input type="checkbox" id="twa-fb" onchange="twaToggleBatch()" style="width:14px;height:14px;cursor:pointer"/> Schedule for entire batch
+        <input type="checkbox" id="twa-fb" onchange="twaToggleBatch()" style="width:14px;height:14px;cursor:pointer"> Schedule for entire batch
       </label>
     </div>
     <div id="twa-bwrap" style="display:none">
@@ -398,9 +472,9 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <div class="field" id="twa-mfw" style="display:none"><label>Makeup for (pending class)</label><select id="twa-mf"><option value="">— select pending class —</option></select></div>
     </div>
     <div class="field" style="margin-top:6px"><label>+ Add student to class</label><div id="twa-addons"></div>
-      <button onclick="twaAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif;margin-top:4px">+ Add student</button>
+      <button onclick="twaAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif;margin-top:4px">+ Add student</button>
     </div>
-    <div class="mf"><button class="bc" onclick="closeOv('ov-twa')">Cancel</button><button class="bp" onclick="twaConfirm()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-twa&#39;)">Cancel</button><button class="bp" onclick="twaConfirm()">Save</button></div>
   </div>
 </div>
 
@@ -410,18 +484,18 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <h2 id="twe-ttl">Edit Class</h2>
     <div id="twe-info" style="font-size:11px;color:var(--mut);margin:-10px 0 12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="field"><label>Date</label><input id="twe-dt" type="date"/></div>
-      <div class="field"><label>Start (IST)</label><input id="twe-st" type="time"/></div>
-      <div class="field"><label>End (IST)</label><input id="twe-en" type="time"/></div>
+      <div class="field"><label>Date</label><input id="twe-dt" type="date"></div>
+      <div class="field"><label>Start (IST)</label><input id="twe-st" type="time"></div>
+      <div class="field"><label>End (IST)</label><input id="twe-en" type="time"></div>
     </div>
     <div class="field"><label>Add-on students</label><div id="twe-addons"></div>
-      <button onclick="tweAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif;margin-top:4px">+ Add student</button>
+      <button onclick="tweAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif;margin-top:4px">+ Add student</button>
     </div>
     <div id="twe-warn" class="warn" style="display:none">⚠ Cancel Class is intended for Type B students. Use Remove for other types.</div>
     <div class="mf">
       <button class="bd" id="twe-canc" onclick="tweCancelConfirm()" style="margin-right:0">Cancel class</button>
       <button class="bc" onclick="tweRemoveConfirm()" style="color:var(--red);border-color:var(--red)">Remove</button>
-      <button class="bc" onclick="closeOv('ov-twe')">Close</button>
+      <button class="bc" onclick="closeOv(&#39;ov-twe&#39;)">Close</button>
       <button class="bp" onclick="tweSave()">Save</button>
     </div>
   </div>
@@ -432,7 +506,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <div class="modal sm">
     <h2>Cancel this class?</h2>
     <p style="font-size:12px;color:var(--mut);margin-bottom:14px">The class stays visible in TW with a cancelled mark. Pending class logic applies only to Type B students.</p>
-    <div class="mf"><button class="bc" onclick="closeOv('ov-twc')">Go back</button><button class="bd" onclick="tweDoCancel()">Confirm cancel</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-twc&#39;)">Go back</button><button class="bd" onclick="tweDoCancel()">Confirm cancel</button></div>
   </div>
 </div>
 
@@ -440,18 +514,18 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-att" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:10px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
-      <span style="font-family:'Google Sans',sans-serif;font-size:16px;font-weight:500;color:var(--blue)">📊 Attendance &amp; Fee Tracker</span>
-      <select id="att-mo" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+      <span style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:16px;font-weight:500;color:var(--blue)">📊 Attendance &amp; Fee Tracker</span>
+      <select id="att-mo" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
         <option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option>
       </select>
-      <select id="att-yr" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
-        <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+      <select id="att-yr" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
+        <option value="2025">2025</option><option value="2026" selected="">2026</option><option value="2027">2027</option>
       </select>
-      <select id="att-bf" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+      <select id="att-bf" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
         <option value="all">All Students</option><option value="ind">Individual Students</option>
       </select>
       <div style="flex:1"></div>
-      <button class="hbtn" onclick="closeOv('ov-att')" style="color:var(--red)">✕ Close</button>
+      <button class="hbtn" onclick="closeOv(&#39;ov-att&#39;)" style="color:var(--red)">✕ Close</button>
     </div>
     <div style="flex:1;overflow:auto;padding:14px"><div id="att-inner"></div></div>
   </div>
@@ -461,8 +535,8 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-sync">
   <div class="modal sm">
     <h2>☁ Cloud sync</h2>
-    <div class="field"><label>Cloudflare Worker URL</label><input id="sync-url" type="url" placeholder="https://…workers.dev"/></div>
-    <div class="mf"><button class="bc" onclick="closeOv('ov-sync')">Cancel</button><button class="bp" onclick="saveSync()">Connect</button></div>
+    <div class="field"><label>Cloudflare Worker URL</label><input id="sync-url" type="url" placeholder="https://…workers.dev"></div>
+    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-sync&#39;)">Cancel</button><button class="bp" onclick="saveSync()">Connect</button></div>
   </div>
 </div>
 
@@ -471,7 +545,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <div class="modal sm">
     <h2 id="conf-ttl">Confirm</h2>
     <p id="conf-msg" style="font-size:13px;color:var(--mut);margin-bottom:14px"></p>
-    <div class="mf"><button class="bc" onclick="closeOv('ov-conf')">Cancel</button><button class="bd" id="conf-ok">Confirm</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-conf&#39;)">Cancel</button><button class="bd" id="conf-ok">Confirm</button></div>
   </div>
 </div>
 
@@ -566,14 +640,26 @@ function fmtDDMMYYYY(d){return`${String(d.getDate()).padStart(2,'0')}-${String(d
 function twKey(){return twWkStart?localDS(twWkStart):'';}
 function getDayAsOf(dayName){const t=new Date(),dow=t.getDay();const tgt=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(dayName);let diff=dow-tgt;if(diff<0)diff+=7;const d=new Date(t);d.setDate(d.getDate()-diff);return localDS(d);}
 function getEntityTz(entity){if(!entity)return null;const grp=TZ_GRP.find(g=>g.label===entity.tzGroup)||null;return grp?(deriveSeason()==='summer'?grp.s:grp.w):null;}
+function ssKeyFor(batchId,name){return batchId+':'+name;}
+function studentSetup(batchId,name){return ss[ssKeyFor(batchId,name)]||{};}
+function studentAddFrom(batchId,name){
+  const s=studentSetup(batchId,name);
+  if(s.addFrom)return s.addFrom;
+  if(s.periodYear&&s.periodMonth)return`${s.periodYear}-${String(s.periodMonth).padStart(2,'0')}-01`;
+  if(s.category==='D'&&(s.cycleStartDate||s.trackStartDate))return s.cycleStartDate||s.trackStartDate;
+  return '';
+}
+function studentActiveOn(batchId,name,dateStr){const af=studentAddFrom(batchId,name);return !af||dateStr>=af;}
+function activeBatchStudents(batch,dateStr){return(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean).filter(name=>studentActiveOn(batch.id,name,dateStr));}
 function allTwEvents(){return Object.values(twWkCache).flatMap(evs=>Array.isArray(evs)?evs:[]);}
 function getTwEvent(id){return twEvs.find(e=>e.id===id)||allTwEvents().find(e=>e.id===id)||null;}
 function eventStudents(ev){
   const entity=getBatch(ev.batchId),students=[];
+  const ds=ev.date?localDS(new Date(ev.date)):'';
   if(ev.studentRoles?.length)ev.studentRoles.forEach(r=>students.push({name:r.name,batchId:r.batchId||ev.batchId,isAddon:false,classType:r.classType||ev.classType||'additional',makeupFor:r.makeupFor||null}));
   else if(ev.studentScope)students.push({name:ev.studentScope,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
-  else if(ev.batchId&&ev.batchId.startsWith('ind_')&&entity?.name)students.push({name:entity.name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
-  else (entity?.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name=>students.push({name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null}));
+  else if(ev.batchId&&ev.batchId.startsWith('ind_')&&entity?.name&&studentActiveOn(ev.batchId,entity.name,ds))students.push({name:entity.name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
+  else activeBatchStudents(entity,ds).forEach(name=>students.push({name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null}));
   (ev.addonStudents||[]).forEach(a=>students.push({name:a.name,batchId:a.batchId||ev.batchId,isAddon:true,classType:a.classType||'additional',makeupFor:a.makeupFor||null}));
   return students;
 }
@@ -587,11 +673,29 @@ function syncAttendanceForEvent(ev){
   if(!rec.students.length)delete att[ev.id];
 }
 function syncAllAttendanceRecords(){allTwEvents().forEach(syncAttendanceForEvent);}
-function sameSlotLayout(items){
-  const groups={};
-  items.forEach((item,i)=>{const key=item.sm+'-'+item.em;(groups[key]||(groups[key]=[])).push(i);});
+function overlapLayout(items){
   const slot=new Array(items.length).fill(0),total=new Array(items.length).fill(1);
-  Object.values(groups).forEach(group=>{group.forEach((idx,pos)=>{slot[idx]=pos;total[idx]=group.length;});});
+  const visited=new Array(items.length).fill(false);
+  function collides(a,b){return a.sm<b.em&&b.sm<a.em;}
+  for(let i=0;i<items.length;i++){
+    if(visited[i])continue;
+    const group=[],q=[i];visited[i]=true;
+    while(q.length){
+      const cur=q.shift();group.push(cur);
+      for(let j=0;j<items.length;j++){
+        if(!visited[j]&&collides(items[cur],items[j])){visited[j]=true;q.push(j);}
+      }
+    }
+    const ordered=group.slice().sort((a,b)=>items[a].sm-items[b].sm||items[a].em-items[b].em);
+    const colEnds=[];
+    ordered.forEach(idx=>{
+      let col=colEnds.findIndex(end=>end<=items[idx].sm);
+      if(col===-1){col=colEnds.length;colEnds.push(items[idx].em);}
+      else colEnds[col]=items[idx].em;
+      slot[idx]=col;
+    });
+    group.forEach(idx=>{total[idx]=colEnds.length;});
+  }
   return{slot,total};
 }
 function uniqueBy(items,keyFn){
@@ -681,6 +785,7 @@ function getScheduledDates(batchId,fromDate,toDate,studentName){
   const dates=new Set();
   for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){
     const ds=localDS(d);
+    if(studentName&&!studentActiveOn(batchId,studentName,ds))continue;
     const wk=localDS(getMon(d));
     const activeSlot=resolveClassForDate(batch,ds).some(slot=>!(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||!studentName||r.studentScope===studentName)));
     if(activeSlot)dates.add(ds);
@@ -737,6 +842,7 @@ function getPendingClasses(studentName,batchId){
       const info=ev?getEventStudent(ev,batchId,studentName):null;
       if(info&&info.classType!=='scheduled')return;
       (rec.students||[]).forEach(s2=>{
+        if(rec.date<studentAddFrom(batchId,studentName))return;
         if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='absent'||seen.has(rec.date))return;
         seen.add(rec.date);
         const dt=new Date(rec.date+'T12:00:00');
@@ -753,6 +859,7 @@ function getPendingClasses(studentName,batchId){
     const monthCounted={};
     Object.entries(att).forEach(([evId,rec])=>{
       const ym=rec.date.slice(0,7);
+      if(rec.date<studentAddFrom(batchId,studentName))return;
       const ev=getTwEvent(evId||rec.evId||'');
       (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName){const info=ev?getEventStudent(ev,batchId,studentName):null;monthCounted[ym]=(monthCounted[ym]||0)+countStudentClass(s2.status,'B',info?.classType||'scheduled');}});
     });
@@ -794,6 +901,7 @@ function computeMonthCount(studentName,batchId,year,month,cat){
   let raw=0;
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date.slice(0,7)!==ym)return;
+    if(cat!=='D'&&rec.date<studentAddFrom(batchId,studentName))return;
     const ev=getTwEvent(evId||rec.evId||'');
     (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName){const info=ev?getEventStudent(ev,batchId,studentName):null;raw+=countStudentClass(s2.status,cat,info?.classType||'scheduled');}});
   });
@@ -953,6 +1061,8 @@ function getDisplayClasses(){
   [...batches,...indStudents].forEach(entity=>{
     DAYS.forEach(day=>{
       const fd=getDayAsOf(day);
+      if(entity.id?.startsWith('ind_')&&!studentActiveOn(entity.id,entity.name,fd))return;
+      if(!entity.id?.startsWith('ind_')&&!activeBatchStudents(entity,fd).length)return;
       resolveClassForDate(entity,fd).forEach(slot=>result.push({batchId:entity.id,start:slot.start,end:slot.end,day:slot.day,isTemp:slot.isTemp}));
     });
   });
@@ -976,7 +1086,7 @@ function renderCalendar(){
     html+=`<div class="cal-col" style="height:${CAL_H}px">`;
     for(let h=0;h<=CAL_E-CAL_S;h++){html+=`<div class="hl s" style="top:${h*60*PX}px"></div>`;if(h<CAL_E-CAL_S)html+=`<div class="hl" style="top:${(h+.5)*60*PX}px"></div>`;}
     const evs=dayCls.map(c=>{const sm=calM(c.start),em=calM(c.end),batch=getBatch(c.batchId);if(sm<0||em>CAL_TOT||!batch)return null;return{c,sm,em,batch};}).filter(Boolean).sort((a,b)=>a.sm-b.sm);
-    const layout=sameSlotLayout(evs);
+    const layout=overlapLayout(evs);
     evs.forEach(({c,sm,em,batch},i)=>{
       const top=sm*PX,ht=Math.max((em-sm)*PX,16),col=getColor(batch.color);
       const lp=(layout.slot[i]/layout.total[i])*100,wp=(1/layout.total[i])*100;
@@ -1079,6 +1189,13 @@ function injectMonthYear(mId,yId,defM,defY){
   const mel=document.getElementById(mId);if(mel&&!mel.options.length)mel.innerHTML=MONTHS.map((n,i)=>`<option value="${i+1}"${i+1===nm?' selected':''}>${n}</option>`).join('');
   const yel=document.getElementById(yId);if(yel&&!yel.options.length){for(let y=now.getFullYear()-3;y<=now.getFullYear()+1;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===ny)o.selected=true;yel.appendChild(o);}}
 }
+function injectLastPaid(mId,yId,defM,defY){
+  const now=new Date(),mel=document.getElementById(mId),yel=document.getElementById(yId);
+  if(mel&&!mel.options.length)mel.innerHTML='<option value="">None</option>'+MONTHS.map((n,i)=>`<option value="${i+1}">${n}</option>`).join('');
+  if(yel&&!yel.options.length){yel.innerHTML='<option value="">—</option>';for(let y=now.getFullYear()-5;y<=now.getFullYear()+1;y++){const o=document.createElement('option');o.value=y;o.textContent=y;yel.appendChild(o);}}
+  if(mel)mel.value=defM||'';if(yel)yel.value=defY||'';
+}
+function addFromParts(){const v=document.getElementById('s-add-from')?.value||localDS(new Date());return{date:v,month:String(new Date(v+'T12:00:00').getMonth()+1),year:String(new Date(v+'T12:00:00').getFullYear())};}
 
 // ═══════════════════════════════════════════════════
 // SECTION 12 — ADD/EDIT STUDENT
@@ -1095,6 +1212,7 @@ function openAddStudent(prefBid,prefNm){
   const ssKey=(prefBid||'')+':'+(prefNm||'');const sObj=ss[ssKey]||{};
   document.getElementById('s-tz').value=sObj.tzPref||'IST';
   document.getElementById('s-cat').value=sObj.category||'';
+  document.getElementById('s-add-from').value=sObj.addFrom||studentAddFrom(prefBid||'',prefNm||'')||localDS(new Date());
   sCatChange();prefillFee(sObj);sBatChange();openOv('ov-s1');
 }
 function sBatChange(){const hb=!!document.getElementById('s-bat').value;document.getElementById('s-save').textContent=hb?'Save':'Save & Next →';document.getElementById('s1-step').textContent=hb?'':'Step 1 of 2';}
@@ -1102,36 +1220,42 @@ function sCatChange(){
   const cat=document.getElementById('s-cat').value;
   document.getElementById('s-fee-wrap').style.display=cat?'':'none';
   ['A','B','C','D'].forEach(t=>{const el=document.getElementById('s-fee-'+t);if(el)el.style.display=cat===t?'':'none';});
-  if(cat==='A'){injectMonthYear('s-a-pm','s-a-py');injectMonthYear('s-a-lpm','s-a-lpy');}
-  if(cat==='B'){injectMonthYear('s-b-pm','s-b-py');injectMonthYear('s-b-lpm','s-b-lpy');}
-  if(cat==='C'){injectMonthYear('s-c-pm','s-c-py');injectMonthYear('s-c-lpm','s-c-lpy');}
+  if(cat==='A')injectLastPaid('s-a-lpm','s-a-lpy');
+  if(cat==='B')injectLastPaid('s-b-lpm','s-b-lpy');
+  if(cat==='C')injectLastPaid('s-c-lpm','s-c-lpy');
 }
 function prefillFee(sObj){
   const c=sObj.category;const sv=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!=='')el.value=v;};
-  if(c==='A'){sv('s-a-pm',sObj.periodMonth);sv('s-a-py',sObj.periodYear);sv('s-a-rate',sObj.rate);sv('s-a-cur',sObj.currency||'INR');sv('s-a-lpm',sObj.lastPaidMonth);sv('s-a-lpy',sObj.lastPaidYear);}
-  else if(c==='B'){sv('s-b-pm',sObj.periodMonth);sv('s-b-py',sObj.periodYear);sv('s-b-rate',sObj.rate);sv('s-b-cur',sObj.currency||'INR');sv('s-b-lpm',sObj.lastPaidMonth);sv('s-b-lpy',sObj.lastPaidYear);}
-  else if(c==='C'){sv('s-c-pm',sObj.periodMonth);sv('s-c-py',sObj.periodYear);sv('s-c-rate',sObj.rate);sv('s-c-cur',sObj.currency||'INR');sv('s-c-lpm',sObj.lastPaidMonth);sv('s-c-lpy',sObj.lastPaidYear);}
+  if(c==='A'){sv('s-a-rate',sObj.rate);sv('s-a-cur',sObj.currency||'INR');sv('s-a-lpm',sObj.lastPaidMonth);sv('s-a-lpy',sObj.lastPaidYear);}
+  else if(c==='B'){sv('s-b-rate',sObj.rate);sv('s-b-cur',sObj.currency||'INR');sv('s-b-lpm',sObj.lastPaidMonth);sv('s-b-lpy',sObj.lastPaidYear);}
+  else if(c==='C'){sv('s-c-rate',sObj.rate);sv('s-c-cur',sObj.currency||'INR');sv('s-c-lpm',sObj.lastPaidMonth);sv('s-c-lpy',sObj.lastPaidYear);}
   else if(c==='D'){sv('s-d-cs',sObj.cycleStartDate);sv('s-d-sc',sObj.startingClassNum||1);sv('s-d-rate',sObj.rate);sv('s-d-cur',sObj.currency||'INR');sv('s-d-prev-start',sObj.prevCycleStartDate);sv('s-d-prev',sObj.prevCycleEndDate);sv('s-d-prev-status',sObj.prevCycleStatus||'pending');}
 }
 function readFee(cat){
   const gv=id=>document.getElementById(id)?.value||'';
-  if(cat==='A')return{rate:gv('s-a-rate'),currency:gv('s-a-cur')||'INR',periodMonth:gv('s-a-pm'),periodYear:gv('s-a-py'),lastPaidMonth:gv('s-a-lpm'),lastPaidYear:gv('s-a-lpy')};
-  if(cat==='B')return{rate:gv('s-b-rate'),currency:gv('s-b-cur')||'INR',periodMonth:gv('s-b-pm'),periodYear:gv('s-b-py'),lastPaidMonth:gv('s-b-lpm'),lastPaidYear:gv('s-b-lpy')};
-  if(cat==='C')return{rate:gv('s-c-rate'),currency:gv('s-c-cur')||'INR',periodMonth:gv('s-c-pm'),periodYear:gv('s-c-py'),lastPaidMonth:gv('s-c-lpm'),lastPaidYear:gv('s-c-lpy')};
+  const af=addFromParts();
+  const lp=(mId,yId)=>{const m=gv(mId),y=gv(yId);return{lastPaidMonth:m,lastPaidYear:m?y:''};};
+  if(cat==='A')return{rate:gv('s-a-rate'),currency:gv('s-a-cur')||'INR',periodMonth:af.month,periodYear:af.year,...lp('s-a-lpm','s-a-lpy')};
+  if(cat==='B')return{rate:gv('s-b-rate'),currency:gv('s-b-cur')||'INR',periodMonth:af.month,periodYear:af.year,...lp('s-b-lpm','s-b-lpy')};
+  if(cat==='C')return{rate:gv('s-c-rate'),currency:gv('s-c-cur')||'INR',periodMonth:af.month,periodYear:af.year,...lp('s-c-lpm','s-c-lpy')};
   if(cat==='D')return{rate:gv('s-d-rate'),currency:gv('s-d-cur')||'INR',cycleStartDate:gv('s-d-cs'),startingClassNum:parseInt(gv('s-d-sc'))||1,prevCycleStartDate:gv('s-d-prev-start'),prevCycleEndDate:gv('s-d-prev'),prevCycleStatus:gv('s-d-prev-status')||'pending',trackStartDate:gv('s-d-cs')};
   return{};
 }
 function sStep1Save(){
   const name=document.getElementById('s-nm').value.trim();const batchId=document.getElementById('s-bat').value;const cat=document.getElementById('s-cat').value;const tzPref=document.getElementById('s-tz').value;
+  const addFrom=document.getElementById('s-add-from').value||localDS(new Date());
   if(!name){showToast('Enter student name');return;}
   if(batchId){
+    if(sEditBid?.startsWith('ind_'))indStudents=indStudents.filter(s=>s.id!==sEditBid);
+    if(sEditBid&&sEditBid!==batchId&&!sEditBid.startsWith('ind_')){const oldB=getBatch(sEditBid);if(oldB)oldB.students=(oldB.students||'').split(',').map(s=>s.trim()).filter(s=>s&&s!==sEditNm).join(', ');}
     const b=getBatch(batchId);
     if(b){const cur=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
-      if(sEditNm&&sEditNm!==name){const i=cur.indexOf(sEditNm);if(i!==-1)cur[i]=name;const ok=batchId+':'+sEditNm,nk=batchId+':'+name;if(ss[ok]){ss[nk]=ss[ok];delete ss[ok];}}
+      if(sEditNm&&sEditNm!==name&&sEditBid===batchId){const i=cur.indexOf(sEditNm);if(i!==-1)cur[i]=name;const ok=batchId+':'+sEditNm,nk=batchId+':'+name;if(ss[ok]){ss[nk]=ss[ok];delete ss[ok];}}
       else if(!cur.includes(name))cur.push(name);
       b.students=cur.join(', ');}
-    const ssKey=batchId+':'+name;if(!ss[ssKey])ss[ssKey]={};ss[ssKey]={...ss[ssKey],category:cat,tzPref,...readFee(cat)};
-    save('batches',batches);save('ss',ss);closeOv('ov-s1');renderSidebar();showToast(sEditNm?'Updated':'Student added');
+    if(sEditBid&&sEditNm&&(sEditBid!==batchId||sEditNm!==name)){const oldKey=sEditBid+':'+sEditNm,newKey=batchId+':'+name;if(ss[oldKey]&&!ss[newKey]){ss[newKey]=ss[oldKey];delete ss[oldKey];}}
+    const ssKey=batchId+':'+name;if(!ss[ssKey])ss[ssKey]={};ss[ssKey]={...ss[ssKey],category:cat,tzPref,addFrom,...readFee(cat)};
+    save('batches',batches);save('indStudents',indStudents);save('ss',ss);closeOv('ov-s1');renderSidebar();renderCalendar();showToast(sEditNm?'Updated':'Student added');
   } else {
     const ex=sEditBid?indStudents.find(s=>s.id===sEditBid):null;
     document.getElementById('s2-lbl').textContent=name;
@@ -1146,18 +1270,22 @@ function sAddSlot(t){const id=t==='su'?'s-su':t==='wi'?'s-wi':'s-tp';addSlotTo(i
 function sAddPeriod(){addPeriodTo('s-tp-periods');}
 function sStep2Save(){
   const name=document.getElementById('s-nm').value.trim();const cat=document.getElementById('s-cat').value;const tzPref=document.getElementById('s-tz').value;
+  const addFrom=document.getElementById('s-add-from').value||localDS(new Date());
   const same=document.getElementById('s-same').checked;const su=readSlots('s-su','summer'),wi=readSlots('s-wi','winter'),tp=readSlots('s-tp','temp');
   const tpP=readPeriods('s-tp-periods');const timings=[...su,...(same?[]:wi)];const tmpSeason=document.getElementById('s-tpss').value;
   if(sEditBid?.startsWith('ind_')){
     const s=indStudents.find(x=>x.id===sEditBid);
     if(s)Object.assign(s,{name,tzGroup:tzPref,sameAsWinter:same,timings,tempTimings:tp,tempSeason:tmpSeason,tempPeriods:tpP});
-    const ssKey=sEditBid+':'+name;if(!ss[ssKey])ss[ssKey]={};Object.assign(ss[ssKey],{category:cat,tzPref,...readFee(cat),needsTimings:false});
+    const ssKey=sEditBid+':'+name;if(!ss[ssKey])ss[ssKey]={};Object.assign(ss[ssKey],{category:cat,tzPref,addFrom,...readFee(cat),needsTimings:false});
   } else {
+    if(sEditBid&&!sEditBid.startsWith('ind_')){const oldB=getBatch(sEditBid);if(oldB)oldB.students=(oldB.students||'').split(',').map(s=>s.trim()).filter(s=>s&&s!==sEditNm).join(', ');}
     const newId='ind_'+Date.now();
     indStudents.push({id:newId,name,tzGroup:tzPref,sameAsWinter:same,timings,tempTimings:tp,tempSeason:tmpSeason,tempPeriods:tpP});
-    ss[newId+':'+name]={category:cat,tzPref,...readFee(cat),needsTimings:false};
+    const oldKey=sEditBid&&sEditNm?sEditBid+':'+sEditNm:null;
+    ss[newId+':'+name]={...(oldKey&&ss[oldKey]?ss[oldKey]:{}),category:cat,tzPref,addFrom,...readFee(cat),needsTimings:false};
+    if(oldKey)delete ss[oldKey];
   }
-  save('indStudents',indStudents);save('ss',ss);closeOv('ov-s2');renderSidebar();renderCalendar();showToast('Student saved');
+  save('batches',batches);save('indStudents',indStudents);save('ss',ss);closeOv('ov-s2');renderSidebar();renderCalendar();showToast('Student saved');
 }
 function deleteStudentConfirm(){
   if(!sEditBid||!sEditNm)return;
@@ -1345,7 +1473,7 @@ function renderStudentDetail(){
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <div style="width:12px;height:12px;border-radius:3px;background:${col.b};flex-shrink:0"></div>
       <div><div style="font-size:17px;font-weight:500">${sdNm}</div>
-        <div style="font-size:12px;color:var(--mut)">${sdBid.startsWith('ind_')?'Individual':b?.name||'Individual'} · <span style="color:var(--blue)">${catNames[cat]||'Category not set'}</span>${showTz?' · '+tabTz:''}</div></div>
+        <div style="font-size:12px;color:var(--mut)">${sdBid.startsWith('ind_')?'Individual':b?.name||'Individual'} · <span style="color:var(--blue)">${catNames[cat]||'Category not set'}</span> · Add from ${studentAddFrom(sdBid,sdNm)||'—'}${showTz?' · '+tabTz:''}</div></div>
     </div>
     <div style="border-top:1px solid var(--bdr);padding-top:14px;margin-bottom:14px"><div class="stitle">Class Schedule${editSchedLink}</div>${schedHtml}</div>
     <div style="border-top:1px solid var(--bdr);padding-top:14px;margin-bottom:14px">
@@ -1379,7 +1507,7 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
   });
   // Timing projections not yet in TW
   const entity=batchId.startsWith('ind_')?indStudents.find(s=>s.id===batchId):getBatch(batchId);
-  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;const exists=evRows.find(r=>r.date===ds&&r.start===slot.start&&r.end===slot.end)||allTwEvents().some(ev=>getEventStudent(ev,batchId,studentName)&&(ev.originDate===ds||localDS(new Date(ev.date))===ds)&&((ev.originStart||ev.start)===slot.start)&&((ev.originEnd||ev.end)===slot.end));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
+  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);if(!studentActiveOn(batchId,studentName,ds))continue;const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;const exists=evRows.find(r=>r.date===ds&&r.start===slot.start&&r.end===slot.end)||allTwEvents().some(ev=>getEventStudent(ev,batchId,studentName)&&(ev.originDate===ds||localDS(new Date(ev.date))===ds)&&((ev.originStart||ev.start)===slot.start)&&((ev.originEnd||ev.end)===slot.end));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date<fromDate||rec.date>toDate)return;
     const sAtt=(rec.students||[]).find(s=>s.batchId===batchId&&s.name===studentName);
@@ -1529,8 +1657,41 @@ function twLoadWeek(){const wk=twKey();if(!twWkCache[wk])twPopulate();else{const
 function twRemovedHas(wk,batchId,date,start,end){return(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===date&&(!r.start||r.start===start)&&(!r.end||r.end===end)&&!r.studentScope);}
 function makeScheduledTwEvent(entity,d,ds,slot){return normalizeTwEvent({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});}
 function twHasScheduledOrigin(batchId,date,start,end){const key=twIdentity({batchId,date:new Date(date+'T12:00:00'),start,end,originDate:date,originStart:start,originEnd:end,classType:'scheduled',studentScope:null,addonStudents:[]});return twEvs.some(ev=>twIdentity(ev)===key);}
-function twPopulate(){const evs=[];[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{const wr=twRemovedHas(twKey(),entity.id,ds,slot.start,slot.end);if(wr)return;const ev=makeScheduledTwEvent(entity,d,ds,slot);if(evs.some(x=>twIdentity(x)===twIdentity(ev)))return;evs.push(ev);});}});twEvs=cleanTwEvents(evs);twWkCache[twKey()]=twEvs;}
-function twMerge(){let changed=false;const wk=twKey();twEvs=cleanTwEvents(twEvs);[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{if(twRemovedHas(wk,entity.id,ds,slot.start,slot.end))return;if(twHasScheduledOrigin(entity.id,ds,slot.start,slot.end))return;twEvs.push(makeScheduledTwEvent(entity,d,ds,slot));changed=true;});}});twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;return changed;}
+function twShouldGenerateEntity(entity,ds){
+  if(entity.id?.startsWith('ind_'))return studentActiveOn(entity.id,entity.name,ds);
+  return activeBatchStudents(entity,ds).length>0;
+}
+function twPopulate(){
+  const evs=[];
+  [...batches,...indStudents].forEach(entity=>{
+    for(let i=0;i<7;i++){
+      const d=addDays(twWkStart,i),ds=localDS(d);
+      if(!twShouldGenerateEntity(entity,ds))continue;
+      resolveClassForDate(entity,ds).forEach(slot=>{
+        const wr=twRemovedHas(twKey(),entity.id,ds,slot.start,slot.end);if(wr)return;
+        const ev=makeScheduledTwEvent(entity,d,ds,slot);
+        if(evs.some(x=>twIdentity(x)===twIdentity(ev)))return;
+        evs.push(ev);
+      });
+    }
+  });
+  twEvs=cleanTwEvents(evs);twWkCache[twKey()]=twEvs;
+}
+function twMerge(){
+  let changed=false;const wk=twKey();twEvs=cleanTwEvents(twEvs);
+  [...batches,...indStudents].forEach(entity=>{
+    for(let i=0;i<7;i++){
+      const d=addDays(twWkStart,i),ds=localDS(d);
+      if(!twShouldGenerateEntity(entity,ds))continue;
+      resolveClassForDate(entity,ds).forEach(slot=>{
+        if(twRemovedHas(wk,entity.id,ds,slot.start,slot.end))return;
+        if(twHasScheduledOrigin(entity.id,ds,slot.start,slot.end))return;
+        twEvs.push(makeScheduledTwEvent(entity,d,ds,slot));changed=true;
+      });
+    }
+  });
+  twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;return changed;
+}
 function twSave(){twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;cleanAllTwCaches();syncAllAttendanceRecords();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));save('att',att);}
 function twRefresh(){showToast('Refresh removed: TW keeps saved edits.');}
 function twBlockPeople(ev,batch){
@@ -1552,9 +1713,9 @@ function twRender(){
     const ds=localDS(day);const dayEvs=twEvs.filter(ev=>localDS(new Date(ev.date))===ds);
     html+=`<div class="tw-col" style="height:${TW_H}px" ondragover="twDragOver(event)" ondrop="twDrop(event,'${ds}')" ondragleave="twDragLeave(event)">`;
     for(let h=0;h<TW_E-TW_S;h++)html+=`<div style="position:absolute;left:0;right:0;top:${h*60*TWX}px;border-top:1px solid ${h===0?'var(--bdr)':'#f0f0f0'};pointer-events:none"></div>`;
-    // Split only classes that share the exact same time slot; every other slot resets to full width.
+    // Google Calendar-style overlap layout: only colliding time ranges share width.
     const evs2=dayEvs.map(ev=>{const sm=twM(ev.start),em=twM(ev.end);if(sm<0||em>TW_TOT)return null;return{ev,sm,em};}).filter(Boolean).sort((a,b)=>a.sm-b.sm);
-    const layout2=sameSlotLayout(evs2);
+    const layout2=overlapLayout(evs2);
     evs2.forEach(({ev,sm,em},i)=>{
       const batch=getBatch(ev.batchId);if(!batch)return;const col=getColor(batch.color);
       const people=twBlockPeople(ev,batch);
@@ -1819,5 +1980,6 @@ document.getElementById('btn-ab').addEventListener('click',()=>openAddBatch());
 document.getElementById('btn-as').addEventListener('click',()=>openAddStudent());
 boot();initLoad();
 </script>
-</body>
-</html>
+
+
+</body></html>
