@@ -1028,9 +1028,7 @@ function moneyText(amount,cur){
   return sym+(Number(amount)||0).toLocaleString('en-IN');
 }
 function studentMsgTz(batchId,studentName){
-  const s=ss[batchId+':'+studentName]||{},entity=getBatch(batchId);
-  const pref=s.tzPref||getEntityTz(entity)||'IST';
-  return pref==='IST'?'IST':pref;
+  return 'IST';
 }
 function msgDateLine(date,start,tz){
   const dt=new Date(date+'T12:00:00');
