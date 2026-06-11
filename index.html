@@ -214,6 +214,20 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     </div>
     <div style="background:var(--bg);border-radius:var(--r);padding:10px;font-size:12px;color:var(--mut);margin-bottom:8px" id="gs-showing">Currently showing: —</div>
     <div class="field"><label>Display timezone</label><select id="gs-tz"></select></div>
+    <div style="border-top:1px solid var(--bdr);margin-top:12px;padding-top:12px">
+      <div class="stitle">Backup</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Download a backup before major edits, or restore from a backup file.</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <button class="bc" style="font-size:12px" onclick="downloadBackup()">Download backup</button>
+        <button class="bc" style="font-size:12px" onclick="document.getElementById('backup-file').click()">Restore backup</button>
+      </div>
+      <input id="backup-file" type="file" accept="application/json,.json" style="display:none" onchange="restoreBackupFile(this)"/>
+    </div>
+    <div style="border-top:1px solid var(--bdr);margin-top:12px;padding-top:12px">
+      <div class="stitle" style="color:var(--red)">Danger Zone</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Delete all batches, students, attendance, TW edits, notes, reminders, and fee records from this app.</div>
+      <button class="bd" style="margin-right:0" onclick="deleteAllDataConfirm()">Delete all app data</button>
+    </div>
     <div class="mf"><button class="bc" onclick="closeOv('ov-settings')">Cancel</button><button class="bp" onclick="saveSettings()">Save</button></div>
   </div>
 </div>
@@ -527,9 +541,18 @@ let _bdM=null,_bdY=null;
 // ═══════════════════════════════════════════════════
 const WK_DEFAULT='https://dance-schedule.lekshmireghunath-dance.workers.dev';
 let WK_URL=localStorage.getItem('dance_wk')||WK_DEFAULT;
+let saveSeq=0;
 async function cloudLoad(){if(!WK_URL)return null;try{const r=await fetch(WK_URL,{method:'GET',redirect:'follow'});const j=JSON.parse(await r.text());return j.ok?j.data:null;}catch(e){console.warn(e);return null;}}
-async function cloudSave(k,v){if(!WK_URL)return;const sv=typeof v==='string'?v:JSON.stringify(v);const p=JSON.stringify({key:k,value:sv});try{await fetch(WK_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:p,redirect:'follow'});}catch(e){if(navigator.sendBeacon)navigator.sendBeacon(WK_URL,new Blob([p],{type:'text/plain'}));}}
-function save(k,v){cloudSave(k,typeof v==='string'?v:JSON.stringify(v));}
+async function cloudSave(k,v){
+  if(!WK_URL)return false;
+  const sv=typeof v==='string'?v:JSON.stringify(v);const p=JSON.stringify({key:k,value:sv});
+  try{const r=await fetch(WK_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:p,redirect:'follow'});return r.ok;}
+  catch(e){console.warn(e);if(navigator.sendBeacon)navigator.sendBeacon(WK_URL,new Blob([p],{type:'text/plain'}));return false;}
+}
+function save(k,v){
+  const n=++saveSeq;setSS('Saving…');
+  cloudSave(k,typeof v==='string'?v:JSON.stringify(v)).then(ok=>{if(n===saveSeq)setSS(ok?'Saved':'Save may be pending');setTimeout(()=>{if(n===saveSeq&&document.getElementById('ss').textContent!=='⚠ Not connected')setSS('');},1800);});
+}
 function openSync(){document.getElementById('sync-url').value=WK_URL;openOv('ov-sync');}
 function saveSync(){const u=document.getElementById('sync-url').value.trim();if(!u)return;WK_URL=u;localStorage.setItem('dance_wk',u);closeOv('ov-sync');initLoad();}
 async function initLoad(){setSS('⟳ Syncing…');const d=await cloudLoad();if(!d){setSS('⚠ Not connected');boot();return;}
@@ -563,6 +586,33 @@ function saveSettings(){
   save('gSettings',gSettings);save('curTz',curTz);
   document.getElementById('tz-lbl').textContent=curTz;
   renderTzDd();updateSeasonBadge();renderCalendar();closeOv('ov-settings');showToast('Settings saved');
+}
+function deleteAllDataConfirm(){
+  showConfirm('Delete every batch, student, class edit, attendance record, fee record, note, and reminder? This cannot be undone.',()=>{
+    batches=[];indStudents=[];ss={};att={};reminders=[];twWkStart=null;twWkCache={};twRemoved={};twEvs=[];twEditId=null;bEditId=null;sEditBid=null;sEditNm=null;detBid=null;sdBid=null;sdNm=null;_bdM=null;_bdY=null;
+    save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);save('reminders',reminders);save('twWkCache',JSON.stringify({cache:{},wkStart:null,removed:{}}));
+    closeOv('ov-settings');renderSidebar();renderCalendar();updateReminderBadge();showToast('All app data deleted');
+  });
+}
+function backupPayload(){
+  const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=(twWkCache[wk]||[]).map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});
+  return{version:1,exportedAt:new Date().toISOString(),gSettings,batches,indStudents,ss,att,reminders,curTz,twWkCache:{cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}};
+}
+function downloadBackup(){
+  const blob=new Blob([JSON.stringify(backupPayload(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dance-schedule-backup-'+localDS(new Date())+'.json';a.click();URL.revokeObjectURL(a.href);showToast('Backup downloaded');
+}
+function restoreBackupFile(input){
+  const file=input.files?.[0];input.value='';if(!file)return;
+  const fr=new FileReader();
+  fr.onload=()=>{try{const data=JSON.parse(fr.result);showConfirm('Restore this backup? Current app data will be replaced.',()=>restoreBackupData(data));}catch(e){showToast('Backup file is not valid');}};
+  fr.readAsText(file);
+}
+function restoreBackupData(data){
+  gSettings=data.gSettings||gSettings;batches=data.batches||[];indStudents=data.indStudents||[];ss=data.ss||{};att=data.att||{};reminders=data.reminders||[];curTz=data.curTz||curTz;
+  const p=data.twWkCache||{};const c=p.cache||p;twWkCache={};Object.entries(c||{}).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents((evs||[]).map(e=>({...e,date:new Date(e.date)})));});twWkStart=p.wkStart?new Date(p.wkStart):null;twRemoved=p.removed||{};
+  save('gSettings',gSettings);save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);save('reminders',reminders);save('curTz',curTz);save('twWkCache',JSON.stringify(backupPayload().twWkCache));
+  closeOv('ov-settings');boot();showToast('Backup restored');
 }
 
 // ═══════════════════════════════════════════════════
@@ -650,6 +700,11 @@ function uniqueBy(items,keyFn){
   return out;
 }
 function escHtml(s){return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function typeBadge(cat){
+  const colors={A:['#e8f0fe','#1a73e8'],B:['#e6f4ea','#1e8e3e'],C:['#fff3e0','#e37400'],D:['#ede7f6','#5e35b1']};
+  const c=colors[cat]||['#f1f3f4','#5f6368'];
+  return`<span style="font-size:9px;background:${c[0]};color:${c[1]};padding:1px 5px;border-radius:8px;font-weight:600">${cat||'—'}</span>`;
+}
 const REMINDER_PRESETS=['Send recording','Send audio','Send payment reminder','Follow up fee','Confirm timing','Share Zoom/link','Send practice video','Ask about absence','Schedule makeup'];
 function activeReminders(){return reminders.filter(r=>!r.done);}
 function saveReminders(){save('reminders',reminders);updateReminderBadge();}
@@ -1205,8 +1260,9 @@ function saveBatch(){
   else batches.push({id:'b_'+Date.now(),name,students,tzGroup,color,sameAsWinter:same,timings,tempTimings:tp,tempSeason:tmpSeason,tempPeriods:tpP});
   save('batches',batches);closeOv('ov-b2');renderSidebar();renderCalendar();showToast(bEditId?'Batch updated':'Batch saved');
 }
-function deleteBatch(){
-  if(!bEditId||!confirm('Delete this batch?'))return;
+function deleteBatch(skipConfirm=false){
+  if(!bEditId)return;
+  if(!skipConfirm){showConfirm('Delete this batch? Students will become individual students.',()=>deleteBatch(true));return;}
   const b=getBatch(bEditId);
   if(b){
     const idMap={};
@@ -1373,7 +1429,7 @@ function deleteStudentConfirm(){
 // ═══════════════════════════════════════════════════
 function openBatchDetail(batchId){detBid=batchId;renderBatchDetail();openOv('ov-bd');}
 function bdEditBatch(){closeOv('ov-bd');openAddBatch(detBid);}
-function bdDeleteConfirm(){showConfirm('Delete this batch? Students will become individual students. History preserved.',()=>{bEditId=detBid;deleteBatch();closeOv('ov-bd');});}
+function bdDeleteConfirm(){showConfirm('Delete this batch? Students will become individual students. History preserved.',()=>{bEditId=detBid;deleteBatch(true);closeOv('ov-bd');});}
 
 function renderBatchDetail(){
   const b=getBatch(detBid);if(!b){document.getElementById('bd-content').innerHTML='Not found.';return;}
@@ -1409,12 +1465,20 @@ function renderBatchDetail(){
   const yOpts=[-1,0,1,2].map(d=>bdY+d).map(y=>`<option value="${y}"${y===bdY?' selected':''}>${y}</option>`).join('');
 
   const evMap={};
+  const batchSummaryKey=ev=>{
+    const d=typeof ev.date==='string'?ev.date:localDS(new Date(ev.date));
+    const type=ev.classType||'scheduled';
+    if(type==='scheduled')return ['scheduled',d,ev.start||'',ev.end||''].join('|');
+    const roles=(ev.studentRoles||[]).map(r=>`${r.batchId||''}:${r.name}:${r.classType||type}:${r.makeupFor||''}`).sort().join(',');
+    const addons=(ev.addonStudents||[]).map(a=>`${a.batchId||''}:${a.name}:${a.classType||''}:${a.makeupFor||''}`).sort().join(',');
+    return [type,d,ev.start||'',ev.end||'',ev.studentScope||'',ev.makeupFor||'',roles,addons].join('|');
+  };
   for(let d=new Date(from+'T00:00:00');d<=new Date(to+'T23:59:59');d.setDate(d.getDate()+1)){
     const ds=localDS(d);const wk=localDS(getMon(d));
     const slots=resolveClassForDate(b,ds);
-    slots.forEach(slot=>{if(twRemovedHas(wk,detBid,ds,slot.start,slot.end))return;evMap[[ds,slot.start,slot.end,'scheduled'].join('|')]={date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled'};});
+    slots.forEach(slot=>{if(twRemovedHas(wk,detBid,ds,slot.start,slot.end))return;const ev={date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled'};evMap[batchSummaryKey(ev)]=ev;});
   }
-  Object.values(twWkCache).forEach(evs=>{if(!Array.isArray(evs))return;cleanTwEvents(evs).forEach(ev=>{if(ev.batchId!==detBid)return;const d=localDS(new Date(ev.date));if(d>=from&&d<=to)evMap[twIdentity(ev)]={...ev,date:d};});});
+  Object.values(twWkCache).forEach(evs=>{if(!Array.isArray(evs))return;cleanTwEvents(evs).forEach(ev=>{if(ev.batchId!==detBid)return;const d=localDS(new Date(ev.date));if(d>=from&&d<=to)evMap[batchSummaryKey(ev)]={...ev,date:d};});});
   const monthEvs=Object.values(evMap).sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||'')));
 
   const classRows=monthEvs.map((ev,i)=>{
@@ -1434,12 +1498,13 @@ function renderBatchDetail(){
     return`<tr style="${cancelled?'background:#fff5f5':''}"><td>${i+1}</td><td>${dl} · ${fmtTime(ev.start||'00:00')} IST${tmpTag}</td><td>${typeCell}</td><td>${attCell}</td></tr>`;
   }).join('');
 
-  // Pending summary (A and B only)
-  const cat0=students.length>0?(ss[detBid+':'+students[0]]?.category||''):'';
-  const showPend=cat0==='A'||cat0==='B';
+  // Pending summary (A and B only, per student)
+  const showPend=students.some(name=>['A','B'].includes(ss[detBid+':'+name]?.category||''));
   let pendHtml='';
   if(showPend){
     const rows=students.map(name=>{
+      const cat=ss[detBid+':'+name]?.category||'';
+      if(cat!=='A'&&cat!=='B')return`<tr><td style="cursor:pointer;color:var(--blue)" onclick="closeOv('ov-bd');openStudentDetail('${detBid}','${name}')">${name}</td><td>—</td><td><span style="color:var(--sub)">Not applicable</span></td></tr>`;
       const entries=getPendingClasses(name,detBid);const pend=entries.filter(e=>!e.resolved);
       const dates=pend.slice(0,3).map(e=>`<span style="font-size:10px;background:var(--bg);border:1px solid var(--bdr);padding:1px 6px;border-radius:5px">${e.date.startsWith('20')?fmtDDMM(new Date(e.date+'T12:00:00')):''}</span>`).join(' ')+(pend.length>3?`+${pend.length-3} more`:'');
       return`<tr><td style="cursor:pointer;color:var(--blue)" onclick="closeOv('ov-bd');openStudentDetail('${detBid}','${name}')">${name}</td><td>${pend.length}</td><td>${dates||'<span style="color:var(--grn)">None</span>'}</td></tr>`;
@@ -1466,7 +1531,7 @@ function renderBatchDetail(){
       <div><div style="font-size:15px;font-weight:500">${b.name}</div><div style="font-size:12px;color:var(--mut)">${b.tzGroup||'IST'} · ${students.length} student${students.length!==1?'s':''}</div></div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">
-      ${students.map(s=>`<span style="padding:3px 10px;border-radius:12px;font-size:12px;background:var(--hov);cursor:pointer;color:var(--mut)" onclick="closeOv('ov-bd');openStudentDetail('${detBid}','${s}')">${s}</span>`).join('')}
+      ${students.map(s=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;font-size:12px;background:var(--hov);cursor:pointer;color:var(--mut)" onclick="closeOv('ov-bd');openStudentDetail('${detBid}','${s}')">${escHtml(s)} ${typeBadge(ss[detBid+':'+s]?.category||'')}</span>`).join('')}
     </div>
     <div style="border-top:1px solid var(--bdr);padding-top:14px;margin-bottom:14px"><div class="stitle">Class Schedule</div>${schedHtml}</div>
     <div style="border-top:1px solid var(--bdr);padding-top:14px;margin-bottom:14px">
@@ -1628,7 +1693,7 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
     let attCell='';
     if(isCancelled)attCell=`<span class="aC">Not required</span>`;
     else{const cv=row.status||'';const opts=`<option value="">—</option><option value="present"${cv==='present'?' selected':''}>Present</option><option value="absent"${cv==='absent'?' selected':''}>Absent</option>`;
-      attCell=`<select class="attsel" data-evid="${row.evId}" data-date="${row.date}" data-sn="${encodeURIComponent(sdNm)}" onchange="sdMarkAtt(this)">${opts}</select> `;
+      attCell=`<select class="attsel" data-evid="${row.evId}" data-date="${row.date}" data-start="${row.start||''}" data-end="${row.end||''}" data-temp="${row.isTemp?'1':''}" data-sn="${encodeURIComponent(sdNm)}" onchange="sdMarkAtt(this)">${opts}</select> `;
       if(cv==='present')attCell+=`<span class="aP">P</span>`;else if(cv==='absent')attCell+=`<span class="aA">A</span>`;
     }
     // Count cell
@@ -1643,8 +1708,8 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
 }
 
 function sdMarkAtt(sel){
-  const evId=sel.dataset.evid,date=sel.dataset.date,sName=decodeURIComponent(sel.dataset.sn);const status=sel.value;
-  if(!evId||evId==='null'){showToast('Class not yet in This Week — open TW first');return;}
+  let evId=sel.dataset.evid;const date=sel.dataset.date,sName=decodeURIComponent(sel.dataset.sn);const status=sel.value;
+  if(!evId||evId==='null')evId=ensureTwEventForAttendance(sdBid,sName,date,sel.dataset.start,sel.dataset.end,sel.dataset.temp==='1');
   if(!att[evId]){const ev=getTwEvent(evId);if(!ev)return;const b2=getBatch(ev.batchId);att[evId]={date,batchId:ev.batchId,classLabel:(b2?.name||'')+' – '+date,twStart:ev.start,evId,students:[]};}
   const ev=getTwEvent(evId),info=ev?getEventStudent(ev,sdBid,sName):null;
   const idx=att[evId].students.findIndex(s=>s.batchId===sdBid&&s.name===sName);
@@ -1747,6 +1812,18 @@ function twLoadWeek(){const wk=twKey();if(!twWkCache[wk])twPopulate();else{const
 function twRemovedHas(wk,batchId,date,start,end){return(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===date&&(!r.start||r.start===start)&&(!r.end||r.end===end)&&!r.studentScope);}
 function makeScheduledTwEvent(entity,d,ds,slot){return normalizeTwEvent({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});}
 function twHasScheduledOrigin(batchId,date,start,end){const key=twIdentity({batchId,date:new Date(date+'T12:00:00'),start,end,originDate:date,originStart:start,originEnd:end,classType:'scheduled',studentScope:null,addonStudents:[]});return twEvs.some(ev=>twIdentity(ev)===key);}
+function ensureTwEventForAttendance(batchId,studentName,date,start,end,isTemp){
+  if(!date||!start||!end)return null;
+  const wk=localDS(getMon(new Date(date+'T12:00:00')));
+  if(!twWkCache[wk])twWkCache[wk]=[];
+  const existing=cleanTwEvents(twWkCache[wk]).find(ev=>getEventStudent(ev,batchId,studentName)&&(ev.originDate===date||localDS(new Date(ev.date))===date)&&((ev.originStart||ev.start)===start)&&((ev.originEnd||ev.end)===end));
+  if(existing)return existing.id;
+  const ev=normalizeTwEvent({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId,date:new Date(date+'T12:00:00'),start,end,originDate:date,originStart:start,originEnd:end,isTemp:!!isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});
+  twWkCache[wk]=cleanTwEvents([...twWkCache[wk],ev]);
+  if(twKey()===wk)twEvs=cleanTwEvents([...twEvs,ev]);
+  saveTwCacheOnly();
+  return ev.id;
+}
 function twShouldGenerateEntity(entity,ds){
   if(entity.id?.startsWith('ind_'))return studentActiveOn(entity.id,entity.name,ds);
   return activeBatchStudents(entity,ds).length>0;
@@ -1783,6 +1860,7 @@ function twMerge(){
   twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;return changed;
 }
 function twSave(){twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;cleanAllTwCaches();syncAllAttendanceRecords();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));save('att',att);}
+function saveTwCacheOnly(){cleanAllTwCaches();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));}
 function twRefresh(){showToast('Refresh removed: TW keeps saved edits.');}
 function twBlockPeople(ev,batch){
   const base=ev.studentRoles?.length?ev.studentRoles.map(r=>r.name).filter(Boolean):(ev.studentScope?[ev.studentScope]:(ev.batchId?.startsWith('ind_')&&batch?.name?[batch.name]:(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean)));
@@ -1868,11 +1946,11 @@ function twaToggleBatch(){const ch=document.getElementById('twa-fb').checked;doc
 function twaLoadBatch(){
   const bid=document.getElementById('twa-bat').value;const b=getBatch(bid);if(!b)return;
   const stus=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
-  // Determine batch type (A/B can have makeup/additional, C/D only additional)
-  const cat0=ss[bid+':'+stus[0]]?.category||'A';
+  // Mixed batches are allowed: A/B students can use makeup, C/D students only use additional.
+  const hasMakeupStudent=stus.some(name=>['A','B'].includes(ss[bid+':'+name]?.category||''));
   document.getElementById('twa-brows').innerHTML=`
     <div class="field"><label>Class type for batch</label><select id="twa-btype" onchange="twaLoadBatchRows()">
-      ${(cat0==='A'||cat0==='B')?'<option value="makeup">Makeup</option>':''}
+      ${hasMakeupStudent?'<option value="makeup">Makeup</option>':''}
       <option value="additional">Additional</option>
     </select></div>
     <div id="twa-bstus"></div>`;
@@ -1887,7 +1965,7 @@ function twaLoadBatchRows(){
     const pend=canMakeup?getPendingClasses(name,bid).filter(e=>!e.resolved).map(e=>`<option value="${e.date}">${e.label}</option>`).join(''):'';
     return`<div style="padding:7px 0;border-bottom:1px solid var(--bdr)" data-student="${name}" data-bid="${bid}">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:12px;font-weight:500">${name}</span>
+        <span style="font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px">${escHtml(name)} ${typeBadge(cat)}</span>
         <select class="twa-srole" onchange="twaRoleChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px">
           ${canMakeup?`<option value="makeup"${btype==='makeup'?' selected':''}>Makeup</option>`:''}
           <option value="additional"${btype==='additional'||!canMakeup?' selected':''}>Additional</option>
