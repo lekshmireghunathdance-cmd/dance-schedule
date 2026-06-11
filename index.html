@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0137)file:///Users/lekshmireghunath/Documents/Codex/2026-06-10/files-mentioned-by-the-user-additional/outputs/dance-schedule-repaired-v28.html -->
+<!-- saved from url=(0137)file:///Users/lekshmireghunath/Documents/Codex/2026-06-10/files-mentioned-by-the-user-additional/outputs/dance-schedule-repaired-v29.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -749,6 +749,12 @@ function eventStudents(ev){
   return students;
 }
 function getEventStudent(ev,batchId,studentName){return eventStudents(ev).find(s=>s.batchId===batchId&&s.name===studentName)||null;}
+function getAttendanceEventInfo(evId,rec,batchId,studentName){
+  const ev=getTwEvent(evId||rec?.evId||'');
+  if(!ev)return null;
+  const info=getEventStudent(ev,batchId,studentName);
+  return info?{ev,info}:null;
+}
 function isTwEventCancelled(ev){
   if(ev?.cancelled)return true;
   const rec=ev?.id?att[ev.id]:null;
@@ -1053,9 +1059,8 @@ function getPendingClasses(studentName,batchId){
     // Every absent scheduled class → pending
     const entries=[];const seen=new Set();
     Object.entries(att).map(([evId,rec])=>({evId,rec})).sort((a,b)=>a.rec.date.localeCompare(b.rec.date)).forEach(({evId,rec})=>{
-      const ev=getTwEvent(evId||rec.evId||'');
-      const info=ev?getEventStudent(ev,batchId,studentName):null;
-      if(info&&info.classType!=='scheduled')return;
+      const valid=getAttendanceEventInfo(evId,rec,batchId,studentName);
+      if(!valid||valid.info.classType!=='scheduled')return;
       (rec.students||[]).forEach(s2=>{
         if(rec.date<studentAddFrom(batchId,studentName))return;
         if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='absent'||seen.has(rec.date))return;
@@ -1075,8 +1080,9 @@ function getPendingClasses(studentName,batchId){
     Object.entries(att).forEach(([evId,rec])=>{
       const ym=rec.date.slice(0,7);
       if(rec.date<studentAddFrom(batchId,studentName))return;
-      const ev=getTwEvent(evId||rec.evId||'');
-      (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName){const info=ev?getEventStudent(ev,batchId,studentName):null;monthCounted[ym]=(monthCounted[ym]||0)+countStudentClass(s2.status,'B',info?.classType||'scheduled');}});
+      const valid=getAttendanceEventInfo(evId,rec,batchId,studentName);
+      if(!valid)return;
+      (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName)monthCounted[ym]=(monthCounted[ym]||0)+countStudentClass(s2.status,'B',valid.info.classType||'scheduled');});
     });
     const cancelledByMonth={};
     function addCancelledPending(date,start){
@@ -1085,7 +1091,9 @@ function getPendingClasses(studentName,batchId){
       if(!cancelledByMonth[ym])cancelledByMonth[ym]=[];
       if(!cancelledByMonth[ym].find(x=>x.date===date&&x.twStart===start))cancelledByMonth[ym].push({date,twStart:start||''});
     }
-    Object.values(att).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{
+    Object.entries(att).map(([evId,rec])=>({evId,rec})).sort((a,b)=>a.rec.date.localeCompare(b.rec.date)).forEach(({evId,rec})=>{
+      const valid=getAttendanceEventInfo(evId,rec,batchId,studentName);
+      if(!valid||valid.info.classType!=='scheduled')return;
       (rec.students||[]).forEach(s2=>{
         if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='cancelled')return;
         addCancelledPending(rec.date,rec.twStart||'');
@@ -1127,8 +1135,9 @@ function computeMonthCount(studentName,batchId,year,month,cat){
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date.slice(0,7)!==ym)return;
     if(cat!=='D'&&rec.date<studentAddFrom(batchId,studentName))return;
-    const ev=getTwEvent(evId||rec.evId||'');
-    (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName){const info=ev?getEventStudent(ev,batchId,studentName):null;raw+=countStudentClass(s2.status,cat,info?.classType||'scheduled');}});
+    const valid=getAttendanceEventInfo(evId,rec,batchId,studentName);
+    if(!valid)return;
+    (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName)raw+=countStudentClass(s2.status,cat,valid.info.classType||'scheduled');});
   });
   return(cat==='A'||cat==='B')?Math.min(raw,8):raw;
 }
@@ -1163,11 +1172,11 @@ function countedClassRows(batchId,studentName,cat,fromDate,toDate){
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date<fromDate||rec.date>toDate)return;
     if(cat!=='D'&&rec.date<studentAddFrom(batchId,studentName))return;
-    const ev=getTwEvent(evId||rec.evId||'');
+    const valid=getAttendanceEventInfo(evId,rec,batchId,studentName);
+    if(!valid)return;
     (rec.students||[]).forEach(s2=>{
       if(s2.batchId!==batchId||s2.name!==studentName)return;
-      const info=ev?getEventStudent(ev,batchId,studentName):null;
-      if(countStudentClass(s2.status,cat,info?.classType||'scheduled')>0)rows.push({date:rec.date,start:ev?.start||rec.twStart||'',evId});
+      if(countStudentClass(s2.status,cat,valid.info.classType||'scheduled')>0)rows.push({date:rec.date,start:valid.ev.start||rec.twStart||'',evId});
     });
   });
   return rows.sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||''))||String(a.evId||'').localeCompare(String(b.evId||'')));
@@ -1176,10 +1185,11 @@ function attendedClassRows(batchId,studentName,fromDate,toDate){
   const rows=[];
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date<fromDate||rec.date>toDate)return;
-    const ev=getTwEvent(evId||rec.evId||'');
+    const valid=getAttendanceEventInfo(evId,rec,batchId,studentName);
+    if(!valid)return;
     (rec.students||[]).forEach(s2=>{
       if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='present')return;
-      rows.push({date:rec.date,start:ev?.start||rec.twStart||'',evId});
+      rows.push({date:rec.date,start:valid.ev.start||rec.twStart||'',evId});
     });
   });
   return rows.sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||''))||String(a.evId||'').localeCompare(String(b.evId||'')));
@@ -1276,10 +1286,10 @@ function getStudentCountedAttendanceDates(batchId,studentName,cat,fromDate){
   const dates=[];
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date<fromDate)return;
+    const valid=getAttendanceEventInfo(evId,rec,batchId,studentName);
+    if(!valid)return;
     (rec.students||[]).forEach(s2=>{
-      const ev=getTwEvent(evId||rec.evId||'');
-      const info=ev?getEventStudent(ev,batchId,studentName):null;
-      if(s2.batchId===batchId&&s2.name===studentName&&countStudentClass(s2.status,cat,info?.classType||'scheduled')>0)dates.push({date:rec.date,start:ev?.start||rec.twStart||'',evId});
+      if(s2.batchId===batchId&&s2.name===studentName&&countStudentClass(s2.status,cat,valid.info.classType||'scheduled')>0)dates.push({date:rec.date,start:valid.ev.start||rec.twStart||'',evId});
     });
   });
   dates.sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||''))||String(a.evId||'').localeCompare(String(b.evId||'')));
@@ -1929,6 +1939,7 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
       if(info){existing.classType=info.classType||existing.classType;existing.makeupFor=info.makeupFor||existing.makeupFor||null;}
       return;
     }
+    if(!ev||!info)return;
     evRows.push({date:rec.date,start,end,originStart,originEnd,classType:info?.classType||'scheduled',isTemp:!!ev?.isTemp,cancelled:!!(ev&&isTwEventCancelled(ev))||sAtt.status==='cancelled',status:sAtt.status||null,makeupFor:info?.makeupFor||null,evId,isAddon:!!sAtt.isAddon});
   });
   evRows.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
@@ -2483,7 +2494,7 @@ function renderAtt(){
 
   if(!rows.length){document.getElementById('att-inner').innerHTML='<div style="font-size:13px;color:var(--mut);padding:14px">No students.</div>';return;}
 
-  const attLookup={};Object.entries(att).forEach(([evId,rec])=>{if(rec.date<fromDate||rec.date>toDate)return;const ev=getTwEvent(evId);(rec.students||[]).forEach(s=>{const k=s.batchId+':'+s.name;if(!attLookup[k])attLookup[k]={};if(!attLookup[k][rec.date])attLookup[k][rec.date]=[];const info=ev?getEventStudent(ev,s.batchId,s.name):null;attLookup[k][rec.date].push({status:s.status,classType:info?.classType||'scheduled',makeupFor:info?.makeupFor||null});});});
+  const attLookup={};Object.entries(att).forEach(([evId,rec])=>{if(rec.date<fromDate||rec.date>toDate)return;const ev=getTwEvent(evId);if(!ev)return;(rec.students||[]).forEach(s=>{const info=getEventStudent(ev,s.batchId,s.name);if(!info)return;const k=s.batchId+':'+s.name;if(!attLookup[k])attLookup[k]={};if(!attLookup[k][rec.date])attLookup[k][rec.date]=[];attLookup[k][rec.date].push({status:s.status,classType:info.classType||'scheduled',makeupFor:info.makeupFor||null});});});
   const schedLookup={};rows.forEach(r=>{schedLookup[r.batchId+':'+r.name]=getScheduledDates(r.batchId,fromDate,toDate,r.name);});
   const days=Array.from({length:dim},(_,i)=>{const dt=new Date(year,month-1,i+1);return{d:i+1,dn:dt.toLocaleDateString('en-GB',{weekday:'short'}),isWE:dt.getDay()===0||dt.getDay()===6};});
 
