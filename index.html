@@ -566,6 +566,38 @@ function fmtDDMMYYYY(d){return`${String(d.getDate()).padStart(2,'0')}-${String(d
 function twKey(){return twWkStart?localDS(twWkStart):'';}
 function getDayAsOf(dayName){const t=new Date(),dow=t.getDay();const tgt=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(dayName);let diff=dow-tgt;if(diff<0)diff+=7;const d=new Date(t);d.setDate(d.getDate()-diff);return localDS(d);}
 function getEntityTz(entity){if(!entity)return null;const grp=TZ_GRP.find(g=>g.label===entity.tzGroup)||null;return grp?(deriveSeason()==='summer'?grp.s:grp.w):null;}
+function allTwEvents(){return Object.values(twWkCache).flatMap(evs=>Array.isArray(evs)?evs:[]);}
+function getTwEvent(id){return twEvs.find(e=>e.id===id)||allTwEvents().find(e=>e.id===id)||null;}
+function eventStudents(ev){
+  const entity=getBatch(ev.batchId),students=[];
+  if(ev.studentScope)students.push({name:ev.studentScope,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
+  else if(ev.batchId&&ev.batchId.startsWith('ind_')&&entity?.name)students.push({name:entity.name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
+  else (entity?.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name=>students.push({name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null}));
+  (ev.addonStudents||[]).forEach(a=>students.push({name:a.name,batchId:a.batchId||ev.batchId,isAddon:true,classType:a.classType||'additional',makeupFor:a.makeupFor||null}));
+  return students;
+}
+function getEventStudent(ev,batchId,studentName){return eventStudents(ev).find(s=>s.batchId===batchId&&s.name===studentName)||null;}
+function syncAttendanceForEvent(ev){
+  const rec=att[ev.id];if(!rec)return;
+  const entity=getBatch(ev.batchId),date=localDS(new Date(ev.date));
+  rec.date=date;rec.batchId=ev.batchId;rec.classLabel=(entity?.name||'Class')+' – '+date;rec.twStart=ev.start;
+  const valid=new Set(eventStudents(ev).map(s=>s.batchId+':'+s.name));
+  rec.students=(rec.students||[]).filter(s=>valid.has(s.batchId+':'+s.name));
+  if(!rec.students.length)delete att[ev.id];
+}
+function syncAllAttendanceRecords(){allTwEvents().forEach(syncAttendanceForEvent);}
+function sameSlotLayout(items){
+  const groups={};
+  items.forEach((item,i)=>{const key=item.sm+'-'+item.em;(groups[key]||(groups[key]=[])).push(i);});
+  const slot=new Array(items.length).fill(0),total=new Array(items.length).fill(1);
+  Object.values(groups).forEach(group=>{group.forEach((idx,pos)=>{slot[idx]=pos;total[idx]=group.length;});});
+  return{slot,total};
+}
+function uniqueBy(items,keyFn){
+  const seen=new Set(),out=[];
+  items.forEach(item=>{const key=keyFn(item);if(seen.has(key))return;seen.add(key);out.push(item);});
+  return out;
+}
 
 // ═══════════════════════════════════════════════════
 // SECTION 5 — SEASON (per-date derivation)
@@ -616,8 +648,8 @@ function getScheduledDates(batchId,fromDate,toDate,studentName){
     if(removed)continue;
     if(resolveClassForDate(batch,ds).length>0)dates.add(ds);
   }
-  Object.values(twWkCache).forEach(evs=>{if(!Array.isArray(evs))return;evs.forEach(ev=>{if(ev.batchId!==batchId)return;if(studentName&&ev.studentScope&&ev.studentScope!==studentName)return;const d=localDS(new Date(ev.date));if(d>=fromDate&&d<=toDate)dates.add(d);});});
-  Object.values(att).forEach(rec=>{if(rec.batchId!==batchId)return;if(rec.date>=fromDate&&rec.date<=toDate)dates.add(rec.date);});
+  allTwEvents().forEach(ev=>{if(studentName&&!getEventStudent(ev,batchId,studentName))return;if(!studentName&&ev.batchId!==batchId)return;const d=localDS(new Date(ev.date));if(d>=fromDate&&d<=toDate)dates.add(d);});
+  Object.values(att).forEach(rec=>{if(rec.date<fromDate||rec.date>toDate)return;(rec.students||[]).forEach(s=>{if(s.batchId===batchId&&(!studentName||s.name===studentName))dates.add(rec.date);});});
   return dates;
 }
 
@@ -633,6 +665,13 @@ function countClass(status,cat){
   if(cat==='C'||cat==='D')return(status==='present'||status==='additional')?1:0;
   return 0;
 }
+function countStudentClass(status,cat,classType){
+  if(!status||status==='cancelled'||classType==='makeup')return 0;
+  if(classType==='additional')return status==='present'?1:0;
+  if(cat==='A'||cat==='B')return(status==='present'||status==='absent')?1:0;
+  if(cat==='C'||cat==='D')return status==='present'?1:0;
+  return 0;
+}
 
 function getPendingClasses(studentName,batchId){
   const s=ss[batchId+':'+studentName]||{};
@@ -641,32 +680,27 @@ function getPendingClasses(studentName,batchId){
 
   // Build makeup resolution map: pendingDate → resolutionDate
   const makeupRes=new Map();
-  Object.values(twWkCache).flat().forEach(ev=>{
-    if(ev.batchId!==batchId)return;
+  allTwEvents().forEach(ev=>{
     const evDate=localDS(new Date(ev.date));
     const attRec=att[ev.id];
     if(!attRec)return;
     // Main student of event (if it is their makeup class)
-    if(ev.classType==='makeup'&&ev.makeupFor&&ev.studentScope===studentName){
+    const mainInfo=getEventStudent(ev,batchId,studentName);
+    if(mainInfo&&mainInfo.classType==='makeup'&&mainInfo.makeupFor){
       const aRec=attRec.students?.find(x=>x.name===studentName&&x.status==='present');
-      if(aRec&&!makeupRes.has(ev.makeupFor))makeupRes.set(ev.makeupFor,evDate);
+      if(aRec&&!makeupRes.has(mainInfo.makeupFor))makeupRes.set(mainInfo.makeupFor,evDate);
     }
-    // Addon students
-    (ev.addonStudents||[]).forEach(a=>{
-      if(a.name===studentName&&a.classType==='makeup'&&a.makeupFor){
-        const aRec=attRec.students?.find(x=>x.name===studentName&&x.status==='present');
-        if(aRec&&!makeupRes.has(a.makeupFor))makeupRes.set(a.makeupFor,evDate);
-      }
-    });
   });
 
   if(cat==='A'){
     // Every absent scheduled class → pending
     const entries=[];const seen=new Set();
     Object.values(att).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{
-      if(rec.batchId!==batchId)return;
+      const ev=getTwEvent(rec.evId||'')||getTwEvent(Object.keys(att).find(k=>att[k]===rec));
+      const info=ev?getEventStudent(ev,batchId,studentName):null;
+      if(info&&info.classType!=='scheduled')return;
       (rec.students||[]).forEach(s2=>{
-        if(s2.name!==studentName||s2.status!=='absent'||seen.has(rec.date))return;
+        if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='absent'||seen.has(rec.date))return;
         seen.add(rec.date);
         const dt=new Date(rec.date+'T12:00:00');
         const label=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+(rec.twStart?' · '+fmtTime(rec.twStart)+' IST':'');
@@ -681,16 +715,15 @@ function getPendingClasses(studentName,batchId){
     // Cancelled classes may be pending based on monthly count
     const monthCounted={};
     Object.values(att).forEach(rec=>{
-      if(rec.batchId!==batchId)return;
       const ym=rec.date.slice(0,7);
-      (rec.students||[]).forEach(s2=>{if(s2.name===studentName)monthCounted[ym]=(monthCounted[ym]||0)+countClass(s2.status,'B');});
+      const ev=getTwEvent(Object.keys(att).find(k=>att[k]===rec)||rec.evId||'');
+      (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName){const info=ev?getEventStudent(ev,batchId,studentName):null;monthCounted[ym]=(monthCounted[ym]||0)+countStudentClass(s2.status,'B',info?.classType||'scheduled');}});
     });
     const cancelledByMonth={};
     Object.values(att).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{
-      if(rec.batchId!==batchId)return;
       const ym=rec.date.slice(0,7);
       (rec.students||[]).forEach(s2=>{
-        if(s2.name!==studentName||s2.status!=='cancelled')return;
+        if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='cancelled')return;
         if(!cancelledByMonth[ym])cancelledByMonth[ym]=[];
         if(!cancelledByMonth[ym].find(x=>x.date===rec.date))cancelledByMonth[ym].push({date:rec.date,twStart:rec.twStart||''});
       });
@@ -723,8 +756,9 @@ function computeMonthCount(studentName,batchId,year,month,cat){
   const ym=year+'-'+String(month).padStart(2,'0');
   let raw=0;
   Object.values(att).forEach(rec=>{
-    if(rec.batchId!==batchId||rec.date.slice(0,7)!==ym)return;
-    (rec.students||[]).forEach(s2=>{if(s2.name===studentName)raw+=countClass(s2.status,cat);});
+    if(rec.date.slice(0,7)!==ym)return;
+    const ev=getTwEvent(Object.keys(att).find(k=>att[k]===rec)||rec.evId||'');
+    (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName){const info=ev?getEventStudent(ev,batchId,studentName):null;raw+=countStudentClass(s2.status,cat,info?.classType||'scheduled');}});
   });
   return(cat==='A'||cat==='B')?Math.min(raw,8):raw;
 }
@@ -775,7 +809,9 @@ function getStudentCountedAttendanceDates(batchId,studentName,cat,fromDate){
   Object.values(att).forEach(rec=>{
     if(rec.date<fromDate)return;
     (rec.students||[]).forEach(s2=>{
-      if(s2.batchId===batchId&&s2.name===studentName&&countClass(s2.status,cat)>0)dates.push({date:rec.date,evId:rec.evId||null});
+      const ev=getTwEvent(Object.keys(att).find(k=>att[k]===rec)||rec.evId||'');
+      const info=ev?getEventStudent(ev,batchId,studentName):null;
+      if(s2.batchId===batchId&&s2.name===studentName&&countStudentClass(s2.status,cat,info?.classType||'scheduled')>0)dates.push({date:rec.date,evId:rec.evId||null});
     });
   });
   dates.sort((a,b)=>a.date.localeCompare(b.date));
@@ -883,7 +919,7 @@ function getDisplayClasses(){
       resolveClassForDate(entity,fd).forEach(slot=>result.push({batchId:entity.id,start:slot.start,end:slot.end,day:slot.day,isTemp:slot.isTemp}));
     });
   });
-  return result;
+  return uniqueBy(result,c=>[c.batchId,c.day,c.start,c.end,c.isTemp?'temp':'regular'].join('|'));
 }
 
 function renderCalendar(){
@@ -903,14 +939,11 @@ function renderCalendar(){
     html+=`<div class="cal-col" style="height:${CAL_H}px">`;
     for(let h=0;h<=CAL_E-CAL_S;h++){html+=`<div class="hl s" style="top:${h*60*PX}px"></div>`;if(h<CAL_E-CAL_S)html+=`<div class="hl" style="top:${(h+.5)*60*PX}px"></div>`;}
     const evs=dayCls.map(c=>{const sm=calM(c.start),em=calM(c.end),batch=getBatch(c.batchId);if(sm<0||em>CAL_TOT||!batch)return null;return{c,sm,em,batch};}).filter(Boolean).sort((a,b)=>a.sm-b.sm);
-    const n=evs.length,ov=evs.map(()=>[]);
-    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)if(evs[i].sm<evs[j].em&&evs[j].sm<evs[i].em){ov[i].push(j);ov[j].push(i);}
-    const sl=new Array(n).fill(0),to=new Array(n).fill(1),vi=new Array(n).fill(false);
-    for(let i=0;i<n;i++){if(vi[i])continue;if(!ov[i].length){vi[i]=true;continue;}const g=[],q=[i];while(q.length){const c2=q.shift();if(vi[c2])continue;vi[c2]=true;g.push(c2);ov[c2].forEach(nb=>{if(!vi[nb])q.push(nb);});}const gs=[];g.forEach(gi=>{const e=evs[gi];const s2=gs.findIndex(x=>x<=e.sm);if(s2===-1){gs.push(e.em);sl[gi]=gs.length-1;}else{gs[s2]=e.em;sl[gi]=s2;}});g.forEach(gi=>to[gi]=gs.length);}
+    const layout=sameSlotLayout(evs);
     evs.forEach(({c,sm,em,batch},i)=>{
       const top=sm*PX,ht=Math.max((em-sm)*PX,16),col=getColor(batch.color);
-      const lp=(sl[i]/to[i])*100,wp=(1/to[i])*100;
-      const ls=`calc(${lp}%+2px)`,rs=`calc(${100-lp-wp}%+2px)`;
+      const lp=(layout.slot[i]/layout.total[i])*100,wp=(1/layout.total[i])*100;
+      const ls=`calc(${lp}% + 2px)`,rs=`calc(${100-lp-wp}% + 2px)`;
       html+=`<div class="cal-ev${c.isTemp?' tmp':''}" style="top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-color:${col.b};color:${col.t}" title="${batch.name}${c.isTemp?' (temp)':''}">
         <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${batch.name}</div>
         <div style="font-size:9px;opacity:.8">${fmtTime(c.start)}</div>
@@ -970,14 +1003,18 @@ function deleteBatch(){
   if(!bEditId||!confirm('Delete this batch?'))return;
   const b=getBatch(bEditId);
   if(b){
+    const idMap={};
     (b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name=>{
       const ssKey=bEditId+':'+name;const sObj=ss[ssKey]||{};
       const newId='ind_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
+      idMap[name]=newId;
       indStudents.push({id:newId,name,tzGroup:b.tzGroup,sameAsWinter:false,timings:[],tempTimings:[],tempSeason:'both',tempPeriods:[]});
       ss[newId+':'+name]={...sObj,needsTimings:true};delete ss[ssKey];
     });
     batches=batches.filter(x=>x.id!==bEditId);
-    Object.keys(att).forEach(k=>{if(att[k].batchId===bEditId)delete att[k];});
+    Object.values(att).forEach(rec=>{
+      (rec.students||[]).forEach(s=>{if(s.batchId===bEditId&&idMap[s.name])s.batchId=idMap[s.name];});
+    });
   }
   save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);
   closeOv('ov-b1');renderSidebar();renderCalendar();showToast('Batch deleted — students converted to individual');
@@ -1292,27 +1329,29 @@ function sdEditTimings(){const b=indStudents.find(s=>s.id===sdBid);sEditBid=sdBi
 
 function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
   if(!cat)return'<div style="font-size:12px;color:var(--mut)">Set student category to view attendance.</div>';
-  const evRows=[];const seenDates=new Set();
+  const evRows=[];
   // From TW cache
   Object.values(twWkCache).forEach(evs=>{
     if(!Array.isArray(evs))return;
     evs.forEach(ev=>{
-      if(ev.batchId!==batchId)return;
-      const isMain=!ev.studentScope||ev.studentScope===studentName;
-      const isAddon=(ev.addonStudents||[]).some(a=>a.name===studentName);
-      if(!isMain&&!isAddon)return;
+      const info=getEventStudent(ev,batchId,studentName);
+      if(!info)return;
       const d=localDS(new Date(ev.date));if(d<fromDate||d>toDate)return;
       const attRec=att[ev.id];const sAtt=attRec?.students?.find(s=>s.name===studentName);
-      let classType=ev.classType||'scheduled';
-      if(isAddon){const a=(ev.addonStudents||[]).find(x=>x.name===studentName);if(a)classType=a.classType;}
-      const mf=ev.makeupFor||(isAddon?(ev.addonStudents||[]).find(x=>x.name===studentName)?.makeupFor:null);
-      evRows.push({date:d,start:ev.start,end:ev.end,classType,isTemp:ev.isTemp,cancelled:ev.cancelled,status:sAtt?.status||null,makeupFor:mf||null,evId:ev.id});
-      seenDates.add(d+'_'+ev.id);
+      evRows.push({date:d,start:ev.start,end:ev.end,classType:info.classType,isTemp:ev.isTemp,cancelled:ev.cancelled,status:sAtt?.status||null,makeupFor:info.makeupFor||null,evId:ev.id,isAddon:info.isAddon});
     });
   });
   // Timing projections not yet in TW
   const entity=batchId.startsWith('ind_')?indStudents.find(s=>s.id===batchId):getBatch(batchId);
-  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;if(!evRows.find(r=>r.date===ds&&r.start===slot.start)){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null});}});}}
+  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;const exists=evRows.find(r=>r.date===ds&&r.start===slot.start)||allTwEvents().some(ev=>getEventStudent(ev,batchId,studentName)&&(ev.originDate===ds||localDS(new Date(ev.date))===ds)&&((ev.originStart||ev.start)===slot.start));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
+  Object.entries(att).forEach(([evId,rec])=>{
+    if(rec.date<fromDate||rec.date>toDate)return;
+    const sAtt=(rec.students||[]).find(s=>s.batchId===batchId&&s.name===studentName);
+    if(!sAtt)return;
+    if(evRows.some(r=>r.evId===evId))return;
+    const ev=getTwEvent(evId),info=ev?getEventStudent(ev,batchId,studentName):null;
+    evRows.push({date:rec.date,start:rec.twStart||ev?.start||'',end:ev?.end||'',classType:info?.classType||'scheduled',isTemp:!!ev?.isTemp,cancelled:ev?.cancelled||sAtt.status==='cancelled',status:sAtt.status||null,makeupFor:info?.makeupFor||null,evId,isAddon:!!sAtt.isAddon});
+  });
   evRows.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
   if(!evRows.length)return'<div style="font-size:12px;color:var(--mut)">No classes scheduled this month.</div>';
 
@@ -1341,7 +1380,7 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
     }
     // Count cell
     let cntCell='<span style="color:var(--sub)">—</span>';
-    if(!isCancelled&&row.status){const c=countClass(row.status,cat);if(c>0){running++;if(cat==='D'){const dp=dCycleMap[row.date]||1;cntCell=`<strong>${dp}/8</strong>`;}else if(cat==='A'||cat==='B')cntCell=`<strong>${running<=8?running:running+' ⚠'}</strong>`;else cntCell=`<strong>${running}</strong>`;}else cntCell=`<span style="color:var(--mut)">0</span>`;}else if(!row.status)cntCell=`<span style="color:var(--sub)">—</span>`;
+    if(!isCancelled&&row.status){const c=countStudentClass(row.status,cat,row.classType);if(c>0){running++;if(cat==='D'){const dp=dCycleMap[row.date]||1;cntCell=`<strong>${dp}/8</strong>`;}else if(cat==='A'||cat==='B')cntCell=`<strong>${running<=8?running:running+' ⚠'}</strong>`;else cntCell=`<strong>${running}</strong>`;}else cntCell=`<span style="color:var(--mut)">0</span>`;}else if(!row.status)cntCell=`<span style="color:var(--sub)">—</span>`;
     const tmpTag=row.isTemp?`<span style="font-size:9px;background:var(--oral);color:var(--ora);padding:1px 4px;border-radius:4px;margin-left:4px">Temp</span>`:'';
     const mfNote=row.makeupFor?`<div style="font-size:10px;color:var(--mut)">For: ${fmtDDMM(new Date(row.makeupFor+'T12:00:00'))}</div>`:'';
     return`<tr style="${isCancelled?'background:#fff5f5;opacity:.7':''}"><td style="white-space:nowrap">${dl}${tzLbl}${tmpTag}</td><td style="${typeColor}">${typeLabel}${mfNote}</td><td>${attCell}</td><td style="text-align:center">${cntCell}</td></tr>`;
@@ -1353,10 +1392,11 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
 function sdMarkAtt(sel){
   const evId=sel.dataset.evid,date=sel.dataset.date,sName=decodeURIComponent(sel.dataset.sn);const status=sel.value;
   if(!evId||evId==='null'){showToast('Class not yet in This Week — open TW first');return;}
-  if(!att[evId]){const ev=Object.values(twWkCache).flat().find(e=>e.id===evId);if(!ev)return;const b2=getBatch(ev.batchId);att[evId]={date,batchId:ev.batchId,classLabel:(b2?.name||'')+' – '+date,twStart:ev.start,students:[]};}
+  if(!att[evId]){const ev=getTwEvent(evId);if(!ev)return;const b2=getBatch(ev.batchId);att[evId]={date,batchId:ev.batchId,classLabel:(b2?.name||'')+' – '+date,twStart:ev.start,evId,students:[]};}
+  const ev=getTwEvent(evId),info=ev?getEventStudent(ev,sdBid,sName):null;
   const idx=att[evId].students.findIndex(s=>s.name===sName);
   if(status===''){if(idx!==-1)att[evId].students.splice(idx,1);}
-  else{if(idx!==-1)att[evId].students[idx].status=status;else att[evId].students.push({name:sName,batchId:sdBid,status,isAddon:false});}
+  else{if(idx!==-1){att[evId].students[idx].status=status;att[evId].students[idx].batchId=sdBid;att[evId].students[idx].isAddon=!!info?.isAddon;}else att[evId].students.push({name:sName,batchId:sdBid,status,isAddon:!!info?.isAddon});}
   save('att',att);autoCheckFeeStatuses();sdUnsaved=true;
   renderStudentDetail();
   if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
@@ -1443,15 +1483,18 @@ function refreshSD(){if(document.getElementById('ov-sd').classList.contains('ope
 // ═══════════════════════════════════════════════════
 function openTW(){
   if(!twWkStart)twWkStart=getMon(new Date());
-  const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));}
+  twLoadWeek();
   document.getElementById('tw-dt').value=localDS(twWkStart);twRender();openOv('ov-tw');
 }
-function twSetWeek(){const v=document.getElementById('tw-dt').value;if(!v)return;twWkStart=getMon(new Date(v+'T12:00:00'));document.getElementById('tw-dt').value=localDS(twWkStart);const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));}twRender();}
+function twSetWeek(){const v=document.getElementById('tw-dt').value;if(!v)return;twWkStart=getMon(new Date(v+'T12:00:00'));document.getElementById('tw-dt').value=localDS(twWkStart);twLoadWeek();twRender();}
 function twPrev(){twWkStart=addDays(twWkStart,-7);twSetWeekGo();}function twNext(){twWkStart=addDays(twWkStart,7);twSetWeekGo();}
-function twSetWeekGo(){document.getElementById('tw-dt').value=localDS(twWkStart);const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));}twRender();}
-function twPopulate(){const evs=[];[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{const wr=(twRemoved[twKey()]||[]).some(r=>r.batchId===entity.id&&r.date===ds&&(!r.start||r.start===slot.start)&&!r.studentScope);if(wr)return;if(evs.some(ev=>ev.batchId===entity.id&&localDS(new Date(ev.date))===ds&&ev.start===slot.start))return;evs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});});}});twEvs=evs;twWkCache[twKey()]=evs;}
-function twMerge(){const wk=twKey();[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{if((twRemoved[wk]||[]).some(r=>r.batchId===entity.id&&r.date===ds&&!r.studentScope))return;if(twEvs.some(ev=>ev.batchId===entity.id&&localDS(new Date(ev.date))===ds&&ev.start===slot.start))return;twEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});});}});twWkCache[twKey()]=twEvs;}
-function twSave(){twWkCache[twKey()]=twEvs;const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));}
+function twSetWeekGo(){document.getElementById('tw-dt').value=localDS(twWkStart);twLoadWeek();twRender();}
+function twLoadWeek(){const wk=twKey();if(!twWkCache[wk])twPopulate();else{twEvs=twWkCache[wk].map(e=>({...e,date:new Date(e.date)}));if(twMerge())twSave();}}
+function twRemovedHas(wk,batchId,date,start,end){return(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===date&&(!r.start||r.start===start)&&(!r.end||r.end===end)&&!r.studentScope);}
+function twHasScheduledOrigin(batchId,date,start,end){return twEvs.some(ev=>ev.batchId===batchId&&!ev.studentScope&&(ev.classType||'scheduled')==='scheduled'&&(((localDS(new Date(ev.date))===date&&ev.start===start&&ev.end===end)||(ev.originDate===date&&ev.originStart===start&&(ev.originEnd||ev.end)===end))));}
+function twPopulate(){const evs=[];[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{const wr=twRemovedHas(twKey(),entity.id,ds,slot.start,slot.end);if(wr)return;if(evs.some(ev=>ev.batchId===entity.id&&localDS(new Date(ev.date))===ds&&ev.start===slot.start&&ev.end===slot.end))return;evs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});});}});twEvs=evs;twWkCache[twKey()]=evs;}
+function twMerge(){let changed=false;const wk=twKey();[...batches,...indStudents].forEach(entity=>{for(let i=0;i<7;i++){const d=addDays(twWkStart,i),ds=localDS(d);resolveClassForDate(entity,ds).forEach(slot=>{if(twRemovedHas(wk,entity.id,ds,slot.start,slot.end))return;if(twHasScheduledOrigin(entity.id,ds,slot.start,slot.end))return;twEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});changed=true;});}});twWkCache[twKey()]=twEvs;return changed;}
+function twSave(){twWkCache[twKey()]=twEvs;syncAllAttendanceRecords();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));save('att',att);}
 function twRefresh(){showToast('Refresh removed: TW keeps saved edits.');}
 
 function twRender(){
@@ -1462,20 +1505,17 @@ function twRender(){
   html+=`<div style="display:flex;flex-direction:column;background:var(--sur)">`;
   for(let h=TW_S;h<TW_E;h++){const l=h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;html+=`<div class="tw-tm" style="height:${60*TWX}px">${l}</div>`;}html+=`</div>`;
   days.forEach(day=>{
-    const ds=localDS(day);const dayEvs=twEvs.filter(ev=>localDS(new Date(ev.date))===ds);
+    const ds=localDS(day);const dayEvs=uniqueBy(twEvs.filter(ev=>localDS(new Date(ev.date))===ds),ev=>[ev.batchId,ev.studentScope||'',ev.start,ev.end,ev.classType||'scheduled',ev.isTemp?'temp':'regular',(ev.addonStudents||[]).map(a=>`${a.batchId||''}:${a.name}:${a.classType||''}:${a.makeupFor||''}`).sort().join(',')].join('|'));
     html+=`<div class="tw-col" style="height:${TW_H}px" ondragover="twDragOver(event)" ondrop="twDrop(event,'${ds}')" ondragleave="twDragLeave(event)">`;
     for(let h=0;h<TW_E-TW_S;h++)html+=`<div style="position:absolute;left:0;right:0;top:${h*60*TWX}px;border-top:1px solid ${h===0?'var(--bdr)':'#f0f0f0'};pointer-events:none"></div>`;
-    // Overlap layout
+    // Split only classes that share the exact same time slot; every other slot resets to full width.
     const evs2=dayEvs.map(ev=>{const sm=twM(ev.start),em=twM(ev.end);if(sm<0||em>TW_TOT)return null;return{ev,sm,em};}).filter(Boolean).sort((a,b)=>a.sm-b.sm);
-    const n2=evs2.length,ov2=evs2.map(()=>[]);
-    for(let i=0;i<n2;i++)for(let j=i+1;j<n2;j++)if(evs2[i].sm<evs2[j].em&&evs2[j].sm<evs2[i].em){ov2[i].push(j);ov2[j].push(i);}
-    const sl2=new Array(n2).fill(0),to2=new Array(n2).fill(1),vi2=new Array(n2).fill(false);
-    for(let i=0;i<n2;i++){if(vi2[i])continue;if(!ov2[i].length){vi2[i]=true;continue;}const g=[],q=[i];while(q.length){const c2=q.shift();if(vi2[c2])continue;vi2[c2]=true;g.push(c2);ov2[c2].forEach(nb=>{if(!vi2[nb])q.push(nb);});}const gs=[];g.forEach(gi=>{const e=evs2[gi];const s2=gs.findIndex(x=>x<=e.sm);if(s2===-1){gs.push(e.em);sl2[gi]=gs.length-1;}else{gs[s2]=e.em;sl2[gi]=s2;}});g.forEach(gi=>to2[gi]=gs.length);}
+    const layout2=sameSlotLayout(evs2);
     evs2.forEach(({ev,sm,em},i)=>{
       const batch=getBatch(ev.batchId);if(!batch)return;const col=getColor(batch.color);
       const top=sm*TWX,ht=Math.max((em-sm)*TWX,20);
-      const lp=(sl2[i]/to2[i])*100,wp=(1/to2[i])*100;
-      const ls=`calc(${lp}%+2px)`,rs=`calc(${100-lp-wp}%+2px)`;
+      const lp=(layout2.slot[i]/layout2.total[i])*100,wp=(1/layout2.total[i])*100;
+      const ls=`calc(${lp}% + 2px)`,rs=`calc(${100-lp-wp}% + 2px)`;
       const badge=ev.classType&&ev.classType!=='scheduled'?`<span style="font-size:8px;background:rgba(0,0,0,.15);padding:1px 3px;border-radius:2px;margin-left:2px">${ev.classType}</span>`:'';
       html+=`<div class="tw-ev${ev.cancelled?' cancelled':''}${ev.isTemp?' tmp':''}" draggable="true"
         style="position:absolute;top:${top}px;height:${ht}px;left:${ls};right:${rs};background:${col.bg};border-color:${col.b};color:${col.t}"
@@ -1498,8 +1538,8 @@ function twDragLeave(e){e.currentTarget.classList.remove('dov');}
 function markOriginalRemoved(ev,origDs){
   if(ev.classType!=='scheduled')return;
   const wk=twKey();if(!twRemoved[wk])twRemoved[wk]=[];
-  const od=ev.originDate||origDs,os=ev.originStart||ev.start;
-  if(!twRemoved[wk].some(r=>r.batchId===ev.batchId&&r.date===od&&r.start===os&&(!r.studentScope||r.studentScope===ev.studentScope))){twRemoved[wk].push({batchId:ev.batchId,date:od,start:os,studentScope:ev.studentScope||null});}
+  const od=ev.originDate||origDs,os=ev.originStart||ev.start,oe=ev.originEnd||ev.end;
+  if(!twRemoved[wk].some(r=>r.batchId===ev.batchId&&r.date===od&&r.start===os&&(!r.end||r.end===oe)&&(!r.studentScope||r.studentScope===ev.studentScope))){twRemoved[wk].push({batchId:ev.batchId,date:od,start:os,end:oe,studentScope:ev.studentScope||null});}
 }
 function twDrop(e,targetDs){
   e.preventDefault();e.currentTarget.classList.remove('dov');
@@ -1511,6 +1551,7 @@ function twDrop(e,targetDs){
   const ne=minsToIST(Math.min(TW_E*60,toMins(ns)+dur));
   markOriginalRemoved(ev,origDs);
   ev.date=new Date(targetDs+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
+  syncAttendanceForEvent(ev);
   twSave();twRender();refreshSD();
   if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
   if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
@@ -1567,8 +1608,8 @@ function twaLoadStu(){
 }
 function twaTypeChange(){const type=document.getElementById('twa-type').value;const mfw=document.getElementById('twa-mfw');if(!mfw)return;mfw.style.display=type==='makeup'?'':'none';if(type==='makeup'){const val=document.getElementById('twa-stu').value;if(val){const[bid,nm]=val.split('|');const pend=getPendingClasses(nm,bid).filter(e=>!e.resolved);document.getElementById('twa-mf').innerHTML='<option value="">— select pending —</option>'+pend.map(e=>`<option value="${e.date}">${e.label}</option>`).join('');}}}
 function buildStuOpts(){return batches.flatMap(b=>(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).map(n=>`<option value="${b.id}|${n}">${n} (${b.name})</option>`)).join('')+indStudents.map(s=>`<option value="${s.id}|${s.name}">${s.name} (Individual)</option>`).join('');}
-function twaAddAddon(){const id='ao-'+Date.now();document.getElementById('twa-addons').insertAdjacentHTML('beforeend',`<div class="ao-row" id="${id}"><select onchange="twaAoChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px"><option value="">— select —</option>${buildStuOpts()}</select><select class="ao-type" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px"><option value="makeup">Makeup</option><option value="additional">Additional</option></select><button class="delbtn" onclick="document.getElementById('${id}').remove()">×</button></div><div class="ao-mf-wrap" id="${id}-mf" style="display:none;padding:0 7px 7px;background:var(--bg);margin-top:-4px;border-radius:0 0 var(--r) var(--r)"><select class="ao-mf" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px;width:100%"><option value="">— select pending —</option></select></div>`);}
-function twaAoChange(sel){const row=sel.closest('.ao-row');const mfWrap=row.nextElementSibling;const typeEl=row.querySelector('.ao-type');const val=sel.value;if(val){const[bid,nm]=val.split('|');const cat=ss[bid+':'+nm]?.category||'A';typeEl.innerHTML=(cat==='A'||cat==='B'?'<option value="makeup">Makeup</option>':'')+'<option value="additional">Additional</option>';}if(mfWrap&&mfWrap.classList.contains('ao-mf-wrap')){const show=typeEl.value==='makeup'&&val;mfWrap.style.display=show?'':'none';if(show){const[bid,nm]=val.split('|');const pend=getPendingClasses(nm,bid).filter(e=>!e.resolved);mfWrap.querySelector('.ao-mf').innerHTML='<option value="">— select pending —</option>'+pend.map(e=>`<option value="${e.date}">${e.label}</option>`).join('');}}}
+function twaAddAddon(){const id='ao-'+Date.now();document.getElementById('twa-addons').insertAdjacentHTML('beforeend',`<div class="ao-row" id="${id}"><select onchange="twaAoChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px"><option value="">— select —</option>${buildStuOpts()}</select><select class="ao-type" onchange="twaAoChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px"><option value="makeup">Makeup</option><option value="additional">Additional</option></select><button class="delbtn" onclick="document.getElementById('${id}').remove();document.getElementById('${id}-mf')?.remove()">×</button></div><div class="ao-mf-wrap" id="${id}-mf" style="display:none;padding:0 7px 7px;background:var(--bg);margin-top:-4px;border-radius:0 0 var(--r) var(--r)"><select class="ao-mf" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px;width:100%"><option value="">— select pending —</option></select></div>`);}
+function twaAoChange(sel){const row=sel.closest('.ao-row');const mfWrap=row.nextElementSibling;const typeEl=row.querySelector('.ao-type');const stuSel=row.querySelector('select');const val=stuSel.value;if(val&&sel===stuSel){const[bid,nm]=val.split('|');const cat=ss[bid+':'+nm]?.category||'A';typeEl.innerHTML=(cat==='A'||cat==='B'?'<option value="makeup">Makeup</option>':'')+'<option value="additional">Additional</option>';}if(mfWrap&&mfWrap.classList.contains('ao-mf-wrap')){const show=typeEl.value==='makeup'&&val;mfWrap.style.display=show?'':'none';if(show){const[bid,nm]=val.split('|');const pend=getPendingClasses(nm,bid).filter(e=>!e.resolved);mfWrap.querySelector('.ao-mf').innerHTML='<option value="">— select pending —</option>'+pend.map(e=>`<option value="${e.date}">${e.label}</option>`).join('');}}}
 
 function twaConfirm(){
   const dv=document.getElementById('twa-dt').value,st=document.getElementById('twa-st').value,en=document.getElementById('twa-en').value;
@@ -1578,7 +1619,9 @@ function twaConfirm(){
   if(forBatch){
     const bid=document.getElementById('twa-bat').value;if(!bid){showToast('Select batch');return;}
     const rows2=document.querySelectorAll('#twa-bstus [data-student]');
-    rows2.forEach(row=>{const nm=row.dataset.student;const role=row.querySelector('.twa-srole')?.value||'additional';const mf=role==='makeup'?row.querySelector('.twa-smfsel')?.value||null:null;if(role==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);return;}newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:role,studentScope:nm,makeupFor:mf||null,addonStudents:[]});});
+    let invalid=false;
+    rows2.forEach(row=>{if(invalid)return;const nm=row.dataset.student;const role=row.querySelector('.twa-srole')?.value||'additional';const mf=role==='makeup'?row.querySelector('.twa-smfsel')?.value||null:null;if(role==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);invalid=true;return;}newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:role,studentScope:nm,makeupFor:mf||null,addonStudents:[]});});
+    if(invalid)return;
   } else {
     const val=document.getElementById('twa-stu').value;if(!val){showToast('Select student');return;}
     const[bid,nm]=val.split('|');const type=document.getElementById('twa-type').value;const mf=type==='makeup'?document.getElementById('twa-mf').value||null:null;
@@ -1586,7 +1629,8 @@ function twaConfirm(){
     newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:type,studentScope:nm,makeupFor:mf||null,addonStudents:[]});
   }
   // Collect addons
-  const addons=[];document.querySelectorAll('#twa-addons .ao-row').forEach(row=>{const sv=row.querySelector('select').value;if(!sv)return;const[bid2,nm2]=sv.split('|');const type2=row.querySelector('.ao-type')?.value||'additional';const mfWrap=row.nextElementSibling;const mf2=type2==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;if(type2==='makeup'&&!mf2){showToast(`Select makeup for ${nm2}`);return;}addons.push({name:nm2,batchId:bid2,classType:type2,makeupFor:mf2||null});});
+  const addons=[];let addonInvalid=false;document.querySelectorAll('#twa-addons .ao-row').forEach(row=>{if(addonInvalid)return;const sv=row.querySelector('select').value;if(!sv)return;const[bid2,nm2]=sv.split('|');const type2=row.querySelector('.ao-type')?.value||'additional';const mfWrap=row.nextElementSibling;const mf2=type2==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;if(type2==='makeup'&&!mf2){showToast(`Select makeup for ${nm2}`);addonInvalid=true;return;}addons.push({name:nm2,batchId:bid2,classType:type2,makeupFor:mf2||null});});
+  if(addonInvalid)return;
   if(newEvs.length>0)newEvs[newEvs.length-1].addonStudents=addons;
   newEvs.forEach(ev=>twEvs.push(ev));twSave();closeOv('ov-twa');twRender();refreshSD();
   if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
@@ -1617,6 +1661,7 @@ function tweSave(){
   if(toMins(ne)<=toMins(ns)){showToast('End must be after start');return;}
   const origDs=localDS(new Date(ev.date));markOriginalRemoved(ev,origDs);ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
   const addons=[];document.querySelectorAll('#twe-addons .ao-row').forEach(row=>{const sv=row.querySelector('select').value;if(!sv)return;const[bid,nm]=sv.split('|');const type=row.querySelector('.ao-type')?.value||'additional';addons.push({name:nm,batchId:bid,classType:type,makeupFor:null});});ev.addonStudents=addons;
+  syncAttendanceForEvent(ev);
   twSave();closeOv('ov-twe');twRender();refreshSD();if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
 }
 function tweCancelConfirm(){openOv('ov-twc');}
@@ -1661,7 +1706,7 @@ function renderAtt(){
 
   if(!rows.length){document.getElementById('att-inner').innerHTML='<div style="font-size:13px;color:var(--mut);padding:14px">No students.</div>';return;}
 
-  const attLookup={};Object.values(att).forEach(rec=>{if(rec.date<fromDate||rec.date>toDate)return;(rec.students||[]).forEach(s=>{const k=s.batchId+':'+s.name;if(!attLookup[k])attLookup[k]={};attLookup[k][rec.date]={status:s.status,makeupFor:s.makeupFor||null};});});
+  const attLookup={};Object.entries(att).forEach(([evId,rec])=>{if(rec.date<fromDate||rec.date>toDate)return;const ev=getTwEvent(evId);(rec.students||[]).forEach(s=>{const k=s.batchId+':'+s.name;if(!attLookup[k])attLookup[k]={};if(!attLookup[k][rec.date])attLookup[k][rec.date]=[];const info=ev?getEventStudent(ev,s.batchId,s.name):null;attLookup[k][rec.date].push({status:s.status,classType:info?.classType||'scheduled',makeupFor:info?.makeupFor||null});});});
   const schedLookup={};rows.forEach(r=>{schedLookup[r.batchId+':'+r.name]=getScheduledDates(r.batchId,fromDate,toDate,r.name);});
   const days=Array.from({length:dim},(_,i)=>{const dt=new Date(year,month-1,i+1);return{d:i+1,dn:dt.toLocaleDateString('en-GB',{weekday:'short'}),isWE:dt.getDay()===0||dt.getDay()===6};});
 
@@ -1679,10 +1724,10 @@ function renderAtt(){
     let raw=0,cells='';
     days.forEach(({d,isWE})=>{
       const ds=`${year}-${ms}-${String(d).padStart(2,'0')}`;
-      const sched=schedLookup[k]?.has(ds),rec=attLookup[k]?.[ds],status=rec?.status;
-      if(!sched&&!status){cells+=`<td class="${isWE?'':''}"></td>`;return;}
-      let cell='';if(!status)cell=`<span class="ftDot">·</span>`;
-      else{raw+=countClass(status,cat);if(status==='present')cell=`<span class="ftP">P</span>`;else if(status==='absent')cell=`<span class="ftA">A</span>`;else if(status==='makeup')cell=`<span class="ftM">M</span>`;else if(status==='additional')cell=`<span class="ftAd">Ad</span>`;else if(status==='cancelled')cell=`<span class="ftC">✕</span>`;else cell=`<span class="ftDot">·</span>`;}
+      const sched=schedLookup[k]?.has(ds),recs=attLookup[k]?.[ds]||[];
+      if(!sched&&!recs.length){cells+=`<td class="${isWE?'':''}"></td>`;return;}
+      let cell='';if(!recs.length)cell=`<span class="ftDot">·</span>`;
+      else{cell=recs.map(rec=>{raw+=countStudentClass(rec.status,cat,rec.classType);if(rec.status==='present')return rec.classType==='makeup'?`<span class="ftM">M</span>`:rec.classType==='additional'?`<span class="ftAd">Ad</span>`:`<span class="ftP">P</span>`;if(rec.status==='absent')return`<span class="ftA">A</span>`;if(rec.status==='cancelled')return`<span class="ftC">✕</span>`;return`<span class="ftDot">·</span>`;}).join('<br>');}
       cells+=`<td style="background:${isWE?'#f8f8f8':'#fafafa'}">${cell}</td>`;
     });
     const counted=(cat==='A'||cat==='B')?Math.min(raw,8):raw;
@@ -1722,261 +1767,6 @@ function boot(){
 document.getElementById('btn-ab').addEventListener('click',()=>openAddBatch());
 document.getElementById('btn-as').addEventListener('click',()=>openAddStudent());
 boot();initLoad();
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Dance Schedule Refactor</title>
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
-<style>
-*{box-sizing:border-box} body{margin:0;font-family:Roboto,Arial,sans-serif;background:#f6f8fc;color:#202124;height:100vh;display:flex;flex-direction:column} :root{--blue:#1a73e8;--bluel:#e8f0fe;--bdr:#dadce0;--mut:#5f6368;--sub:#9aa0a6;--sur:#fff;--bg:#f6f8fc;--hov:#f1f3f4;--red:#d93025;--redl:#fce8e6;--green:#1e8e3e;--greenl:#e6f4ea;--orange:#e37400;--orangel:#fff3e0;--purple:#5e35b1;--purplel:#ede7f6;--r:8px;--shadow:0 2px 12px rgba(60,64,67,.20)}
-button,input,select,textarea{font-family:inherit}.top{height:58px;background:#fff;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;padding:0 14px;flex-shrink:0}.logo{font-family:'Google Sans',sans-serif;font-size:19px;color:#5f6368}.logo span{color:var(--blue)}.spacer{flex:1}.hbtn{border:0;background:transparent;border-radius:20px;padding:7px 12px;cursor:pointer;font-size:13px;white-space:nowrap}.hbtn:hover{background:var(--hov)}.hbtn.primary{background:var(--bluel);color:var(--blue);font-weight:500}.hbtn.orange{background:var(--orangel);color:var(--orange);font-weight:500}.badge{border-radius:14px;padding:4px 10px;font-size:12px;font-weight:500}.app{display:flex;min-height:0;flex:1}.side{width:270px;background:#fff;border-right:1px solid var(--bdr);overflow:auto;padding:12px}.side.collapsed{display:none}.side-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}.btn{border:1px solid var(--bdr);border-radius:var(--r);padding:8px 12px;background:#fff;cursor:pointer;font-size:13px}.btn:hover{background:var(--hov)}.btn.blue{background:var(--blue);border-color:var(--blue);color:white}.btn.danger{border-color:var(--red);color:var(--red);background:#fff}.btn.danger:hover{background:var(--redl)}.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--mut);font-weight:600;margin:14px 0 6px}.row{display:flex;align-items:center;gap:8px;border-radius:var(--r);padding:7px;cursor:pointer;font-size:13px}.row:hover{background:var(--hov)}.dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}.blue-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);margin-left:auto}.name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.main{flex:1;min-width:0;overflow:auto}.cal-toolbar{height:42px;background:#fff;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;padding:0 12px;position:sticky;top:0;z-index:20}.cal-wrap{overflow:auto}.calendar{display:grid;min-width:860px;position:relative}.cal-head,.time-head{background:#fff;border-bottom:1px solid var(--bdr);position:sticky;top:42px;z-index:12}.time-head{border-right:1px solid var(--bdr);color:var(--sub);font-size:10px;display:flex;align-items:flex-end;justify-content:flex-end;padding:0 5px 6px}.cal-head{text-align:center;padding:8px 4px;font-size:11px;text-transform:uppercase;color:var(--mut);border-left:1px solid var(--bdr);font-weight:600}.time-col{background:#fff;border-right:1px solid var(--bdr)}.time-cell{height:66px;text-align:right;color:var(--sub);font-size:10px;padding:2px 5px;border-top:1px solid #f0f0f0}.day-col{position:relative;border-left:1px solid var(--bdr);background:#fff}.hour-line{position:absolute;left:0;right:0;border-top:1px solid #f0f0f0;pointer-events:none}.hour-line.major{border-top-color:var(--bdr)}.event{position:absolute;border-radius:5px;border-left:4px solid;padding:4px 5px;font-size:10px;line-height:1.25;overflow:hidden;z-index:2;background:#e8f0fe;cursor:default}.event.tw{cursor:grab}.event:hover{filter:brightness(.96);box-shadow:0 1px 6px rgba(0,0,0,.16)}.event.cancelled{opacity:.56;background:repeating-linear-gradient(135deg,#fee2e2,#fee2e2 7px,#fca5a5 7px,#fca5a5 8px)!important;border-color:var(--red)!important}.event.cancelled:before{content:'Cancelled';position:absolute;right:3px;top:2px;background:var(--red);color:white;border-radius:3px;padding:1px 4px;font-size:8px}.temp-tag{display:inline-block;font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,.18);color:#fff;margin-left:4px}.drop-over{background:#fff9f0!important;outline:2px dashed var(--orange);outline-offset:-2px}.overlay{display:none;position:fixed;inset:0;background:rgba(32,33,36,.48);z-index:100;align-items:center;justify-content:center}.overlay.open{display:flex}.modal{background:#fff;border-radius:12px;box-shadow:var(--shadow);width:480px;max-width:96vw;max-height:92vh;overflow:auto;padding:22px}.modal.sm{width:390px}.modal.lg{width:860px}.modal.xl{width:1100px}.modal.full{width:100vw;height:100vh;max-width:none;max-height:none;border-radius:0;padding:0;display:flex;flex-direction:column}.modal h2{font-family:'Google Sans',sans-serif;font-size:20px;font-weight:500;margin:0 0 16px}.field{margin-bottom:10px}.field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);font-weight:600;margin-bottom:4px}.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--r);font-size:13px;background:#fff}.field textarea{min-height:54px}.actions{display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--bdr);padding-top:14px;margin-top:14px;flex-wrap:wrap}.tabs{display:flex;gap:4px;margin:0 0 12px}.tab{padding:7px 12px;border:1px solid var(--bdr);border-radius:var(--r);font-size:12px;cursor:pointer;background:#fff}.tab.active{background:var(--blue);border-color:var(--blue);color:white}.subsec{border:1px solid var(--bdr);border-radius:10px;background:#fff;padding:12px;margin-bottom:12px}.subsec h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut)}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.timing-row,.period-row,.addon-row,.student-role-row{display:grid;grid-template-columns:1fr 90px 1fr 1fr 28px;gap:6px;align-items:center;margin-bottom:6px}.period-row{grid-template-columns:1fr 1fr 28px}.addon-row{grid-template-columns:1.4fr 1fr 1.4fr 28px}.student-role-row{grid-template-columns:1.4fr 1fr 1.5fr}.small-del{width:26px;height:26px;border:0;background:transparent;color:var(--red);font-size:16px;border-radius:50%;cursor:pointer}.small-del:hover{background:var(--redl)}.add-line{width:100%;border:1px dashed var(--bdr);border-radius:var(--r);background:#fff;color:var(--blue);padding:6px;font-size:12px;cursor:pointer}.table{border-collapse:collapse;width:100%;font-size:12px}.table th{background:#f6f8fc;color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:7px;border-bottom:1px solid var(--bdr);white-space:nowrap}.table td{padding:7px;border-bottom:1px solid #eee;vertical-align:top}.status{display:inline-block;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:500}.status.pending{background:var(--orangel);color:var(--orange)}.status.ongoing{background:var(--bluel);color:var(--blue)}.status.paid{background:var(--greenl);color:var(--green)}.pill{display:inline-block;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600}.present{background:var(--greenl);color:var(--green)}.absent{background:var(--redl);color:var(--red)}.makeup{background:var(--orangel);color:var(--orange)}.additional{background:var(--purplel);color:var(--purple)}.cancelled-cell{background:#f1f3f4;color:var(--mut);position:relative}.cancelled-cell:after{content:'';position:absolute;left:4px;right:4px;top:50%;border-top:2px solid var(--red);transform:rotate(-20deg)}.warn{background:#fff8e1;border:1px solid #fbbc04;border-radius:var(--r);padding:10px;font-size:12px;color:#5d4037;margin-bottom:10px}.muted{color:var(--mut);font-size:12px}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);opacity:0;background:#323232;color:white;border-radius:var(--r);padding:10px 16px;font-size:13px;z-index:500;transition:.2s}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.cell-green{background:#e6f4ea}.cell-red{background:#fce8e6}.cell-grey{background:#f1f3f4}.money-split{border-bottom:1px solid #eee;padding:3px 0}.money-split:last-child{border-bottom:0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.compact-select{font-size:12px;padding:4px 7px;border:1px solid var(--bdr);border-radius:6px;background:white}
-@media(max-width:800px){.side{width:220px}.modal.lg,.modal.xl{width:96vw}.grid2,.grid3{grid-template-columns:1fr}.timing-row{grid-template-columns:1fr 80px 1fr 1fr 28px}}
-</style>
-</head>
-<body>
-<header class="top"><button class="hbtn" onclick="toggleSidebar()">☰</button><div class="logo">Dance <span>Schedule</span></div><span id="seasonBadge" class="badge"></span><div class="spacer"></div><button class="hbtn" onclick="prevMainWeek()">←</button><button class="hbtn" onclick="todayMainWeek()">Today</button><button class="hbtn" onclick="nextMainWeek()">→</button><button class="hbtn orange" onclick="openTW()">This Week</button><button class="hbtn primary" onclick="openAttendanceTracker()">Attendance & Fee</button><button class="hbtn" onclick="openSettings()">Settings / Sync</button><span id="syncStatus" class="muted"></span></header>
-<div class="app"><aside id="sidebar" class="side"><div class="side-actions"><button class="btn blue" onclick="openAddBatch()">Add Batch</button><button class="btn" onclick="openAddStudent()">Add Student</button></div><div class="section-label">Batches</div><div id="batchList"></div><div class="section-label">Students</div><div id="studentList"></div></aside><main class="main"><div class="cal-toolbar"><strong>Main Calendar</strong><span class="muted">Display-only. TW changes do not affect this view.</span></div><div class="cal-wrap"><div id="mainCalendar"></div></div></main></div>
-
-<div id="modal" class="overlay"></div><div id="toast" class="toast"></div>
-
-<script>
-'use strict';
-const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const COLORS=[['#e8f0fe','#4285f4','#1a237e'],['#e6f4ea','#34a853','#1b5e20'],['#fce8e6','#ea4335','#b71c1c'],['#fef7e0','#fbbc04','#e65100'],['#fce4ec','#e91e63','#880e4f'],['#ede7f6','#7c4dff','#311b92'],['#e0f7fa','#00bcd4','#006064'],['#f1f8e9','#8bc34a','#33691e'],['#fff3e0','#ff9800','#bf360c'],['#e8eaf6','#3f51b5','#1a237e']];
-const TYPE_LABEL={A:'Type A - Ohio Standard',B:'Type B - Monthly Block',C:'Type C - True Per-Class',D:'Type D - Rolling Cycle'};
-const TZ_GROUPS=['IST','Eastern','Central','Pacific','Australian','British'];
-const TZ_CODES={Eastern:{summer:'EDT',winter:'EST'},Central:{summer:'CDT',winter:'CST'},Pacific:{summer:'PDT',winter:'PST'},Australian:{summer:'AEDT',winter:'AEST'},British:{summer:'BST',winter:'GMT'}};
-const TZ_OFF={EDT:-570,EST:-630,CDT:-630,CST:-690,PDT:-690,PST:-750,AEDT:270,AEST:210,BST:-270,GMT:-330};
-const CAL_START=4,CAL_END=23,PX=1.1,TW_START=5,TW_END=23,TWPX=1.35;
-const DEFAULT_WORKER='https://dance-schedule.lekshmireghunath-dance.workers.dev';
-let state={version:3,settings:{summerStart:'2026-04-01',winterStart:'2026-11-01',displayTz:'Eastern',workerUrl:localStorage.getItem('dance_worker_url')||DEFAULT_WORKER,sheetsUrl:localStorage.getItem('dance_sheets_url')||''},batches:[],students:[],twWeeks:{},attendance:{},payments:{}};
-let mainWeekStart=getMonday(new Date()),twWeekStart=getMonday(new Date()),dragId=null,currentStudentId=null,currentBatchId=null;
-function uid(p='id'){return p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
-function $(id){return document.getElementById(id)}
-function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;'}[c]))}
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}
-function dateStr(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
-function makeDate(s){return new Date(s+'T12:00:00')}
-function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
-function getMonday(d){const x=new Date(d);const day=x.getDay();x.setDate(x.getDate()+(day===0?-6:1-day));x.setHours(0,0,0,0);return x}
-function dayName(ds){return DAYS[(makeDate(ds).getDay()+6)%7]}
-function ddmm(ds){const d=makeDate(ds);return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}`}
-function ddmmyyyy(ds){const d=makeDate(ds);return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`}
-function monthKey(y,m){return `${y}-${String(m).padStart(2,'0')}`}
-function monthRange(y,m){const start=new Date(y,m-1,1);const end=new Date(y,m,0);return {start:dateStr(start),end:dateStr(end),days:end.getDate()}}
-function timeMin(t){const [h,m]=t.split(':').map(Number);return h*60+m}
-function minTime(n){return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`}
-function fmtTime(t){const [h,m]=t.split(':').map(Number);const p=h<12?'am':'pm';const hh=h===0?12:h>12?h-12:h;return m?`${hh}:${String(m).padStart(2,'0')}${p}`:`${hh}${p}`}
-function currSeason(){return deriveSeason(dateStr(new Date()))}
-function deriveSeason(ds){const {summerStart,winterStart}=state.settings;if(!summerStart||!winterStart)return 'summer';if(summerStart<=winterStart)return (ds>=summerStart&&ds<winterStart)?'summer':'winter';return (ds>=winterStart&&ds<summerStart)?'winter':'summer'}
-function displayTzCode(){const g=state.settings.displayTz;if(g==='IST')return 'IST';const s=currSeason();return TZ_CODES[g]?.[s]||'IST'}
-function getTzForGroup(g,ds){if(!g||g==='IST')return 'IST';const s=deriveSeason(ds||dateStr(new Date()));return TZ_CODES[g]?.[s]||'IST'}
-function istToTz(t,code){if(code==='IST')return t;let n=timeMin(t)+(TZ_OFF[code]||0);while(n<0)n+=1440;while(n>=1440)n-=1440;return minTime(n)}
-function currencySymbol(c){return c==='USD'?'$':'₹'}
-function colorFor(id){return COLORS[Math.abs(hash(id))%COLORS.length]}
-function hash(s){let h=0;for(const ch of String(s))h=(h*31+ch.charCodeAt(0))|0;return h}
-function getStudent(id){return state.students.find(s=>s.id===id)}
-function getBatch(id){return state.batches.find(b=>b.id===id)}
-function activeStudents(){return state.students.filter(s=>!s.deleted)}
-function studentsInBatch(bid){return activeStudents().filter(s=>s.batchId===bid)}
-function studentType(s){return s?.type||getBatch(s?.batchId)?.type||''}
-function studentTz(s){return s?.batchId?getBatch(s.batchId)?.timezone||'IST':s?.timezone||'IST'}
-function isSetupComplete(s){if(!s||s.deleted)return false;if(s.setupIncomplete)return false;if(!s.type||!s.fee)return false;if(!s.batchId && !hasTimings(s.timings))return false;return true}
-function hasTimings(t){return !!(t&&((t.summer||[]).length||(t.winter||[]).length||(t.tempSlots||[]).length))}
-function openModal(html,cls='modal'){const m=$('modal');m.innerHTML=`<div class="${cls}">${html}</div>`;m.classList.add('open')}
-function closeModal(){const m=$('modal');m.classList.remove('open');m.innerHTML=''}
-function markDirty(){localStorage.setItem('dance_app_state_v3',JSON.stringify(state));cloudSave();renderAll()}
-async function cloudLoad(){const url=state.settings.workerUrl;if(!url)return null;const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),2500);try{const r=await fetch(url,{method:'GET',redirect:'follow',signal:ctrl.signal});const txt=await r.text();const j=JSON.parse(txt);if(j.ok&&j.data?.appStateV3)return JSON.parse(j.data.appStateV3);if(j.ok&&j.data?.state)return JSON.parse(j.data.state);return null}catch(e){console.warn('cloud load skipped/failed',e);return null}finally{clearTimeout(timer)}}
-async function cloudSave(){const url=state.settings.workerUrl;if(!url)return;const payload=JSON.stringify({key:'appStateV3',value:JSON.stringify(state)});try{await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload,redirect:'follow'});$('syncStatus').textContent='saved'}catch(e){$('syncStatus').textContent='offline';}}
-async function exportSheets(){const url=state.settings.sheetsUrl;if(!url){toast('Add Google Sheets URL in Settings first');return}const snapshot={students:activeStudents().map(s=>({name:s.name,type:s.type,batch:getBatch(s.batchId)?.name||'Individual'})),batches:state.batches.map(b=>({name:b.name,type:b.type,students:studentsInBatch(b.id).map(s=>s.name).join(', ')})),attendance:state.attendance,payments:state.payments,exportedAt:new Date().toISOString()};try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(snapshot)});toast('Sent to Google Sheets')}catch(e){toast('Sheets export failed')}} 
-function init(){const local=localStorage.getItem('dance_app_state_v3');if(local){try{state=JSON.parse(local)}catch(e){}}renderAll();cloudLoad().then(cloud=>{if(cloud&&cloud.version===3){state=cloud;localStorage.setItem('dance_app_state_v3',JSON.stringify(state));renderAll();$('syncStatus').textContent='synced'}})}
-function renderAll(){updateSeason();renderSidebar();renderMainCalendar()}
-function updateSeason(){const s=currSeason();$('seasonBadge').textContent=s==='summer'?'☀ Summer':'❄ Winter';$('seasonBadge').style.background=s==='summer'?'#fff8e1':'#e3f2fd';$('seasonBadge').style.color=s==='summer'?'#e65100':'#1565c0'}
-function toggleSidebar(){$('sidebar').classList.toggle('collapsed')}
-function renderSidebar(){let b='';for(const batch of state.batches){const c=colorFor(batch.id);b+=`<div class="row" onclick="openBatchDetails('${batch.id}')"><span class="dot" style="background:${c[1]}"></span><span class="name">${esc(batch.name)}</span></div>`}$('batchList').innerHTML=b||'<div class="muted">No batches yet.</div>';let s='';for(const st of activeStudents()){const batch=getBatch(st.batchId);s+=`<div class="row" onclick="${isSetupComplete(st)?`openStudentDetails('${st.id}')`:`openStudentSetup('${st.id}')`}"><span class="name">${esc(st.name)}</span><span class="muted">${st.batchId?esc(batch?.name||'Batch'):'Individual'}</span>${!isSetupComplete(st)?'<span class="blue-dot" title="Setup incomplete"></span>':''}</div>`}$('studentList').innerHTML=s||'<div class="muted">No students yet.</div>'}
-function prevMainWeek(){mainWeekStart=addDays(mainWeekStart,-7);renderMainCalendar()}function nextMainWeek(){mainWeekStart=addDays(mainWeekStart,7);renderMainCalendar()}function todayMainWeek(){mainWeekStart=getMonday(new Date());renderMainCalendar()}
-function renderMainCalendar(){const days=Array.from({length:7},(_,i)=>addDays(mainWeekStart,i));let evs=[];for(const b of state.batches){for(const d of days){const ds=dateStr(d);for(const slot of resolveSlotsForEntity(b,ds,true)){evs.push({id:uid('main'),date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,entityType:'batch',batchId:b.id,title:`${b.name} - ${studentsInBatch(b.id).map(s=>s.name).join(', ')}`})}}}for(const s of activeStudents().filter(x=>!x.batchId&&isSetupComplete(x))){for(const d of days){const ds=dateStr(d);for(const slot of resolveSlotsForEntity(s,ds,true)){evs.push({id:uid('main'),date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,entityType:'student',studentId:s.id,title:s.name})}}}renderCalendarGrid('mainCalendar',days,evs,{tw:false,startHour:CAL_START,endHour:CAL_END,px:PX,dateFmt:'ddmm'} )}
-function resolveSlotsForEntity(entity,ds,mainCalendar=false){const t=entity.timings;if(!t)return [];const day=dayName(ds);const season=mainCalendar?currSeason():deriveSeason(ds);if((t.tempSlots||[]).length&&isTempActive(t,ds,season)){return t.tempSlots.filter(x=>x.day===day).map(x=>({start:x.start,end:x.end,isTemp:true}))}let slots=[];if(t.same)slots=t.summer||[];else slots=(season==='summer'?t.summer:t.winter)||[];return slots.filter(x=>x.day===day).map(x=>({start:x.start,end:x.end,isTemp:false}))}
-function isTempActive(t,ds,season){if(!t.tempPeriods?.length)return false;if(t.tempSeason&&t.tempSeason!=='both'&&t.tempSeason!==season)return false;return t.tempPeriods.some(p=>p.from&&p.to&&ds>=p.from&&ds<=p.to)}
-function renderCalendarGrid(target,days,events,opt){const start=opt.startHour,end=opt.endHour,px=opt.px,total=(end-start)*60*px;let html=`<div class="calendar" style="grid-template-columns:54px repeat(7,minmax(115px,1fr))">`;html+=`<div class="time-head">IST</div>`;for(const d of days){const ds=dateStr(d);html+=`<div class="cal-head">${d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}<br><span>${opt.dateFmt==='ddmmyyyy'?ddmmyyyy(ds):ddmm(ds)}</span></div>`}html+=`<div class="time-col">`;for(let h=start;h<end;h++)html+=`<div class="time-cell">${fmtTime(minTime(h*60))}</div>`;html+='</div>';for(const d of days){const ds=dateStr(d);const evs=events.filter(e=>e.date===ds);const layout=layoutEvents(evs);html+=`<div class="day-col ${opt.tw?'tw-day':''}" data-date="${ds}" style="height:${total}px" ${opt.tw?`ondragover="twDragOver(event)" ondragleave="twDragLeave(event)" ondrop="twDrop(event,'${ds}')"`:''}>`;for(let h=start;h<=end;h++)html+=`<div class="hour-line ${h===start?'major':''}" style="top:${(h-start)*60*px}px"></div>`;for(const item of layout){const e=item.event;const top=(timeMin(e.start)-start*60)*px;const height=Math.max(22,(timeMin(e.end)-timeMin(e.start))*px-2);const c=e.batchId?colorFor(e.batchId):colorFor(e.studentId||e.id);html+=`<div class="event ${opt.tw?'tw':''} ${e.cancelled?'cancelled':''}" style="top:${top}px;height:${height}px;left:${item.left}%;width:calc(${item.width}% - 3px);background:${c[0]};border-color:${c[1]};color:${c[2]}" ${opt.tw?`draggable="true" ondragstart="twDragStart(event,'${e.id}')" onclick="openTwEdit('${e.id}')"`:''}>${eventBlockHTML(e,opt.tw)}</div>`}html+='</div>'}html+='</div>';$(target).innerHTML=html}
-function layoutEvents(events){const sorted=[...events].sort((a,b)=>timeMin(a.start)-timeMin(b.start)||timeMin(a.end)-timeMin(b.end));const groups=[];for(const ev of sorted){let placed=false;for(const g of groups){if(g.some(x=>overlap(ev,x))){g.push(ev);placed=true;break}}if(!placed)groups.push([ev])}const out=[];for(const g of groups){const cols=[];for(const ev of g){let col=0;while(cols[col]&&cols[col].some(x=>overlap(ev,x)))col++;cols[col]=cols[col]||[];cols[col].push(ev);ev._col=col}const n=cols.length;for(const ev of g)out.push({event:ev,left:(ev._col*100/n),width:100/n})}return out}
-function overlap(a,b){return timeMin(a.start)<timeMin(b.end)&&timeMin(b.start)<timeMin(a.end)}
-function eventBlockHTML(e,isTW){let label='';if(isTW){label=`<strong>${fmtTime(e.start)}-${fmtTime(e.end)}</strong> ${esc(e.type||'scheduled')}${e.isTemp?'<span class="temp-tag">Temp</span>':''}<br>`;if(e.scope==='batch'){label+=`${esc(getBatch(e.batchId)?.name||'Batch')}<br><span>${e.participants.filter(p=>p.role==='scheduled'||p.role==='makeup'||p.role==='additional').map(p=>esc(getStudent(p.studentId)?.name||'')).join(', ')}</span>`}else{label+=esc(getStudent(e.studentId)?.name||'Student')}const addons=(e.participants||[]).filter(p=>p.addon);if(addons.length)label+=`<br>+ ${addons.map(p=>esc(getStudent(p.studentId)?.name||'')).join(', ')}`}else{label=`<strong>${fmtTime(e.start)}-${fmtTime(e.end)}</strong>${e.isTemp?'<span class="temp-tag">Temp</span>':''}<br>${esc(e.title)}`}return label}
-function openAddBatch(){const temp={id:null,name:'',type:'A',timezone:'IST',color:0,students:'',timings:blankTimings()};batchStep1(temp)}
-function batchStep1(temp){window._batchTemp=temp;openModal(`<h2>${temp.id?'Edit Batch Details':'Add Batch Details'}</h2><div class="field"><label>Batch Name</label><input id="bName" value="${esc(temp.name)}"></div><div class="field"><label>Student Type</label><select id="bType">${Object.entries(TYPE_LABEL).map(([k,v])=>`<option value="${k}" ${temp.type===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="field"><label>Students (comma separated)</label><textarea id="bStudents">${esc(temp.students)}</textarea></div><div class="field"><label>Preferred Timezone</label><select id="bTz">${TZ_GROUPS.map(t=>`<option value="${t}" ${temp.timezone===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="field"><label>Colour</label>${colorPicker('bColor',temp.color)}</div><div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn blue" onclick="batchStep1Next()">Save and Next</button></div>`)}
-function batchStep1Next(){const t=window._batchTemp;t.name=$('bName').value.trim();t.type=$('bType').value;t.students=$('bStudents').value.trim();t.timezone=$('bTz').value;t.color=parseInt(document.querySelector('input[name=bColor]:checked')?.value||0);if(!t.name)return toast('Enter batch name');batchTimingStep(t)}
-function batchTimingStep(temp,returnToDetail=false){window._batchTemp=temp;openModal(`<h2>Add Class Timings</h2>${timingEditorHTML('bt',temp.timings)}<div class="actions"><button class="btn" onclick="${returnToDetail?`openBatchDetails('${temp.id}')`:'closeModal()'}">Cancel</button><button class="btn blue" onclick="saveBatch(${returnToDetail})">Save</button></div>`,'modal lg');initTimingEditor('bt',temp.timings)}
-function saveBatch(returnToDetail=false){const t=window._batchTemp;t.timings=readTimingEditor('bt');let batch;if(t.id){batch=getBatch(t.id);Object.assign(batch,{name:t.name,type:t.type,timezone:t.timezone,color:t.color,timings:t.timings});const names=parseNames(t.students);syncBatchStudents(batch,names)}else{batch={id:uid('b'),name:t.name,type:t.type,timezone:t.timezone,color:t.color,timings:t.timings};state.batches.push(batch);syncBatchStudents(batch,parseNames(t.students))}markDirty();toast('Batch saved');if(returnToDetail)openBatchDetails(batch.id);else closeModal()}
-function syncBatchStudents(batch,names){const existing=studentsInBatch(batch.id);for(const name of names){let s=existing.find(x=>x.name.toLowerCase()===name.toLowerCase());if(!s){state.students.push({id:uid('s'),name,batchId:batch.id,type:batch.type,timezone:batch.timezone,setupIncomplete:true,fee:null,timings:blankTimings(),deleted:false})}else{s.type=batch.type;s.timezone=batch.timezone}}}
-function parseNames(str){return str.split(',').map(x=>x.trim()).filter(Boolean)}
-function blankTimings(){return {same:false,summer:[],winter:[],tempSeason:'both',tempSlots:[],tempPeriods:[]}}
-function colorPicker(name,sel){return `<div style="display:flex;gap:5px;flex-wrap:wrap">${COLORS.map((c,i)=>`<label title="${i+1}" style="display:inline-flex"><input type="radio" name="${name}" value="${i}" ${i===sel?'checked':''} style="display:none"><span onclick="this.previousElementSibling.checked=true;document.querySelectorAll('[data-cg=${name}]').forEach(x=>x.style.outline='none');this.style.outline='2px solid #202124'" data-cg="${name}" style="width:22px;height:22px;border-radius:50%;background:${c[1]};display:inline-block;cursor:pointer;outline:${i===sel?'2px solid #202124':'none'}"></span></label>`).join('')}</div>`}
-function timingEditorHTML(prefix,t){return `<div class="subsec"><h3>Summer Timings</h3><div id="${prefix}_summer"></div><button class="add-line" onclick="addTimingRow('${prefix}','summer')">+ Add slot</button></div><div class="field"><label style="display:flex;gap:8px;align-items:center;text-transform:none;font-size:13px;color:#202124"><input type="checkbox" id="${prefix}_same" ${t.same?'checked':''} onchange="toggleWinter('${prefix}')" style="width:auto"> Same as summer timings</label></div><div class="subsec" id="${prefix}_winterWrap"><h3>Winter Timings</h3><div id="${prefix}_winter"></div><button class="add-line" onclick="addTimingRow('${prefix}','winter')">+ Add slot</button></div><div class="subsec"><h3>Temporary Timings</h3><div class="field"><label>Applies during</label><select id="${prefix}_tempSeason"><option value="both">Both</option><option value="summer">Summer</option><option value="winter">Winter</option></select></div><div id="${prefix}_tempSlots"></div><button class="add-line" onclick="addTimingRow('${prefix}','tempSlots')">+ Add temp slot</button><h3 style="margin-top:12px">Active Date Ranges</h3><div id="${prefix}_tempPeriods"></div><button class="add-line" onclick="addPeriodRow('${prefix}')">+ Add date range</button></div>`}
-function initTimingEditor(prefix,t){window[prefix+'Timing']=JSON.parse(JSON.stringify(t||blankTimings()));$(`${prefix}_tempSeason`).value=window[prefix+'Timing'].tempSeason||'both';renderTimingRows(prefix)}
-function renderTimingRows(prefix){const t=window[prefix+'Timing'];['summer','winter','tempSlots'].forEach(k=>{const el=$(`${prefix}_${k}`);el.innerHTML=(t[k]||[]).map((r,i)=>timingRowHTML(prefix,k,i,r)).join('')});$(`${prefix}_tempPeriods`).innerHTML=(t.tempPeriods||[]).map((p,i)=>`<div class="period-row"><input type="date" value="${p.from||''}" onchange="${prefix}Timing.tempPeriods[${i}].from=this.value"><input type="date" value="${p.to||''}" onchange="${prefix}Timing.tempPeriods[${i}].to=this.value"><button class="small-del" onclick="${prefix}Timing.tempPeriods.splice(${i},1);renderTimingRows('${prefix}')">×</button></div>`).join('');toggleWinter(prefix)}
-function timingRowHTML(prefix,k,i,r){return `<div class="timing-row"><select onchange="${prefix}Timing.${k}[${i}].day=this.value">${DAYS.map(d=>`<option ${r.day===d?'selected':''}>${d}</option>`).join('')}</select><select onchange="${prefix}Timing.${k}[${i}].tz=this.value"><option>IST</option>${['EDT','EST','CDT','CST','PDT','PST','AEDT','AEST','BST','GMT'].map(z=>`<option ${r.tz===z?'selected':''}>${z}</option>`).join('')}</select><input type="time" value="${r.start||''}" onchange="${prefix}Timing.${k}[${i}].start=this.value"><input type="time" value="${r.end||''}" onchange="${prefix}Timing.${k}[${i}].end=this.value"><button class="small-del" onclick="${prefix}Timing.${k}.splice(${i},1);renderTimingRows('${prefix}')">×</button></div>`}
-function addTimingRow(prefix,k){window[prefix+'Timing'][k].push({day:'Monday',tz:'IST',start:'18:00',end:'19:00'});renderTimingRows(prefix)}function addPeriodRow(prefix){window[prefix+'Timing'].tempPeriods.push({from:'',to:''});renderTimingRows(prefix)}function toggleWinter(prefix){const checked=$(`${prefix}_same`).checked;window[prefix+'Timing'].same=checked;$(`${prefix}_winterWrap`).style.display=checked?'none':'block'}function readTimingEditor(prefix){const t=window[prefix+'Timing'];t.same=$(`${prefix}_same`).checked;t.tempSeason=$(`${prefix}_tempSeason`).value;for(const k of ['summer','winter','tempSlots'])t[k]=(t[k]||[]).filter(r=>r.day&&r.start&&r.end);t.tempPeriods=(t.tempPeriods||[]).filter(p=>p.from&&p.to);return t}
-function openAddStudent(){studentSetup({id:null,name:'',batchId:'',type:'A',timezone:'IST',fee:null,timings:blankTimings(),setupIncomplete:false})}
-function openStudentSetup(id){const s=getStudent(id);studentSetup(JSON.parse(JSON.stringify(s)))}
-function studentSetup(temp){window._studentTemp=temp;const batch=getBatch(temp.batchId);const typeLocked=!!batch;const fee=temp.fee||defaultFee(temp.type||batch?.type||'A');const type=temp.type||batch?.type||'A';openModal(`<h2>Add Student Details</h2><div class="field"><label>Student Name</label><input id="sName" value="${esc(temp.name)}"></div><div class="field"><label>Batch</label><select id="sBatch" onchange="studentBatchChange()"><option value="">No Batch - Individual</option>${state.batches.map(b=>`<option value="${b.id}" ${temp.batchId===b.id?'selected':''}>${esc(b.name)} (${b.type})</option>`).join('')}</select></div><div class="field"><label>Preferred Timezone</label><select id="sTz">${TZ_GROUPS.map(t=>`<option value="${t}" ${(temp.timezone||batch?.timezone)==t?'selected':''}>${t}</option>`).join('')}</select></div><div class="field"><label>Student Type</label><select id="sType" ${typeLocked?'disabled':''} onchange="renderFeeFields()">${Object.entries(TYPE_LABEL).map(([k,v])=>`<option value="${k}" ${type===k?'selected':''}>${v}</option>`).join('')}</select><div class="muted">Student type is locked for batch students.</div></div><div id="feeFields"></div><div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn blue" onclick="saveStudentSetup()" id="studentSaveBtn">Save</button></div>`);window._studentTemp.fee=fee;renderFeeFields();studentBatchChange()}
-function defaultFee(type){if(type==='A')return{rate:0,currency:'INR',periodStart:monthKey(new Date().getFullYear(),new Date().getMonth()+1),lastPaid:''};if(type==='B')return{monthly:0,currency:'INR',periodStart:monthKey(new Date().getFullYear(),new Date().getMonth()+1),lastPaid:''};if(type==='C')return{rate:0,currency:'INR',periodStart:monthKey(new Date().getFullYear(),new Date().getMonth()+1),lastPaid:''};return{cycleFee:0,currency:'INR',currentStart:dateStr(new Date()),startingNumber:1,prevStart:'',prevEnd:'',prevStatus:'Pending'}}
-function studentBatchChange(){const bid=$('sBatch').value;const b=getBatch(bid);if(b){$('sType').value=b.type;$('sType').disabled=true;$('sTz').value=b.timezone}else $('sType').disabled=false;renderFeeFields();$('studentSaveBtn').textContent=bid?'Save':'Save and Next'}
-function renderFeeFields(){const type=$('sType').value;let f=window._studentTemp.fee||defaultFee(type);if(!f||((type==='D')!==('cycleFee'in f)))f=defaultFee(type);window._studentTemp.fee=f;let html='';if(type==='A'||type==='C'){html=`<div class="grid2"><div class="field"><label>Attendance & Fee Period Starts From</label><input id="feeStart" type="month" value="${f.periodStart||''}"></div><div class="field"><label>Last Paid For</label><input id="lastPaid" type="month" value="${f.lastPaid||''}"></div></div><div class="grid2"><div class="field"><label>Per Class Fee</label><input id="feeRate" type="number" value="${f.rate||0}"></div><div class="field"><label>Currency</label><select id="feeCur"><option ${f.currency==='INR'?'selected':''}>INR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div></div>`}else if(type==='B'){html=`<div class="grid2"><div class="field"><label>Attendance & Fee Period Starts From</label><input id="feeStart" type="month" value="${f.periodStart||''}"></div><div class="field"><label>Last Paid For</label><input id="lastPaid" type="month" value="${f.lastPaid||''}"></div></div><div class="grid2"><div class="field"><label>Per Month Fee</label><input id="feeMonthly" type="number" value="${f.monthly||0}"></div><div class="field"><label>Currency</label><select id="feeCur"><option ${f.currency==='INR'?'selected':''}>INR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div></div>`}else{html=`<div class="grid2"><div class="field"><label>Current Fee Cycle Started On</label><input id="dCurrentStart" type="date" value="${f.currentStart||''}"></div><div class="field"><label>Starting Class Number in Current Cycle</label><select id="dStartNo">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${Number(f.startingNumber)===n?'selected':''}>${n}/8</option>`).join('')}</select></div></div><div class="grid2"><div class="field"><label>Fee Per 8-Class Cycle</label><input id="dFee" type="number" value="${f.cycleFee||0}"></div><div class="field"><label>Currency</label><select id="feeCur"><option ${f.currency==='INR'?'selected':''}>INR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div></div><div class="grid3"><div class="field"><label>Previous Fee Cycle Start Date</label><input id="dPrevStart" type="date" value="${f.prevStart||''}"></div><div class="field"><label>Previous Fee Cycle End Date</label><input id="dPrevEnd" type="date" value="${f.prevEnd||''}"></div><div class="field"><label>Previous Fee Cycle Status</label><select id="dPrevStatus"><option ${f.prevStatus==='Pending'?'selected':''}>Pending</option><option ${f.prevStatus==='Paid'?'selected':''}>Paid</option></select></div></div><div class="warn">Previous cycle dates are used only for historical fee display. Current rolling count starts from Current Fee Cycle Started On.</div>`}$('feeFields').innerHTML=html}
-function readFee(type){const cur=$('feeCur')?.value||'INR';if(type==='A'||type==='C')return{rate:Number($('feeRate').value||0),currency:cur,periodStart:$('feeStart').value,lastPaid:$('lastPaid').value};if(type==='B')return{monthly:Number($('feeMonthly').value||0),currency:cur,periodStart:$('feeStart').value,lastPaid:$('lastPaid').value};return{cycleFee:Number($('dFee').value||0),currency:cur,currentStart:$('dCurrentStart').value,startingNumber:Number($('dStartNo').value||1),prevStart:$('dPrevStart').value,prevEnd:$('dPrevEnd').value,prevStatus:$('dPrevStatus').value}}
-function saveStudentSetup(){const temp=window._studentTemp;const oldId=temp.id;const bid=$('sBatch').value;const b=getBatch(bid);const type=b?b.type:$('sType').value;const data={name:$('sName').value.trim(),batchId:bid||null,type,timezone:b?b.timezone:$('sTz').value,fee:readFee(type),setupIncomplete:false};if(!data.name)return toast('Enter student name');if(oldId){const s=getStudent(oldId);Object.assign(s,data)}else{data.id=uid('s');data.timings=blankTimings();data.deleted=false;state.students.push(data)}const saved=oldId?getStudent(oldId):data;if(!saved.batchId){window._studentTemp=saved;studentTimingStep(saved)}else{markDirty();toast('Student saved');closeModal()}}
-function studentTimingStep(s){const copy=JSON.parse(JSON.stringify(s));openModal(`<h2>Add Class Timings</h2>${timingEditorHTML('st',copy.timings||blankTimings())}<div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn blue" onclick="saveStudentTimings('${s.id}')">Save</button></div>`,'modal lg');initTimingEditor('st',copy.timings||blankTimings())}
-function saveStudentTimings(id){const s=getStudent(id);if(!s)return; s.timings=readTimingEditor('st');s.setupIncomplete=false;syncFutureTWForStudent(s.id);markDirty();toast('Student timings saved');closeModal()}
-function openBatchDetails(id){currentBatchId=id;const b=getBatch(id);if(!b)return;const m=new Date();window._bdM=window._bdM||m.getMonth()+1;window._bdY=window._bdY||m.getFullYear();const students=studentsInBatch(id);const feeRows=students.map(s=>{const summary=studentFeeSummary(s);return `<tr onclick="openStudentDetails('${s.id}')"><td>${esc(s.name)}</td><td>${summary.outstanding}</td><td>${summary.status}</td></tr>`}).join('');openModal(`<div class="section-head"><h2>Batch Details - ${esc(b.name)}</h2><div><button class="btn" onclick="editBatchFromDetails('${b.id}')">Edit Batch Details</button> <button class="btn danger" onclick="confirmDeleteBatch('${b.id}')">Delete Batch</button></div></div><div class="subsec"><h3>Students</h3>${students.map(s=>esc(s.name)).join(', ')||'<span class="muted">No students</span>'}</div><div class="subsec"><h3>Class Schedule</h3>${scheduleViewHTML(b,b.timezone)}</div><div class="subsec"><div class="section-head"><h3>Monthly Batch Class Summary</h3>${monthYearControls('_bdM','_bdY',`openBatchDetails('${id}')`)}</div>${batchClassSummaryHTML(b)}</div><div class="subsec"><h3>Pending Class Summary</h3>${batchPendingHTML(b)}</div><div class="subsec"><h3>Batch Fee Summary</h3><table class="table"><tr><th>Student</th><th>Current Outstanding Fee</th><th>Fee Status</th></tr>${feeRows}</table></div><div class="actions"><button class="btn" onclick="closeModal()">Exit</button></div>`,'modal xl')}
-function editBatchFromDetails(id){const b=getBatch(id);const students=studentsInBatch(id).map(s=>s.name).join(', ');const temp={id:b.id,name:b.name,type:b.type,timezone:b.timezone,color:b.color||0,students,timings:JSON.parse(JSON.stringify(b.timings||blankTimings()))};batchStep1(temp)}
-function confirmDeleteBatch(id){if(!confirm('Delete this batch? Students will become Individual, timings will be cleared, and blue dots will appear. Historical records remain.'))return;const b=getBatch(id);if(!b)return;for(const s of studentsInBatch(id)){s.batchId=null;s.timings=blankTimings();s.setupIncomplete=true}state.batches=state.batches.filter(x=>x.id!==id);removeFutureTWForBatch(id);markDirty();closeModal();toast('Batch deleted; students need timings')}
-function removeFutureTWForBatch(id){const today=dateStr(new Date());for(const wk of Object.keys(state.twWeeks)){state.twWeeks[wk].events=state.twWeeks[wk].events.filter(e=>!(e.batchId===id&&e.date>=today))}}
-function scheduleViewHTML(entity,tzGroup){const t=entity.timings||blankTimings();const tz=getTzForGroup(tzGroup,dateStr(new Date()));const rows=arr=>(arr||[]).map(r=>`<tr><td>${r.day}</td><td>${fmtTime(r.start)}-${fmtTime(r.end)} IST</td>${tz!=='IST'?`<td>${fmtTime(istToTz(r.start,tz))}-${fmtTime(istToTz(r.end,tz))} ${tz}</td>`:''}</tr>`).join('');let html='';if(t.same)html+=`<strong>Regular Timings</strong><table class="table"><tr><th>Day</th><th>IST</th>${tz!=='IST'?'<th>Preferred</th>':''}</tr>${rows(t.summer)}</table>`;else html+=`<strong>Summer Timings</strong><table class="table"><tr><th>Day</th><th>IST</th>${tz!=='IST'?'<th>Preferred</th>':''}</tr>${rows(t.summer)}</table><br><strong>Winter Timings</strong><table class="table"><tr><th>Day</th><th>IST</th>${tz!=='IST'?'<th>Preferred</th>':''}</tr>${rows(t.winter)}</table>`;if((t.tempSlots||[]).length)html+=`<br><strong>Temporary Timings (${t.tempSeason||'both'})</strong><div class="muted">Ranges: ${(t.tempPeriods||[]).map(p=>`${ddmmyyyy(p.from)} to ${ddmmyyyy(p.to)}`).join(', ')}</div><table class="table"><tr><th>Day</th><th>IST</th>${tz!=='IST'?'<th>Preferred</th>':''}</tr>${rows(t.tempSlots)}</table>`;return html||'<span class="muted">No timings set.</span>'}
-function batchClassSummaryHTML(b){ensureMonthTW(window._bdY,window._bdM);const rows=getEventsForMonth(window._bdY,window._bdM).filter(e=>e.batchId===b.id&&e.scope==='batch').sort(sortEvent).map(e=>{const total=e.participants.filter(p=>!p.addon&&getStudent(p.studentId)?.batchId===b.id).length;const present=e.participants.filter(p=>!p.addon&&getStudent(p.studentId)?.batchId===b.id&&getAttendance(e.id,p.studentId)==='present').length;return `<tr><td>${ddmmyyyy(e.date)} ${fmtTime(e.start)}-${fmtTime(e.end)}</td><td>${e.cancelled?'Cancelled':'Scheduled'}</td><td>Present: ${present}/${total}</td><td>${e.cancelled?'<span class="status pending">Cancelled</span>':''}</td></tr>`}).join('');return `<table class="table"><tr><th>Date & Time</th><th>Type</th><th>Attendance Summary</th><th>Status</th></tr>${rows||'<tr><td colspan="4">No classes</td></tr>'}</table>`}
-function batchPendingHTML(b){const students=studentsInBatch(b.id);if(!['A','B'].includes(b.type))return '<span class="muted">No pending classes for this type.</span>';const rows=students.map(s=>{const p=getPendingClasses(s.id);return p.length?`<tr><td>${esc(s.name)}</td><td>${p.length}</td><td>${p.map(x=>ddmmyyyy(x.date)).join(', ')}</td></tr>`:''}).join('');return `<table class="table"><tr><th>Student</th><th>Number Pending</th><th>Dates Pending</th></tr>${rows||'<tr><td colspan="3">No pending classes</td></tr>'}</table>`}
-function monthYearControls(mVar,yVar,cb){return `<span><select class="compact-select" onchange="window.${mVar}=Number(this.value);${cb}">${MONTHS.map((m,i)=>`<option value="${i+1}" ${window[mVar]===i+1?'selected':''}>${m}</option>`).join('')}</select> <select class="compact-select" onchange="window.${yVar}=Number(this.value);${cb}">${[2025,2026,2027,2028].map(y=>`<option ${window[yVar]===y?'selected':''}>${y}</option>`).join('')}</select></span>`}
-function openStudentDetails(id,section='attendance'){currentStudentId=id;const s=getStudent(id);if(!s)return;window._sdTab=section||window._sdTab||'attendance';window._sdMonth=window._sdMonth||new Date().getMonth()+1;window._sdYear=window._sdYear||new Date().getFullYear();renderStudentDetails()}
-function renderStudentDetails(){const s=getStudent(currentStudentId);if(!s)return;const b=getBatch(s.batchId);const tab=window._sdTab||'attendance';const tabs=['details','schedule','attendance','fees','history'].map(t=>`<button class="tab ${tab===t?'active':''}" onclick="window._sdTab='${t}';renderStudentDetails()">${t[0].toUpperCase()+t.slice(1)}</button>`).join('');let body='';if(tab==='details')body=studentDetailsTab(s);if(tab==='schedule')body=scheduleViewHTML(s.batchId?b:s,studentTz(s));if(tab==='attendance')body=studentAttendanceTab(s);if(tab==='fees')body=feeTrackerHTML(s);if(tab==='history')body=paymentHistoryHTML(s);openModal(`<div class="section-head"><h2>Student Details - ${esc(s.name)}</h2><div><button class="btn" onclick="editStudentDetails('${s.id}')">Edit Student Details</button> <button class="btn danger" onclick="deleteStudent('${s.id}')">Delete Student</button></div></div><div class="tabs">${tabs}</div><div>${body}</div><div class="actions"><button class="btn" onclick="closeModal()">Exit</button></div>`,'modal xl')}
-function studentDetailsTab(s){return `<div class="subsec"><h3>Student Details</h3><table class="table"><tr><th>Name</th><td>${esc(s.name)}</td></tr><tr><th>Batch / Individual</th><td>${s.batchId?esc(getBatch(s.batchId)?.name):'Individual'}</td></tr><tr><th>Student Category</th><td>${TYPE_LABEL[s.type]}</td></tr><tr><th>Preferred Timezone</th><td>${studentTz(s)}</td></tr></table></div>`}
-function editStudentDetails(id){const s=getStudent(id);const copy=JSON.parse(JSON.stringify(s));window._editStudent=copy;let html=`<h2>Edit Student Details</h2><div class="field"><label>Name</label><input id="esName" value="${esc(copy.name)}"></div><div class="field"><label>Batch</label><select id="esBatch" onchange="editStudentBatchChanged()"><option value="">No Batch - Individual</option>${state.batches.map(b=>`<option value="${b.id}" ${copy.batchId===b.id?'selected':''}>${esc(b.name)} (${b.type})</option>`).join('')}</select></div><div class="field"><label>Preferred Timezone</label><select id="esTz">${TZ_GROUPS.map(t=>`<option value="${t}" ${copy.timezone===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="field"><label>Student Type</label><input value="${TYPE_LABEL[copy.type]}" disabled></div><div id="editFeeFields"></div><div id="editTimingWrap"></div><div class="actions"><button class="btn" onclick="renderStudentDetails()">Cancel</button><button class="btn blue" onclick="saveEditStudent('${id}')">Save</button></div>`;openModal(html,'modal lg');renderEditFee(copy);renderEditTiming(copy)}
-function editStudentBatchChanged(){const s=window._editStudent;s.batchId=$('esBatch').value||null;const b=getBatch(s.batchId);if(b){if(b.type!==s.type){toast('Batch type must match student type');$('esBatch').value=s.batchId||'';return}$('esTz').value=b.timezone}s.timezone=$('esTz').value;renderEditTiming(s)}
-function renderEditFee(s){window._studentTemp=s;const fakeType=s.type;let html='<div class="subsec"><h3>Fee Setup</h3><div id="feeFields"></div></div>';$('editFeeFields').innerHTML=html;renderFeeFieldsForContainer(s.type,s.fee,'feeFields')}
-function renderFeeFieldsForContainer(type,f,containerId){const tmp=window._studentTemp;const old=$('feeFields');renderFeeFields();}
-function renderEditTiming(s){if(s.batchId){$('editTimingWrap').innerHTML='<div class="subsec"><h3>Class Schedule</h3><div class="muted">Batch student timings are edited only in Batch Details.</div></div>';return}$('editTimingWrap').innerHTML=`<div class="subsec"><h3>Individual Timings</h3>${timingEditorHTML('esT',s.timings||blankTimings())}</div>`;initTimingEditor('esT',s.timings||blankTimings())}
-function saveEditStudent(id){const s=getStudent(id);const oldBatch=s.batchId;s.name=$('esName').value.trim();const newBatch=$('esBatch').value||null;if(newBatch){const b=getBatch(newBatch);if(b.type!==s.type)return toast('Cannot move student to different type batch');s.batchId=newBatch;s.timezone=b.timezone;s.timings=blankTimings();s.setupIncomplete=false}else{s.batchId=null;s.timezone=$('esTz').value;s.timings=readTimingEditor('esT');s.setupIncomplete=!hasTimings(s.timings)}if(oldBatch!==s.batchId)syncFutureTWForStudent(s.id);markDirty();openStudentDetails(id,'details')}
-function deleteStudent(id){if(!confirm('Delete this student permanently? This cannot be undone.'))return;const s=getStudent(id);s.deleted=true;for(const wk of Object.keys(state.twWeeks)){state.twWeeks[wk].events=state.twWeeks[wk].events.filter(e=>!eventHasStudent(e,id));}delete state.payments[id];for(const eid of Object.keys(state.attendance)){delete state.attendance[eid][id]}markDirty();closeModal();toast('Student deleted')}
-function studentAttendanceTab(s){ensureMonthTW(window._sdYear,window._sdMonth);const rows=getStudentRows(s.id,window._sdYear,window._sdMonth);let counted=0;const dMap=buildDClassMap(s);const htmlRows=rows.map(r=>{const attVal=getAttendance(r.event.id,s.id);const p=r.participant;const disabled=r.event.cancelled?'disabled':'';let cnt='';const cat=s.type;if(cat==='D'){cnt=dMap.eventClassNo[r.event.id]?`Class ${dMap.eventClassNo[r.event.id]}/8`:''}else{const cv=countForParticipant(r.event,p,attVal,cat);if(cv){counted++;cnt=String(counted)}}return `<tr><td>${ddmmyyyy(r.event.date)} ${fmtTime(r.event.start)}-${fmtTime(r.event.end)}</td><td>${preferredTimeHTML(r.event,s)}</td><td>${r.event.cancelled?'Cancelled':p.role[0].toUpperCase()+p.role.slice(1)}${p.role==='makeup'&&p.makeupFor?`<br><span class="muted">For: ${pendingLabel(p.makeupFor)}</span>`:''}</td><td>${r.event.cancelled?'Not Required':`<select class="compact-select" onchange="setAttendance('${r.event.id}','${s.id}',this.value)" ${disabled}><option value="" ${!attVal?'selected':''}>Blank</option><option value="present" ${attVal==='present'?'selected':''}>Present</option><option value="absent" ${attVal==='absent'?'selected':''}>Absent</option></select>`}</td><td>${cnt}</td></tr>`}).join('');return `<div class="section-head"><h3>Attendance</h3>${monthYearControls('_sdMonth','_sdYear',`openStudentDetails('${s.id}','attendance')`)}</div><table class="table"><tr><th>Date & Time IST</th><th>Preferred Time</th><th>Type</th><th>Attendance</th><th>Count</th></tr>${htmlRows||'<tr><td colspan="5">No classes for this month.</td></tr>'}</table>${['A','B'].includes(s.type)?`<div class="subsec"><h3>Pending Classes</h3>${pendingTableHTML(s)}</div>`:''}`}
-function preferredTimeHTML(e,s){const code=getTzForGroup(studentTz(s),e.date);if(code==='IST')return '';return `${ddmmyyyy(e.date)} ${fmtTime(istToTz(e.start,code))}-${fmtTime(istToTz(e.end,code))} ${code}`}
-function getAttendance(eid,sid){return state.attendance[eid]?.[sid]||''}
-function setAttendance(eid,sid,val){state.attendance[eid]=state.attendance[eid]||{};if(val)state.attendance[eid][sid]=val;else delete state.attendance[eid][sid];markDirty();if(currentStudentId)openStudentDetails(currentStudentId,'attendance')}
-function getStudentRows(sid,y,m){const evs=getEventsForMonth(y,m).filter(e=>eventHasStudent(e,sid)).sort(sortEvent);return evs.map(e=>({event:e,participant:e.participants.find(p=>p.studentId===sid)}))}
-function eventHasStudent(e,sid){return (e.participants||[]).some(p=>p.studentId===sid)}
-function sortEvent(a,b){return a.date.localeCompare(b.date)||a.start.localeCompare(b.start)}
-function countForParticipant(e,p,attVal,cat){if(e.cancelled)return 0;if(p.role==='makeup')return 0;if(cat==='A'||cat==='B'){if(p.role==='scheduled')return (attVal==='present'||attVal==='absent')?1:0;if(p.role==='additional')return attVal==='present'?1:0}if(cat==='C'||cat==='D'){if(p.role==='scheduled'||p.role==='additional')return attVal==='present'?1:0}return 0}
-function pendingLabel(key){if(!key)return'';const [eid,sid]=key.split('|');const e=findEvent(eid);return e?`${ddmmyyyy(e.date)} ${fmtTime(e.start)}`:key}
-function pendingTableHTML(s){const p=getPendingClasses(s.id);const rows=p.map(x=>`<tr><td>${ddmmyyyy(x.date)} ${fmtTime(x.start)}</td><td>${x.resolved?'Made Up':'Pending'}</td><td>${x.madeOn?ddmmyyyy(x.madeOn):''}</td></tr>`).join('');return `<table class="table"><tr><th>To Make Up For</th><th>Status</th><th>Made Up On</th></tr>${rows||'<tr><td colspan="3">No pending classes</td></tr>'}</table>`}
-function getPendingClasses(sid){const s=getStudent(sid);if(!s||!['A','B'].includes(s.type))return [];const all=getAllEvents().filter(e=>eventHasStudent(e,sid)).sort(sortEvent);const resolved=new Map();for(const e of all){const p=e.participants.find(x=>x.studentId===sid);if(p?.role==='makeup'&&p.makeupFor&&getAttendance(e.id,sid)==='present')resolved.set(p.makeupFor,e.date)}let pending=[];if(s.type==='A'){for(const e of all){const p=e.participants.find(x=>x.studentId===sid);if(p.role==='scheduled'&&getAttendance(e.id,sid)==='absent'){const key=e.id+'|'+sid;pending.push({key,date:e.date,start:e.start,resolved:resolved.has(key),madeOn:resolved.get(key)})}}}else{const months=[...new Set(all.map(e=>e.date.slice(0,7)))];for(const mk of months){const [y,m]=mk.split('-').map(Number);const monthEvents=all.filter(e=>e.date.slice(0,7)===mk);const counted=monthEvents.reduce((sum,e)=>{const p=e.participants.find(x=>x.studentId===sid);return sum+countForParticipant(e,p,getAttendance(e.id,sid),s.type)},0);let need=Math.max(0,8-counted);for(const e of monthEvents.filter(e=>e.cancelled).sort(sortEvent)){if(need<=0)break;const key=e.id+'|'+sid;pending.push({key,date:e.date,start:e.start,resolved:resolved.has(key),madeOn:resolved.get(key)});need--}}}return pending.filter(x=>!x.resolved)}
-function feeTrackerHTML(s){const rows=buildFeeRows(s);return `<div class="subsec"><h3>Fee Tracker</h3><table class="table"><tr><th>Fee Period / Cycle</th><th>Fee Amount</th><th>Status</th><th>Action</th></tr>${rows.current.map(r=>feeRowHTML(s,r)).join('')||'<tr><td colspan="4">No fee rows.</td></tr>'}</table></div><div class="subsec"><h3>Payment History</h3>${paymentHistoryHTML(s,true)}</div>`}
-function feeRowHTML(s,r){return `<tr><td>${r.label}</td><td>${r.amountLabel}</td><td><span class="status ${r.status.toLowerCase()}">${r.status}</span></td><td>${r.status==='Paid'?`<button class="btn" onclick="undoPayment('${s.id}','${r.key}')">Undo Payment</button>`:`<button class="btn blue" onclick="markPaid('${s.id}','${r.key}',${r.amount})">Mark as Paid</button>`}</td></tr>`}
-function paymentHistoryHTML(s,inner=false){const rows=buildFeeRows(s).history;const html=`<table class="table"><tr><th>Period / Cycle</th><th>Fee Amount</th><th>Payment Date</th><th>Action</th></tr>${rows.map(r=>`<tr><td>${r.label}</td><td>${r.amountLabel}</td><td><input type="date" class="compact-select" value="${paymentRecord(s.id,r.key)?.paymentDate||''}" onchange="editPaymentDate('${s.id}','${r.key}',this.value)"></td><td><button class="btn" onclick="undoPayment('${s.id}','${r.key}')">Undo Payment</button></td></tr>`).join('')||'<tr><td colspan="4">No payment history yet.</td></tr>'}</table>`;return inner?html:`<div class="subsec"><h3>Payment History</h3>${html}</div>`}
-function paymentRecord(sid,key){return state.payments[sid]?.[key]}
-function setPay(sid,key,rec){state.payments[sid]=state.payments[sid]||{};state.payments[sid][key]=rec}
-function markPaid(sid,key,amount){setPay(sid,key,{status:'Paid',paymentDate:dateStr(new Date()),amount});markDirty();openStudentDetails(sid,'fees')}function undoPayment(sid,key){if(state.payments[sid])delete state.payments[sid][key];markDirty();openStudentDetails(sid,'fees')}function editPaymentDate(sid,key,date){if(state.payments[sid]?.[key])state.payments[sid][key].paymentDate=date;markDirty()}
-function buildFeeRows(s){if(s.type==='D')return buildDFeeRows(s);return buildMonthlyFeeRows(s)}
-function buildMonthlyFeeRows(s){const now=new Date();const cur=monthKey(now.getFullYear(),now.getMonth()+1);const start=s.fee?.periodStart||cur;const months=[];let [y,m]=start.split('-').map(Number);while(monthKey(y,m)<=cur){months.push(monthKey(y,m));m++;if(m>12){m=1;y++}}const current=[],history=[];for(const mk of months){const [yy,mm]=mk.split('-').map(Number);const paid=paymentRecord(s.id,mk)?.status==='Paid'||s.fee?.lastPaid===mk;const amount=monthlyFeeAmount(s,yy,mm);const status=paid?'Paid':(s.type==='B'?'Pending':(mk===cur?'Ongoing':'Pending'));const row={key:mk,label:`${MONTHS[mm-1]} ${yy}`,amount,amountLabel:amount.label,status};if(paid&&mk!==cur)history.push(row);else current.push(row)}return{current,history}}
-function monthlyFeeAmount(s,y,m){const count=studentCountForMonth(s,y,m);const cur=currencySymbol(s.fee?.currency);if(s.type==='A'){const counted=Math.min(8,count);const amt=counted*(s.fee?.rate||0);return{value:amt,label:`${cur}${amt} (${counted} counted × ${cur}${s.fee?.rate||0})`}}if(s.type==='B'){const amt=s.fee?.monthly||0;return{value:amt,label:`${cur}${amt} monthly fee`}}const amt=count*(s.fee?.rate||0);return{value:amt,label:`${cur}${amt} (${count} counted × ${cur}${s.fee?.rate||0})`}}
-function studentCountForMonth(s,y,m){ensureMonthTW(y,m);return getStudentRows(s.id,y,m).reduce((sum,r)=>sum+countForParticipant(r.event,r.participant,getAttendance(r.event.id,s.id),s.type),0)}
-function buildDFeeRows(s){const cycles=buildDCycles(s);const current=[],history=[];for(const c of cycles){const paid=paymentRecord(s.id,c.key)?.status==='Paid'||c.status==='Paid';const row={key:c.key,label:c.label,amount:c.amount,amountLabel:c.amountLabel,status:paid?'Paid':c.status};if(paid&&c.completed)history.push(row);else current.push(row)}return{current,history}}
-function buildDClassMap(s){const cycles=buildDCycles(s);const eventClassNo={};for(const c of cycles)for(const a of c.assignments||[])eventClassNo[a.eventId]=a.no;return{cycles,eventClassNo}}
-function buildDCycles(s){const fee=s.fee||{};const cur=currencySymbol(fee.currency);const rows=[];if(fee.prevStart&&fee.prevEnd){const key=`D:prev:${fee.prevStart}:${fee.prevEnd}`;rows.push({key,label:`${ddmmyyyy(fee.prevStart)} to ${ddmmyyyy(fee.prevEnd)}`,amount:fee.cycleFee||0,amountLabel:`${cur}${fee.cycleFee||0} (previous cycle)`,status:paymentRecord(s.id,key)?.status==='Paid'? 'Paid':(fee.prevStatus||'Pending'),completed:true,assignments:[]})}const start=fee.currentStart;if(!start)return rows;ensureTWThroughTodayAndFuture();const counted=[];for(const e of getAllEvents().filter(e=>e.date>=start&&eventHasStudent(e,s.id)).sort(sortEvent)){const p=e.participants.find(x=>x.studentId===s.id);if(countForParticipant(e,p,getAttendance(e.id,s.id),s.type)>0)counted.push(e)}let cycleStart=start, classNo=Number(fee.startingNumber||1), assignments=[], idx=1;const today=dateStr(new Date());for(const e of counted){assignments.push({eventId:e.id,date:e.date,no:classNo});if(classNo===8){const end=e.date;const key=`D:${cycleStart}:${end}:${idx}`;const paid=paymentRecord(s.id,key)?.status==='Paid';const status=paid?'Paid':(today>end?'Pending':'Ongoing');rows.push({key,label:`${ddmmyyyy(cycleStart)} to ${ddmmyyyy(end)}`,amount:fee.cycleFee||0,amountLabel:`${cur}${fee.cycleFee||0} (8/8 completed)`,status,completed:true,assignments});idx++;cycleStart=null;classNo=1;assignments=[]}else{classNo++}}if(cycleStart===null){const nextStart=counted.length?null:start;if(!nextStart){/* wait for next counted class */}}if(cycleStart!==null||assignments.length){const startLabel=cycleStart||assignments[0]?.date||start;const key=`D:${startLabel}:ongoing:${idx}`;const lastNo=assignments.length?assignments[assignments.length-1].no:Number(fee.startingNumber||1)-1;rows.push({key,label:`${ddmmyyyy(startLabel)} onwards`,amount:fee.cycleFee||0,amountLabel:`${cur}${fee.cycleFee||0} (Class ${Math.max(lastNo,Number(fee.startingNumber||1)-1)} of 8 running)`,status:paymentRecord(s.id,key)?.status==='Paid'?'Paid':'Ongoing',completed:false,assignments})}return rows}
-function ensureTWThroughTodayAndFuture(){const now=new Date();for(let i=-12;i<=2;i++){const d=addDays(now,i*7);ensureTWWeek(getMonday(d))}}
-function studentFeeSummary(s){const rows=buildFeeRows(s).current;let pending=0,ongoing=false;for(const r of rows){if(r.status==='Pending')pending+=r.amount.value??r.amount;if(r.status==='Ongoing')ongoing=true}const cur=currencySymbol(s.fee?.currency);return{outstanding:`${cur}${pending}`,status:pending>0&&ongoing?'Pending + Ongoing':pending>0?'Pending':ongoing?'Ongoing':'No Dues'}}
-function openTW(){twWeekStart=getMonday(new Date());renderTWModal()}
-function renderTWModal(){ensureTWWeek(twWeekStart);const days=Array.from({length:7},(_,i)=>addDays(twWeekStart,i));const wk=weekKey(twWeekStart);const events=state.twWeeks[wk].events;openModal(`<div class="modal full"><div class="cal-toolbar"><strong style="color:var(--orange)">This Week</strong><input type="date" value="${dateStr(twWeekStart)}" onchange="twWeekStart=getMonday(makeDate(this.value));renderTWModal()"><button class="btn" onclick="twWeekStart=addDays(twWeekStart,-7);renderTWModal()">← Prev</button><button class="btn" onclick="twWeekStart=addDays(twWeekStart,7);renderTWModal()">Next →</button><button class="btn blue" onclick="openTwAdd()">Add Class</button><span class="muted">TW is scheduling source. Attendance is marked in Student Popup.</span><span style="flex:1"></span><button class="btn" onclick="closeModal()">Close</button></div><div class="cal-wrap"><div id="twCalendar"></div></div></div>`,'');renderCalendarGrid('twCalendar',days,events,{tw:true,startHour:TW_START,endHour:TW_END,px:TWPX,dateFmt:'ddmmyyyy'})}
-function weekKey(d){return dateStr(getMonday(d))}
-function ensureTWWeek(monday){const wk=weekKey(monday);if(state.twWeeks[wk])return;const days=Array.from({length:7},(_,i)=>addDays(monday,i));const events=[];for(const b of state.batches){for(const d of days){const ds=dateStr(d);for(const slot of resolveSlotsForEntity(b,ds,false)){events.push(newTWEvent({scope:'batch',batchId:b.id,date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,type:'scheduled',sourceKey:`batch:${b.id}:${ds}:${slot.start}:${slot.end}`}))}}}for(const s of activeStudents().filter(x=>!x.batchId&&isSetupComplete(x))){for(const d of days){const ds=dateStr(d);for(const slot of resolveSlotsForEntity(s,ds,false)){events.push(newTWEvent({scope:'student',studentId:s.id,date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,type:'scheduled',sourceKey:`student:${s.id}:${ds}:${slot.start}:${slot.end}`}))}}}state.twWeeks[wk]={events,generated:true}}
-function newTWEvent(o){let participants=[];if(o.scope==='batch')participants=studentsInBatch(o.batchId).filter(isSetupComplete).map(s=>({studentId:s.id,role:o.type||'scheduled',addon:false,makeupFor:''}));else participants=[{studentId:o.studentId,role:o.type||'scheduled',addon:false,makeupFor:''}];return{id:uid('ev'),scope:o.scope,batchId:o.batchId||null,studentId:o.studentId||null,date:o.date,start:o.start,end:o.end,isTemp:!!o.isTemp,type:o.type||'scheduled',cancelled:false,participants,sourceKey:o.sourceKey||'',manualEdited:!!o.manualEdited}}
-function saveTW(){state.twWeeks[weekKey(twWeekStart)]={events:state.twWeeks[weekKey(twWeekStart)].events,generated:true};markDirty();renderTWModal()}
-function twDragStart(ev,id){dragId=id;ev.dataTransfer.setData('text/plain',id)}function twDragOver(e){e.preventDefault();e.currentTarget.classList.add('drop-over')}function twDragLeave(e){e.currentTarget.classList.remove('drop-over')}function twDrop(e,ds){e.preventDefault();e.currentTarget.classList.remove('drop-over');const id=dragId||e.dataTransfer.getData('text/plain');const ev=findEvent(id);if(!ev)return;const rect=e.currentTarget.getBoundingClientRect();const y=e.clientY-rect.top+e.currentTarget.scrollTop;let mins=TW_START*60+Math.round((y/TWPX)/15)*15;mins=Math.max(TW_START*60,Math.min((TW_END*60)-15,mins));const dur=timeMin(ev.end)-timeMin(ev.start);ev.date=ds;ev.start=minTime(mins);ev.end=minTime(Math.min(TW_END*60,mins+dur));ev.manualEdited=true;markDirty();renderTWModal()}
-function findEvent(id){for(const wk of Object.values(state.twWeeks)){const e=wk.events.find(x=>x.id===id);if(e)return e}return null}
-function getAllEvents(){return Object.values(state.twWeeks).flatMap(w=>w.events)}
-function getEventsForMonth(y,m){ensureMonthTW(y,m);const {start,end}=monthRange(y,m);return getAllEvents().filter(e=>e.date>=start&&e.date<=end)}
-function ensureMonthTW(y,m){const r=monthRange(y,m);let d=getMonday(makeDate(r.start));while(dateStr(d)<=r.end){ensureTWWeek(d);d=addDays(d,7)}}
-function openTwAdd(){window._twAdd={date:dateStr(twWeekStart),start:'18:00',end:'19:00',batch:false,addons:[]};renderTwAdd()}
-function renderTwAdd(){const t=window._twAdd;openModal(`<h2>Add a Class</h2><div class="grid3"><div class="field"><label>Date</label><input id="taDate" type="date" value="${t.date}"></div><div class="field"><label>Start IST</label><input id="taStart" type="time" value="${t.start}"></div><div class="field"><label>End IST</label><input id="taEnd" type="time" value="${t.end}"></div></div><div class="field"><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:#202124"><input type="checkbox" id="taBatch" ${t.batch?'checked':''} onchange="window._twAdd.batch=this.checked;renderTwAdd()" style="width:auto"> Schedule for entire batch</label></div><div id="twAddMain">${t.batch?twAddBatchHTML():twAddStudentHTML()}</div><div class="subsec"><h3>Add Student to Class</h3><div id="twAddons">${t.addons.map((a,i)=>addonRowHTML(a,i,'_twAdd')).join('')}</div><button class="add-line" onclick="window._twAdd.addons.push({studentId:'',role:'additional',makeupFor:''});renderTwAdd()">+ Add student</button></div><div class="actions"><button class="btn" onclick="renderTWModal()">Cancel</button><button class="btn blue" onclick="saveTwAdd()">Save</button></div>`,'modal lg')}
-function twAddBatchHTML(){const t=window._twAdd;t.batchId=t.batchId||state.batches[0]?.id||'';const b=getBatch(t.batchId);const type=b?.type||'A';const typeOptions=type==='A'||type==='B'?['makeup','additional']:['additional'];t.type=t.type&&typeOptions.includes(t.type)?t.type:typeOptions[0];let table='';if(t.type==='makeup'&&b){table=`<div class="subsec"><h3>Batch Makeup Mapping</h3>${studentsInBatch(b.id).map(s=>studentRoleHTML(s)).join('')}</div>`}return `<div class="field"><label>Batch</label><select onchange="window._twAdd.batchId=this.value;renderTwAdd()">${state.batches.map(b=>`<option value="${b.id}" ${t.batchId===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div><div class="field"><label>Class Type</label><select onchange="window._twAdd.type=this.value;renderTwAdd()">${typeOptions.map(o=>`<option value="${o}" ${t.type===o?'selected':''}>${o}</option>`).join('')}</select></div>${table}`}
-function twAddStudentHTML(){const t=window._twAdd;t.studentId=t.studentId||activeStudents()[0]?.id||'';const s=getStudent(t.studentId);const type=s?.type||'A';const typeOptions=type==='A'||type==='B'?['makeup','additional']:['additional'];t.type=t.type&&typeOptions.includes(t.type)?t.type:typeOptions[0];return `<div class="field"><label>Student</label><select onchange="window._twAdd.studentId=this.value;renderTwAdd()">${activeStudents().filter(isSetupComplete).map(s=>`<option value="${s.id}" ${t.studentId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div class="field"><label>Class Type</label><select onchange="window._twAdd.type=this.value;renderTwAdd()">${typeOptions.map(o=>`<option value="${o}" ${t.type===o?'selected':''}>${o}</option>`).join('')}</select></div>${t.type==='makeup'&&s?makeupForSelectHTML(s,'window._twAdd.makeupFor',t.makeupFor):''}`}
-function studentRoleHTML(s){const arr=window._twAdd.roles=window._twAdd.roles||{};arr[s.id]=arr[s.id]||{role:'makeup',makeupFor:''};const r=arr[s.id];const options=s.type==='A'||s.type==='B'?['makeup','additional']:['additional'];return `<div class="student-role-row"><div>${esc(s.name)}</div><select onchange="window._twAdd.roles['${s.id}'].role=this.value;renderTwAdd()">${options.map(o=>`<option ${r.role===o?'selected':''}>${o}</option>`).join('')}</select><div>${r.role==='makeup'?makeupForSelectHTML(s,`window._twAdd.roles['${s.id}'].makeupFor`,r.makeupFor,true):''}</div></div>`}
-function makeupForSelectHTML(s,assign,val,inline=false){const p=getPendingClasses(s.id);return `${inline?'':'<div class="field"><label>Makeup For</label>'}<select ${inline?'class="compact-select"':''} onchange="${assign}=this.value"><option value="">— select pending class —</option>${p.map(x=>`<option value="${x.key}" ${val===x.key?'selected':''}>${ddmmyyyy(x.date)} ${fmtTime(x.start)}</option>`).join('')}</select>${inline?'':'</div>'}`}
-function addonRowHTML(a,i,obj){const s=getStudent(a.studentId);const options=s&&['A','B'].includes(s.type)?['makeup','additional']:['additional'];a.role=a.role&&options.includes(a.role)?a.role:'additional';return `<div class="addon-row"><select onchange="${obj}.addons[${i}].studentId=this.value;${obj}.addons[${i}].role='additional';renderTwAdd()"><option value="">— student —</option>${activeStudents().filter(isSetupComplete).map(s=>`<option value="${s.id}" ${a.studentId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select><select onchange="${obj}.addons[${i}].role=this.value;renderTwAdd()">${options.map(o=>`<option ${a.role===o?'selected':''}>${o}</option>`).join('')}</select><div>${a.role==='makeup'&&s?makeupForSelectHTML(s,`${obj}.addons[${i}].makeupFor`,a.makeupFor,true):''}</div><button class="small-del" onclick="${obj}.addons.splice(${i},1);renderTwAdd()">×</button></div>`}
-function saveTwAdd(){const t=window._twAdd;t.date=$('taDate').value;t.start=$('taStart').value;t.end=$('taEnd').value;if(!t.date||!t.start||!t.end||timeMin(t.end)<=timeMin(t.start))return toast('Check date and time');const wk=weekKey(getMonday(makeDate(t.date)));ensureTWWeek(getMonday(makeDate(t.date)));let e;if(t.batch){const b=getBatch(t.batchId);if(!b)return toast('Select batch');if(t.type==='makeup'){for(const s of studentsInBatch(b.id)){const r=t.roles?.[s.id];if(r?.role==='makeup'&&!r.makeupFor)return toast('Select Makeup For for every Makeup student')}}e=newTWEvent({scope:'batch',batchId:b.id,date:t.date,start:t.start,end:t.end,type:t.type,isTemp:false,manualEdited:true});e.participants=e.participants.map(p=>{const r=t.roles?.[p.studentId];return {...p,role:t.type==='additional'?'additional':(r?.role||'makeup'),makeupFor:r?.makeupFor||''}})}else{const s=getStudent(t.studentId);if(!s)return toast('Select student');if(t.type==='makeup'&&!t.makeupFor)return toast('Select Makeup For');e=newTWEvent({scope:'student',studentId:s.id,date:t.date,start:t.start,end:t.end,type:t.type,isTemp:false,manualEdited:true});e.participants[0].role=t.type;e.participants[0].makeupFor=t.makeupFor||''}for(const a of t.addons){if(!a.studentId)continue;if(a.role==='makeup'&&!a.makeupFor)return toast('Select Makeup For for add-on');e.participants.push({studentId:a.studentId,role:a.role||'additional',addon:true,makeupFor:a.makeupFor||''})}state.twWeeks[wk].events.push(e);twWeekStart=getMonday(makeDate(t.date));markDirty();renderTWModal()}
-function openTwEdit(id){const e=findEvent(id);if(!e)return;window._twEdit=JSON.parse(JSON.stringify(e));renderTwEdit()}
-function renderTwEdit(){const e=window._twEdit;openModal(`<h2>Edit Class</h2><div class="muted">${e.scope==='batch'?`Batch: ${esc(getBatch(e.batchId)?.name||'')}`:`Student: ${esc(getStudent(e.studentId)?.name||'')}`} · Original type: ${e.type}</div><div class="grid3"><div class="field"><label>Date</label><input id="teDate" type="date" value="${e.date}"></div><div class="field"><label>Start IST</label><input id="teStart" type="time" value="${e.start}"></div><div class="field"><label>End IST</label><input id="teEnd" type="time" value="${e.end}"></div></div><div class="subsec"><h3>Add-on students</h3>${(e.participants||[]).filter(p=>p.addon).map((p,i)=>editAddonHTML(p,i)).join('')}<button class="add-line" onclick="window._twEdit.participants.push({studentId:'',role:'additional',addon:true,makeupFor:''});renderTwEdit()">+ Add student</button></div><div class="warn">Cancel Class is intended for Type B students/batches. For other types, use Remove.</div><div class="actions"><button class="btn danger" onclick="cancelTwClass()">Cancel Class</button><button class="btn danger" onclick="removeTwClass()">Remove</button><button class="btn" onclick="renderTWModal()">Close</button><button class="btn blue" onclick="saveTwEdit()">Save</button></div>`,'modal lg')}
-function editAddonHTML(p,i){const idx=window._twEdit.participants.findIndex((x,n)=>x.addon&&n>=0&&window._twEdit.participants.filter((y,j)=>y.addon&&j<=n).length-1===i);const s=getStudent(p.studentId);const options=s&&['A','B'].includes(s.type)?['makeup','additional']:['additional'];return `<div class="addon-row"><select onchange="window._twEdit.participants[${idx}].studentId=this.value;window._twEdit.participants[${idx}].role='additional';renderTwEdit()"><option value="">— student —</option>${activeStudents().filter(isSetupComplete).map(st=>`<option value="${st.id}" ${p.studentId===st.id?'selected':''}>${esc(st.name)}</option>`).join('')}</select><select onchange="window._twEdit.participants[${idx}].role=this.value;renderTwEdit()">${options.map(o=>`<option ${p.role===o?'selected':''}>${o}</option>`).join('')}</select><div>${p.role==='makeup'&&s?makeupForSelectHTML(s,`window._twEdit.participants[${idx}].makeupFor`,p.makeupFor,true):''}</div><button class="small-del" onclick="delete state.attendance['${window._twEdit.id}']?.['${p.studentId}'];window._twEdit.participants.splice(${idx},1);renderTwEdit()">×</button></div>`}
-function saveTwEdit(){const e=findEvent(window._twEdit.id);if(!e)return;const nd=$('teDate').value,st=$('teStart').value,en=$('teEnd').value;if(!nd||!st||!en||timeMin(en)<=timeMin(st))return toast('Check date and time');Object.assign(e,{date:nd,start:st,end:en,participants:window._twEdit.participants,manualEdited:true});markDirty();twWeekStart=getMonday(makeDate(nd));renderTWModal()}
-function cancelTwClass(){if(!confirm('Cancel this class?'))return;const e=findEvent(window._twEdit.id);if(e){e.cancelled=true;e.type='cancelled';markDirty();renderTWModal()}}
-function removeTwClass(){const e=findEvent(window._twEdit.id);if(!e)return;if(state.attendance[e.id]&&!confirm('This class has attendance marked. Removing it will delete attendance and recalculate fees. Continue?'))return;for(const wk of Object.values(state.twWeeks)){wk.events=wk.events.filter(x=>x.id!==e.id)}delete state.attendance[e.id];markDirty();renderTWModal()}
-function openAttendanceTracker(){window._attM=window._attM||new Date().getMonth()+1;window._attY=window._attY||new Date().getFullYear();window._attFilter=window._attFilter||'all';renderAttendanceTracker()}
-function renderAttendanceTracker(){ensureMonthTW(window._attY,window._attM);const days=monthRange(window._attY,window._attM).days;let students=activeStudents().filter(isSetupComplete);if(window._attFilter==='ind')students=students.filter(s=>!s.batchId);else if(window._attFilter!=='all')students=students.filter(s=>s.batchId===window._attFilter);let header=`<tr><th>Student</th><th>Batch</th>${Array.from({length:days},(_,i)=>`<th>${String(i+1).padStart(2,'0')}</th>`).join('')}<th>Counted Classes</th><th>Current Fee</th><th>Fee Status</th></tr>`;let rows=students.map(s=>attendanceTrackerRow(s,days)).join('');const summary=feeMonthSummary(students,window._attY,window._attM);openModal(`<div class="modal full"><div class="cal-toolbar"><strong>Attendance & Fee Tracker</strong>${monthYearControls('_attM','_attY','renderAttendanceTracker()')}<select class="compact-select" onchange="window._attFilter=this.value;renderAttendanceTracker()"><option value="all">All Students</option><option value="ind" ${window._attFilter==='ind'?'selected':''}>Individual Students</option>${state.batches.map(b=>`<option value="${b.id}" ${window._attFilter===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select><span style="flex:1"></span><button class="btn" onclick="closeModal()">Close</button></div><div style="overflow:auto;padding:12px"><table class="table" style="min-width:${800+days*54}px">${header}${rows}</table><div class="subsec"><h3>Fee Summary</h3><p>Total Fee Due: <strong>${summary.due}</strong></p><p>Total Fee Collected: <strong>${summary.collected}</strong></p><p>Total Outstanding: <strong>${summary.outstanding}</strong></p></div></div></div>`,'')}
-function attendanceTrackerRow(s,days){const rows=getStudentRows(s.id,window._attY,window._attM);const byDay={};for(const r of rows){const d=makeDate(r.event.date).getDate();byDay[d]=byDay[d]||[];byDay[d].push(r)}let tds='';for(let i=1;i<=days;i++){const arr=byDay[i]||[];tds+=`<td>${arr.map(r=>trackerCell(r,s)).join('<hr style="border:0;border-top:1px solid #ddd">')}</td>`}const count=studentCountForMonth(s,window._attY,window._attM);const fee=monthlyOrDDisplay(s,window._attY,window._attM);return `<tr><td onclick="openStudentDetails('${s.id}','attendance')" style="cursor:pointer;color:var(--blue)">${esc(s.name)}</td><td>${s.batchId?esc(getBatch(s.batchId)?.name):'Individual'}</td>${tds}<td>${count}${s.type==='D'?`<br><span class="muted">${currentDRunningLabel(s)}</span>`:''}</td><td>${fee.amount}</td><td onclick="openStudentDetails('${s.id}','fees')" style="cursor:pointer">${fee.status}</td></tr>`}
-function trackerCell(r,s){const val=getAttendance(r.event.id,s.id);const p=r.participant;if(r.event.cancelled)return `<div class="cell-grey">Cancelled</div>`;if(val==='present')return `<div class="cell-green">${p.role}${p.role==='makeup'?`<br><span class="muted">For: ${pendingLabel(p.makeupFor)}</span>`:''}</div>`;if(val==='absent')return `<div class="cell-red">${p.role==='scheduled'?'Missed':p.role}</div>`;return `<span class="muted">${p.role}</span>`}
-function monthlyOrDDisplay(s,y,m){if(s.type!=='D'){const amt=monthlyFeeAmount(s,y,m);const rows=buildFeeRows(s).current.filter(r=>r.key===monthKey(y,m));return{amount:amt.label,status:rows[0]?.status||''}}const {start,end}=monthRange(y,m);const cycles=buildDCycles(s).filter(c=>cycleOverlaps(c,start,end));return{amount:cycles.map(c=>`<div class="money-split">${c.label}<br>${c.amountLabel}</div>`).join(''),status:cycles.map(c=>`<div class="money-split"><span class="status ${c.status.toLowerCase()}">${c.status}</span></div>`).join('')}}
-function cycleOverlaps(c,start,end){const m=c.label.match(/(\d{2}-\d{2}-\d{4}).*(\d{2}-\d{2}-\d{4})?/);if(c.label.includes('onwards'))return true;const dates=[...c.label.matchAll(/(\d{2})-(\d{2})-(\d{4})/g)].map(x=>`${x[3]}-${x[2]}-${x[1]}`);const cs=dates[0]||start,ce=dates[1]||end;return cs<=end&&ce>=start}
-function currentDRunningLabel(s){const c=buildDCycles(s).filter(x=>x.status==='Ongoing').pop();return c?c.amountLabel.replace(/^.*\((.*)\).*$/,'$1'):''}
-function feeMonthSummary(students,y,m){let due=0,col=0;for(const s of students){if(s.type==='D'){for(const c of buildDCycles(s).filter(c=>cycleOverlaps(c,monthRange(y,m).start,monthRange(y,m).end))){due+=c.amount;if((paymentRecord(s.id,c.key)?.status==='Paid')||c.status==='Paid')col+=c.amount}}else{const amt=monthlyFeeAmount(s,y,m).value;due+=amt;if(paymentRecord(s.id,monthKey(y,m))?.status==='Paid'||s.fee?.lastPaid===monthKey(y,m))col+=amt}}return{due:`₹${due}`,collected:`₹${col}`,outstanding:`₹${due-col}`}}
-function openSettings(){openModal(`<h2>Settings / Sync</h2><div class="grid2"><div class="field"><label>Summer Timing Starts On</label><input id="setSummer" type="date" value="${state.settings.summerStart}"></div><div class="field"><label>Winter Timing Starts On</label><input id="setWinter" type="date" value="${state.settings.winterStart}"></div></div><div class="field"><label>Display Timezone</label><select id="setTz">${TZ_GROUPS.map(t=>`<option value="${t}" ${state.settings.displayTz===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="field"><label>Cloudflare Worker URL</label><input id="workerUrl" value="${esc(state.settings.workerUrl||'')}"></div><div class="field"><label>Google Sheets / Apps Script URL</label><input id="sheetsUrl" value="${esc(state.settings.sheetsUrl||'')}"></div><div class="actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn" onclick="exportSheets()">Export to Sheets</button><button class="btn blue" onclick="saveSettings()">Save</button></div>`,'modal sm')}
-function saveSettings(){state.settings.summerStart=$('setSummer').value;state.settings.winterStart=$('setWinter').value;state.settings.displayTz=$('setTz').value;state.settings.workerUrl=$('workerUrl').value.trim();state.settings.sheetsUrl=$('sheetsUrl').value.trim();localStorage.setItem('dance_worker_url',state.settings.workerUrl);localStorage.setItem('dance_sheets_url',state.settings.sheetsUrl);markDirty();closeModal();toast('Settings saved')}
-
-function syncFutureTWForBatch(id){
-  const b=getBatch(id); if(!b)return;
-  const today=dateStr(new Date());
-  for(const [wk,obj] of Object.entries(state.twWeeks)){
-    const mon=makeDate(wk); const days=Array.from({length:7},(_,i)=>addDays(mon,i));
-    obj.events=obj.events.filter(e=>!(e.batchId===id && e.date>=today && e.type==='scheduled' && !e.manualEdited));
-    const existing=new Set(obj.events.filter(e=>e.batchId===id).map(e=>e.sourceKey));
-    for(const d of days){const ds=dateStr(d); if(ds<today)continue; for(const slot of resolveSlotsForEntity(b,ds,false)){const sk=`batch:${b.id}:${ds}:${slot.start}:${slot.end}`; if(!existing.has(sk))obj.events.push(newTWEvent({scope:'batch',batchId:b.id,date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,type:'scheduled',sourceKey:sk}));}}
-  }
-}
-function syncFutureTWForStudent(id){
-  const s=getStudent(id); if(!s)return;
-  const today=dateStr(new Date());
-  for(const [wk,obj] of Object.entries(state.twWeeks)){
-    const mon=makeDate(wk); const days=Array.from({length:7},(_,i)=>addDays(mon,i));
-    obj.events=obj.events.filter(e=>!(eventHasStudent(e,id) && e.date>=today && e.type==='scheduled' && !e.manualEdited && (e.scope==='student'||e.scope==='batch')));
-    if(!s.batchId && isSetupComplete(s)){
-      const existing=new Set(obj.events.filter(e=>e.studentId===id).map(e=>e.sourceKey));
-      for(const d of days){const ds=dateStr(d); if(ds<today)continue; for(const slot of resolveSlotsForEntity(s,ds,false)){const sk=`student:${s.id}:${ds}:${slot.start}:${slot.end}`; if(!existing.has(sk))obj.events.push(newTWEvent({scope:'student',studentId:s.id,date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,type:'scheduled',sourceKey:sk}));}}
-    }
-  }
-}
-
-
-// --- Final overrides for fee-field rendering and edit-student fee save ---
-function renderFeeFields(){
-  const type=$('sType').value;
-  let f=window._studentTemp.fee||defaultFee(type);
-  if(!f||((type==='D')!==('cycleFee'in f))) f=defaultFee(type);
-  window._studentTemp.fee=f;
-  $('feeFields').innerHTML=feeFieldsHTML(type,f,'');
-}
-function feeFieldsHTML(type,f,prefix){
-  const id=n=>prefix+n;
-  if(type==='A'||type==='C')return `<div class="grid2"><div class="field"><label>Attendance & Fee Period Starts From</label><input id="${id('feeStart')}" type="month" value="${f.periodStart||''}"></div><div class="field"><label>Last Paid For</label><input id="${id('lastPaid')}" type="month" value="${f.lastPaid||''}"></div></div><div class="grid2"><div class="field"><label>Per Class Fee</label><input id="${id('feeRate')}" type="number" value="${f.rate||0}"></div><div class="field"><label>Currency</label><select id="${id('feeCur')}"><option ${f.currency==='INR'?'selected':''}>INR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div></div>`;
-  if(type==='B')return `<div class="grid2"><div class="field"><label>Attendance & Fee Period Starts From</label><input id="${id('feeStart')}" type="month" value="${f.periodStart||''}"></div><div class="field"><label>Last Paid For</label><input id="${id('lastPaid')}" type="month" value="${f.lastPaid||''}"></div></div><div class="grid2"><div class="field"><label>Per Month Fee</label><input id="${id('feeMonthly')}" type="number" value="${f.monthly||0}"></div><div class="field"><label>Currency</label><select id="${id('feeCur')}"><option ${f.currency==='INR'?'selected':''}>INR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div></div>`;
-  return `<div class="grid2"><div class="field"><label>Current Fee Cycle Started On</label><input id="${id('dCurrentStart')}" type="date" value="${f.currentStart||''}"></div><div class="field"><label>Starting Class Number in Current Cycle</label><select id="${id('dStartNo')}">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${Number(f.startingNumber)===n?'selected':''}>${n}/8</option>`).join('')}</select></div></div><div class="grid2"><div class="field"><label>Fee Per 8-Class Cycle</label><input id="${id('dFee')}" type="number" value="${f.cycleFee||0}"></div><div class="field"><label>Currency</label><select id="${id('feeCur')}"><option ${f.currency==='INR'?'selected':''}>INR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div></div><div class="grid3"><div class="field"><label>Previous Fee Cycle Start Date</label><input id="${id('dPrevStart')}" type="date" value="${f.prevStart||''}"></div><div class="field"><label>Previous Fee Cycle End Date</label><input id="${id('dPrevEnd')}" type="date" value="${f.prevEnd||''}"></div><div class="field"><label>Previous Fee Cycle Status</label><select id="${id('dPrevStatus')}"><option ${f.prevStatus==='Pending'?'selected':''}>Pending</option><option ${f.prevStatus==='Paid'?'selected':''}>Paid</option></select></div></div><div class="warn">Previous cycle dates are used only for historical fee display. Current rolling count starts from Current Fee Cycle Started On.</div>`;
-}
-function readFeeWithPrefix(type,prefix){
-  const id=n=>$(prefix+n);
-  const cur=id('feeCur')?.value||'INR';
-  if(type==='A'||type==='C')return {rate:Number(id('feeRate').value||0),currency:cur,periodStart:id('feeStart').value,lastPaid:id('lastPaid').value};
-  if(type==='B')return {monthly:Number(id('feeMonthly').value||0),currency:cur,periodStart:id('feeStart').value,lastPaid:id('lastPaid').value};
-  return {cycleFee:Number(id('dFee').value||0),currency:cur,currentStart:id('dCurrentStart').value,startingNumber:Number(id('dStartNo').value||1),prevStart:id('dPrevStart').value,prevEnd:id('dPrevEnd').value,prevStatus:id('dPrevStatus').value};
-}
-function renderEditFee(s){
-  $('editFeeFields').innerHTML=`<div class="subsec"><h3>Fee Setup</h3>${feeFieldsHTML(s.type,s.fee||defaultFee(s.type),'ef_')}</div>`;
-}
-function saveEditStudent(id){
-  const s=getStudent(id); if(!s)return;
-  const oldBatch=s.batchId;
-  s.name=$('esName').value.trim();
-  const newBatch=$('esBatch').value||null;
-  if(newBatch){
-    const b=getBatch(newBatch); if(!b)return toast('Batch not found');
-    if(b.type!==s.type)return toast('Cannot move student to different type batch');
-    s.batchId=newBatch; s.timezone=b.timezone; s.timings=blankTimings(); s.setupIncomplete=false;
-  }else{
-    s.batchId=null; s.timezone=$('esTz').value; s.timings=readTimingEditor('esT'); s.setupIncomplete=!hasTimings(s.timings);
-  }
-  s.fee=readFeeWithPrefix(s.type,'ef_');
-  if(oldBatch!==s.batchId)syncFutureTWForStudent(s.id);
-  markDirty(); openStudentDetails(id,'details');
-}
-
-init();
 </script>
 </body>
 </html>
