@@ -570,7 +570,8 @@ function allTwEvents(){return Object.values(twWkCache).flatMap(evs=>Array.isArra
 function getTwEvent(id){return twEvs.find(e=>e.id===id)||allTwEvents().find(e=>e.id===id)||null;}
 function eventStudents(ev){
   const entity=getBatch(ev.batchId),students=[];
-  if(ev.studentScope)students.push({name:ev.studentScope,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
+  if(ev.studentRoles?.length)ev.studentRoles.forEach(r=>students.push({name:r.name,batchId:r.batchId||ev.batchId,isAddon:false,classType:r.classType||ev.classType||'additional',makeupFor:r.makeupFor||null}));
+  else if(ev.studentScope)students.push({name:ev.studentScope,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
   else if(ev.batchId&&ev.batchId.startsWith('ind_')&&entity?.name)students.push({name:entity.name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null});
   else (entity?.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name=>students.push({name,batchId:ev.batchId,isAddon:false,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null}));
   (ev.addonStudents||[]).forEach(a=>students.push({name:a.name,batchId:a.batchId||ev.batchId,isAddon:true,classType:a.classType||'additional',makeupFor:a.makeupFor||null}));
@@ -607,6 +608,7 @@ function normalizeTwEvent(ev){
     ev.originEnd=ev.originEnd||ev.end;
   }
   ev.addonStudents=ev.addonStudents||[];
+  ev.studentRoles=ev.studentRoles||[];
   return ev;
 }
 function twIdentity(ev){
@@ -614,10 +616,22 @@ function twIdentity(ev){
   if((ev.classType||'scheduled')==='scheduled'){
     return ['scheduled',ev.batchId,ev.studentScope||'',ev.originDate,ev.originStart,ev.originEnd].join('|');
   }
-  return [ev.id||'manual',ev.batchId,ev.studentScope||'',localDS(new Date(ev.date)),ev.start,ev.end,ev.classType||'additional',ev.makeupFor||'',(ev.addonStudents||[]).map(a=>`${a.batchId||''}:${a.name}:${a.classType||''}:${a.makeupFor||''}`).sort().join(',')].join('|');
+  return [ev.id||'manual',ev.batchId,ev.studentScope||'',localDS(new Date(ev.date)),ev.start,ev.end,ev.classType||'additional',ev.makeupFor||'',(ev.studentRoles||[]).map(r=>`${r.batchId||''}:${r.name}:${r.classType||''}:${r.makeupFor||''}`).sort().join(','),(ev.addonStudents||[]).map(a=>`${a.batchId||''}:${a.name}:${a.classType||''}:${a.makeupFor||''}`).sort().join(',')].join('|');
 }
 function cleanTwEvents(evs){
-  return uniqueBy((evs||[]).map(e=>normalizeTwEvent(e)),twIdentity);
+  const normalized=(evs||[]).map(e=>normalizeTwEvent(e));
+  const grouped={},out=[];
+  normalized.forEach(ev=>{
+    const canMerge=(ev.classType||'scheduled')!=='scheduled'&&ev.studentScope&&!ev.addonStudents.length;
+    if(!canMerge){out.push(ev);return;}
+    const key=[ev.batchId,localDS(new Date(ev.date)),ev.start,ev.end,ev.classType||'additional'].join('|');
+    if(!grouped[key]){
+      grouped[key]=normalizeTwEvent({...ev,id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),studentScope:null,makeupFor:null,studentRoles:[]});
+      out.push(grouped[key]);
+    }
+    grouped[key].studentRoles.push({name:ev.studentScope,batchId:ev.batchId,classType:ev.classType||'additional',makeupFor:ev.makeupFor||null});
+  });
+  return uniqueBy(out.map(e=>normalizeTwEvent(e)),twIdentity);
 }
 function cleanAllTwCaches(){
   Object.keys(twWkCache).forEach(wk=>{twWkCache[wk]=cleanTwEvents(twWkCache[wk]);});
@@ -1520,7 +1534,7 @@ function twMerge(){let changed=false;const wk=twKey();twEvs=cleanTwEvents(twEvs)
 function twSave(){twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;cleanAllTwCaches();syncAllAttendanceRecords();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));save('att',att);}
 function twRefresh(){showToast('Refresh removed: TW keeps saved edits.');}
 function twBlockPeople(ev,batch){
-  const base=ev.studentScope?[ev.studentScope]:(ev.batchId?.startsWith('ind_')&&batch?.name?[batch.name]:(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean));
+  const base=ev.studentRoles?.length?ev.studentRoles.map(r=>r.name).filter(Boolean):(ev.studentScope?[ev.studentScope]:(ev.batchId?.startsWith('ind_')&&batch?.name?[batch.name]:(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean)));
   const addons=(ev.addonStudents||[]).map(a=>a.name).filter(Boolean);
   return{base,addons,baseText:base.join(', '),addonText:addons.join(', ')};
 }
@@ -1654,9 +1668,11 @@ function twaConfirm(){
   if(forBatch){
     const bid=document.getElementById('twa-bat').value;if(!bid){showToast('Select batch');return;}
     const rows2=document.querySelectorAll('#twa-bstus [data-student]');
-    let invalid=false;
-    rows2.forEach(row=>{if(invalid)return;const nm=row.dataset.student;const role=row.querySelector('.twa-srole')?.value||'additional';const mf=role==='makeup'?row.querySelector('.twa-smfsel')?.value||null:null;if(role==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);invalid=true;return;}newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:role,studentScope:nm,makeupFor:mf||null,addonStudents:[]});});
+    let invalid=false;const roles=[];
+    rows2.forEach(row=>{if(invalid)return;const nm=row.dataset.student;const role=row.querySelector('.twa-srole')?.value||'additional';const mf=role==='makeup'?row.querySelector('.twa-smfsel')?.value||null:null;if(role==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);invalid=true;return;}roles.push({name:nm,batchId:bid,classType:role,makeupFor:mf||null});});
     if(invalid)return;
+    const roleSet=[...new Set(roles.map(r=>r.classType))];
+    newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:roleSet.length===1?roleSet[0]:'batch',studentScope:null,makeupFor:null,studentRoles:roles,addonStudents:[]});
   } else {
     const val=document.getElementById('twa-stu').value;if(!val){showToast('Select student');return;}
     const[bid,nm]=val.split('|');const type=document.getElementById('twa-type').value;const mf=type==='makeup'?document.getElementById('twa-mf').value||null:null;
