@@ -29,6 +29,18 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 .tz-chk{width:14px;height:14px;flex-shrink:0;visibility:hidden}.tz-opt.active .tz-chk{visibility:visible}
 .hbtn{display:flex;align-items:center;gap:4px;padding:6px 11px;border-radius:18px;border:none;background:none;cursor:pointer;font-size:12px;font-family:'Roboto',sans-serif;flex-shrink:0;white-space:nowrap}
 .hbtn:hover{background:var(--hov)}
+.bell-wrap{position:relative;flex-shrink:0}
+.bell-btn{position:relative;width:34px;height:34px;border:none;border-radius:50%;background:none;cursor:pointer;color:var(--mut);display:flex;align-items:center;justify-content:center}
+.bell-btn:hover,.bell-btn.on{background:var(--hov);color:var(--blue)}
+.bell-count{position:absolute;top:2px;right:0;min-width:15px;height:15px;border-radius:9px;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 4px}
+.bell-dd{position:absolute;right:0;top:calc(100% + 5px);width:310px;max-width:calc(100vw - 24px);background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shd);z-index:420;display:none;overflow:hidden}
+.bell-dd.open{display:block}
+.rem-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:9px 10px;border-bottom:1px solid #f0f0f0;align-items:center}
+.rem-row:last-child{border-bottom:none}
+.rem-check{width:24px;height:24px;border:1px solid var(--bdr);border-radius:50%;background:var(--sur);color:var(--grn);cursor:pointer;font-weight:700;line-height:1}
+.rem-check:hover{background:var(--grnl);border-color:var(--grn)}
+.rem-chip{font-size:11px;border:1px solid var(--bdr);border-radius:14px;background:var(--sur);padding:4px 8px;cursor:pointer;color:var(--mut)}
+.rem-chip:hover{background:var(--hov)}
 .sbadge{padding:4px 12px;border-radius:14px;font-size:12px;font-weight:500;flex-shrink:0}
 .body{display:flex;flex:1;overflow:hidden;min-height:0}
 .sidebar{width:var(--sb);background:var(--sur);border-right:1px solid var(--bdr);padding:12px 0;overflow-y:auto;flex-shrink:0;transition:width .2s}
@@ -149,6 +161,13 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
     Attendance
   </button>
+  <div class="bell-wrap">
+    <button class="bell-btn" id="bell-btn" onclick="toggleRemindersDd()" title="Reminders">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="bell-count" id="bell-count">0</span>
+    </button>
+    <div class="bell-dd" id="bell-dd"></div>
+  </div>
   <button class="hbtn" onclick="openSettings()">⚙ Settings</button>
   <span id="ss" style="font-size:10px;color:var(--mut);flex-shrink:0"></span>
 </header>
@@ -360,6 +379,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <input type="date" id="tw-dt" onchange="twSetWeek()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif"/>
       <button class="hbtn" onclick="twPrev()">← Prev</button>
       <button class="hbtn" onclick="twNext()">Next →</button>
+      <button class="hbtn" onclick="twToday()" style="background:var(--bluel);color:var(--blue);font-weight:500">Today</button>
       
       <button class="hbtn" onclick="openTwAdd()" style="background:var(--oral);color:var(--ora)">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add Class
@@ -495,6 +515,7 @@ let gSettings={seasonYear:new Date().getFullYear(),summerStart:'',winterStart:''
 let curTz='EDT',istOnly=false,sbOpen=true;
 const sbSt={batches:true,students:true};
 let batches=[],indStudents=[],ss={},att={};
+let reminders=[];
 let twWkStart=null,twWkCache={},twRemoved={},twEvs=[],twEditId=null;
 let bEditId=null,sEditBid=null,sEditNm=null;
 let detBid=null;
@@ -517,6 +538,7 @@ async function initLoad(){setSS('⟳ Syncing…');const d=await cloudLoad();if(!
   if(d.indStudents)indStudents=JSON.parse(d.indStudents);
   if(d.ss)ss=JSON.parse(d.ss);
   if(d.att)att=JSON.parse(d.att);
+  if(d.reminders)reminders=JSON.parse(d.reminders);
   if(d.curTz)curTz=d.curTz;
   if(d.twWkCache){const p=JSON.parse(d.twWkCache);const c=p.cache||p;twWkCache={};Object.entries(c).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents(evs.map(e=>({...e,date:new Date(e.date)})));});if(p.wkStart)twWkStart=new Date(p.wkStart);if(p.removed)twRemoved=p.removed;}
   setSS('');boot();}
@@ -628,6 +650,81 @@ function uniqueBy(items,keyFn){
   return out;
 }
 function escHtml(s){return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+const REMINDER_PRESETS=['Send recording','Send audio','Send payment reminder','Follow up fee','Confirm timing','Share Zoom/link','Send practice video','Ask about absence','Schedule makeup'];
+function activeReminders(){return reminders.filter(r=>!r.done);}
+function saveReminders(){save('reminders',reminders);updateReminderBadge();}
+function reminderLabel(r){
+  if(r.targetType==='batch'){const b=getBatch(r.batchId);return b?.name||'Batch';}
+  const b=getBatch(r.batchId);return `${r.studentName||'Student'}${b?` · ${b.name}`:''}`;
+}
+function reminderMatches(r,type,batchId,studentName){
+  if(r.done||r.targetType!==type||r.batchId!==batchId)return false;
+  return type==='batch'||r.studentName===studentName;
+}
+function remindersFor(type,batchId,studentName){return reminders.filter(r=>reminderMatches(r,type,batchId,studentName));}
+function updateReminderBadge(){
+  const n=activeReminders().length,el=document.getElementById('bell-count');
+  if(!el)return;
+  el.textContent=n>99?'99+':String(n);
+  el.style.display=n?'flex':'none';
+  const btn=document.getElementById('bell-btn');if(btn)btn.classList.toggle('on',n>0);
+}
+function renderReminderRows(list,emptyText){
+  if(!list.length)return`<div style="font-size:12px;color:var(--mut);padding:10px 0">${emptyText}</div>`;
+  return list.map(r=>`<div class="rem-row">
+    <div><div style="font-size:12px;font-weight:500">${escHtml(r.text)}</div><div style="font-size:10px;color:var(--sub);margin-top:2px">${escHtml(reminderLabel(r))} · ${r.createdAt||''}</div></div>
+    <button class="rem-check" onclick="resolveReminder('${r.id}')" title="Resolve">✓</button>
+  </div>`).join('');
+}
+function buildReminderSection(type,batchId,studentName){
+  const prefix=type==='batch'?'bd':'sd';
+  const list=remindersFor(type,batchId,studentName);
+  const presets=REMINDER_PRESETS.map(x=>`<option value="${escHtml(x)}">${escHtml(x)}</option>`).join('');
+  const addFn=type==='batch'?'addBatchReminder()':'addStudentReminder()';
+  return`<div style="border-top:1px solid var(--bdr);padding-top:14px;margin-top:14px">
+    <div class="stitle">Reminders</div>
+    <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:8px">
+      <select id="${prefix}-rem-preset" style="font-size:12px;padding:7px 9px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+        <option value="">Choose preset...</option>${presets}
+      </select>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:6px">
+        <input id="${prefix}-rem-custom" maxlength="50" placeholder="Custom reminder..." style="font-size:12px;padding:7px 9px;border:1px solid var(--bdr);border-radius:var(--r);font-family:'Roboto',sans-serif"/>
+        <button class="bp" style="font-size:11px;padding:5px 12px" onclick="${addFn}">Add</button>
+      </div>
+      <div style="font-size:10px;color:var(--sub)">Custom reminders can be up to 50 characters.</div>
+    </div>
+    <div>${renderReminderRows(list,'No active reminders.')}</div>
+  </div>`;
+}
+function addReminder(type,batchId,studentName,text){
+  const clean=String(text||'').trim().slice(0,50);
+  if(!clean){showToast('Choose or type a reminder');return;}
+  reminders.push({id:'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),targetType:type,batchId,studentName:studentName||'',text:clean,createdAt:localDS(new Date()),done:false});
+  saveReminders();renderReminderDropdown();refreshReminderPopups();showToast('Reminder added');
+}
+function addBatchReminder(){const custom=(document.getElementById('bd-rem-custom')?.value||'').trim();const preset=document.getElementById('bd-rem-preset')?.value||'';addReminder('batch',detBid,'',custom||preset);}
+function addStudentReminder(){const custom=(document.getElementById('sd-rem-custom')?.value||'').trim();const preset=document.getElementById('sd-rem-preset')?.value||'';addReminder('student',sdBid,sdNm,custom||preset);}
+function resolveReminder(id){
+  const r=reminders.find(x=>x.id===id);if(!r)return;
+  r.done=true;r.resolvedAt=localDS(new Date());
+  saveReminders();renderReminderDropdown();refreshReminderPopups();showToast('Reminder resolved');
+}
+function refreshReminderPopups(){
+  if(document.getElementById('ov-bd')?.classList.contains('open'))renderBatchDetail();
+  if(document.getElementById('ov-sd')?.classList.contains('open'))renderStudentDetail();
+}
+function renderReminderDropdown(){
+  const dd=document.getElementById('bell-dd');if(!dd)return;
+  const list=activeReminders().slice().sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+  dd.innerHTML=`<div style="padding:10px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px">Reminders</div>
+    <div style="font-size:11px;color:var(--sub)">${list.length} left</div>
+  </div><div style="max-height:320px;overflow:auto">${renderReminderRows(list,'No active reminders.')}</div>`;
+}
+function toggleRemindersDd(){
+  renderReminderDropdown();
+  document.getElementById('bell-dd').classList.toggle('open');
+}
 function normalizeTwEvent(ev){
   if(!(ev.date instanceof Date))ev.date=new Date(ev.date);
   const ds=localDS(new Date(ev.date));
@@ -1124,8 +1221,10 @@ function deleteBatch(){
     Object.values(att).forEach(rec=>{
       (rec.students||[]).forEach(s=>{if(s.batchId===bEditId&&idMap[s.name])s.batchId=idMap[s.name];});
     });
+    reminders=reminders.filter(r=>r.targetType!=='batch'||r.batchId!==bEditId);
+    reminders.forEach(r=>{if(r.targetType==='student'&&r.batchId===bEditId&&idMap[r.studentName])r.batchId=idMap[r.studentName];});
   }
-  save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);
+  save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);saveReminders();
   closeOv('ov-b1');renderSidebar();renderCalendar();showToast('Batch deleted — students converted to individual');
 }
 function renderCG(cid,sel){document.getElementById(cid).innerHTML=COLORS.map(c=>`<div class="cs${c.id===sel?' sel':''}" data-cid="${c.id}" style="background:${c.b}" onclick="selColor('${cid}','${c.id}')"></div>`).join('');}
@@ -1215,7 +1314,11 @@ function sStep1Save(){
       if(sEditNm&&sEditNm!==name&&sEditBid===batchId){const i=cur.indexOf(sEditNm);if(i!==-1)cur[i]=name;const ok=batchId+':'+sEditNm,nk=batchId+':'+name;if(ss[ok]){ss[nk]=ss[ok];delete ss[ok];}}
       else if(!cur.includes(name))cur.push(name);
       b.students=cur.join(', ');}
-    if(sEditBid&&sEditNm&&(sEditBid!==batchId||sEditNm!==name)){const oldKey=sEditBid+':'+sEditNm,newKey=batchId+':'+name;if(ss[oldKey]&&!ss[newKey]){ss[newKey]=ss[oldKey];delete ss[oldKey];}}
+    if(sEditBid&&sEditNm&&(sEditBid!==batchId||sEditNm!==name)){
+      const oldKey=sEditBid+':'+sEditNm,newKey=batchId+':'+name;if(ss[oldKey]&&!ss[newKey]){ss[newKey]=ss[oldKey];delete ss[oldKey];}
+      reminders.forEach(r=>{if(r.targetType==='student'&&r.batchId===sEditBid&&r.studentName===sEditNm){r.batchId=batchId;r.studentName=name;}});
+      saveReminders();
+    }
     const ssKey=batchId+':'+name;if(!ss[ssKey])ss[ssKey]={};ss[ssKey]={...ss[ssKey],category:cat,tzPref,addFrom,...readFee(cat)};
     save('batches',batches);save('indStudents',indStudents);save('ss',ss);closeOv('ov-s1');renderSidebar();renderCalendar();showToast(sEditNm?'Updated':'Student added');
   } else {
@@ -1239,6 +1342,7 @@ function sStep2Save(){
     const s=indStudents.find(x=>x.id===sEditBid);
     if(s)Object.assign(s,{name,tzGroup:tzPref,sameAsWinter:same,timings,tempTimings:tp,tempSeason:tmpSeason,tempPeriods:tpP});
     const ssKey=sEditBid+':'+name;if(!ss[ssKey])ss[ssKey]={};Object.assign(ss[ssKey],{category:cat,tzPref,addFrom,...readFee(cat),needsTimings:false});
+    if(sEditNm&&sEditNm!==name){reminders.forEach(r=>{if(r.targetType==='student'&&r.batchId===sEditBid&&r.studentName===sEditNm)r.studentName=name;});saveReminders();}
   } else {
     if(sEditBid&&!sEditBid.startsWith('ind_')){const oldB=getBatch(sEditBid);if(oldB)oldB.students=(oldB.students||'').split(',').map(s=>s.trim()).filter(s=>s&&s!==sEditNm).join(', ');}
     const newId='ind_'+Date.now();
@@ -1246,6 +1350,7 @@ function sStep2Save(){
     const oldKey=sEditBid&&sEditNm?sEditBid+':'+sEditNm:null;
     ss[newId+':'+name]={...(oldKey&&ss[oldKey]?ss[oldKey]:{}),category:cat,tzPref,addFrom,...readFee(cat),needsTimings:false};
     if(oldKey)delete ss[oldKey];
+    if(sEditBid&&sEditNm){reminders.forEach(r=>{if(r.targetType==='student'&&r.batchId===sEditBid&&r.studentName===sEditNm){r.batchId=newId;r.studentName=name;}});saveReminders();}
   }
   save('batches',batches);save('indStudents',indStudents);save('ss',ss);closeOv('ov-s2');renderSidebar();renderCalendar();showToast('Student saved');
 }
@@ -1256,7 +1361,9 @@ function deleteStudentConfirm(){
     else{const b=getBatch(sEditBid);if(b)b.students=(b.students||'').split(',').map(s=>s.trim()).filter(s=>s!==sEditNm).join(', ');}
     Object.keys(att).forEach(k=>{const r=att[k];if(!r.students)return;r.students=r.students.filter(s=>!(s.batchId===sEditBid&&s.name===sEditNm));if(!r.students.length)delete att[k];});
     delete ss[sEditBid+':'+sEditNm];
+    reminders=reminders.filter(r=>!(r.targetType==='student'&&r.batchId===sEditBid&&r.studentName===sEditNm));
     save('batches',batches);save('indStudents',indStudents);save('att',att);save('ss',ss);
+    saveReminders();
     closeOv('ov-s1');renderSidebar();renderCalendar();showToast('Student deleted');
   });
 }
@@ -1381,7 +1488,8 @@ function renderBatchDetail(){
         <span style="font-size:10px;color:var(--sub)">Max 300 characters</span>
         <div style="display:flex;gap:6px"><button class="bc" style="font-size:11px;padding:4px 10px" onclick="clearBatchNote()">Clear</button><button class="bp" style="font-size:11px;padding:4px 10px" onclick="saveBatchNote()">Save note</button></div>
       </div>
-    </div>`;
+    </div>
+    ${buildReminderSection('batch',detBid,'')}`;
 }
 function bdTab(t){
   document.getElementById('bds-su').style.display=t==='su'?'':'none';document.getElementById('bds-wi').style.display=t==='wi'?'':'none';
@@ -1465,7 +1573,8 @@ function renderStudentDetail(){
         <span style="font-size:10px;color:var(--sub)">Max 300 characters</span>
         <div style="display:flex;gap:6px"><button class="bc" style="font-size:11px;padding:4px 10px" onclick="clearStudentNote()">Clear</button><button class="bp" style="font-size:11px;padding:4px 10px" onclick="saveStudentNote()">Save note</button></div>
       </div>
-    </div>`;
+    </div>
+    ${buildReminderSection('student',sdBid,sdNm)}`;
 }
 function sdTab(t){document.getElementById('sds-su').style.display=t==='su'?'':'none';document.getElementById('sds-wi').style.display=t==='wi'?'':'none';document.getElementById('sdt-su').classList.toggle('act',t==='su');document.getElementById('sdt-wi').classList.toggle('act',t==='wi');}
 function sdApplyMonth(){sdMonth=parseInt(document.getElementById('sdm-sel').value);sdYear=parseInt(document.getElementById('sdy-sel').value);renderStudentDetail();}
@@ -1632,6 +1741,7 @@ function openTW(){
 }
 function twSetWeek(){const v=document.getElementById('tw-dt').value;if(!v)return;twWkStart=getMon(new Date(v+'T12:00:00'));document.getElementById('tw-dt').value=localDS(twWkStart);twLoadWeek();twRender();}
 function twPrev(){twWkStart=addDays(twWkStart,-7);twSetWeekGo();}function twNext(){twWkStart=addDays(twWkStart,7);twSetWeekGo();}
+function twToday(){twWkStart=getMon(new Date());twSetWeekGo();}
 function twSetWeekGo(){document.getElementById('tw-dt').value=localDS(twWkStart);twLoadWeek();twRender();}
 function twLoadWeek(){const wk=twKey();if(!twWkCache[wk])twPopulate();else{const before=twWkCache[wk].length;twEvs=cleanTwEvents(twWkCache[wk].map(e=>({...e,date:new Date(e.date)})));const cleaned=twEvs.length!==before;if(twMerge()||cleaned)twSave();}}
 function twRemovedHas(wk,batchId,date,start,end){return(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===date&&(!r.start||r.start===start)&&(!r.end||r.end===end)&&!r.studentScope);}
@@ -1946,6 +2056,7 @@ function renderAtt(){
 function openOv(id){document.getElementById(id).classList.add('open');}
 function closeOv(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.ov').forEach(ov=>{ov.addEventListener('click',e=>{if(e.target===ov&&!ov.querySelector('.modal.fs'))closeOv(ov.id);});});
+document.addEventListener('click',e=>{if(!e.target.closest('.bell-wrap'))document.getElementById('bell-dd')?.classList.remove('open');});
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
 function showConfirm(msg,onOk){document.getElementById('conf-msg').textContent=msg;const btn=document.getElementById('conf-ok');btn.onclick=()=>{closeOv('ov-conf');onOk();};openOv('ov-conf');}
 
@@ -1954,7 +2065,7 @@ function showConfirm(msg,onOk){document.getElementById('conf-msg').textContent=m
 // ═══════════════════════════════════════════════════
 function boot(){
   document.getElementById('tz-lbl').textContent=curTz;
-  renderTzDd();updateSeasonBadge();renderSidebar();renderCalendar();autoCheckFeeStatuses();
+  renderTzDd();updateSeasonBadge();renderSidebar();renderCalendar();autoCheckFeeStatuses();updateReminderBadge();
 }
 document.getElementById('btn-ab').addEventListener('click',()=>openAddBatch());
 document.getElementById('btn-as').addEventListener('click',()=>openAddStudent());
