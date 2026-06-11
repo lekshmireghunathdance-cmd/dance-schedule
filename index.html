@@ -130,7 +130,11 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 .tab-btn{padding:5px 13px;font-size:12px;font-weight:500;border:1px solid var(--bdr);border-radius:var(--r);cursor:pointer;background:none;color:var(--mut);font-family:'Roboto',sans-serif}
 .tab-btn.act{background:var(--blue);color:#fff;border-color:var(--blue)}
 .warn{background:#fff8e1;border:1px solid #ffc107;border-radius:var(--r);padding:10px 14px;font-size:12px;color:#5d4037;margin-bottom:10px}
-.attsel{font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px;background:var(--sur);font-family:'Roboto',sans-serif}
+.attbtns{display:inline-flex;border:1px solid var(--bdr);border-radius:6px;overflow:hidden;background:var(--sur)}
+.attbtn{min-width:28px;padding:4px 8px;border:0;border-right:1px solid var(--bdr);background:var(--sur);color:var(--mut);font-size:11px;font-weight:600;font-family:'Roboto',sans-serif;cursor:pointer}
+.attbtn:last-child{border-right:0}
+.attbtn.p.on{background:var(--grnl);color:var(--grn)}
+.attbtn.a.on{background:var(--redl);color:var(--red)}
 .ao-row{display:grid;grid-template-columns:1fr 100px auto;gap:6px;align-items:center;margin-top:5px;padding:7px;background:var(--bg);border-radius:var(--r)}
 .ao-row select{font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px;background:var(--sur);font-family:'Roboto',sans-serif}
 </style>
@@ -1848,12 +1852,11 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
     const typeColor=row.classType==='makeup'?'color:#e65100':row.classType==='additional'?'color:#5e35b1':'color:var(--mut)';
     const typeLabel={'scheduled':'Scheduled','makeup':'Makeup','additional':'Additional'}[row.classType]||row.classType;
     const isCancelled=row.cancelled||row.status==='cancelled';
-    // Attendance dropdown — only present/absent; no dropdown for cancelled
+    // Attendance toggle — blank by default; click selected value again to clear.
     let attCell='';
     if(isCancelled)attCell=`<span class="aC">Not required</span>`;
-    else{const cv=row.status||'';const opts=`<option value="">—</option><option value="present"${cv==='present'?' selected':''}>Present</option><option value="absent"${cv==='absent'?' selected':''}>Absent</option>`;
-      attCell=`<select class="attsel" data-evid="${row.evId}" data-date="${row.date}" data-start="${row.start||''}" data-end="${row.end||''}" data-temp="${row.isTemp?'1':''}" data-sn="${encodeURIComponent(sdNm)}" onchange="sdMarkAtt(this)">${opts}</select> `;
-      if(cv==='present')attCell+=`<span class="aP">P</span>`;else if(cv==='absent')attCell+=`<span class="aA">A</span>`;
+    else{const cv=row.status||'',data=`data-evid="${row.evId}" data-date="${row.date}" data-start="${row.start||''}" data-end="${row.end||''}" data-temp="${row.isTemp?'1':''}" data-sn="${encodeURIComponent(sdNm)}"`;
+      attCell=`<span class="attbtns"><button class="attbtn p ${cv==='present'?'on':''}" ${data} data-status="present" onclick="sdMarkAttBtn(this)">P</button><button class="attbtn a ${cv==='absent'?'on':''}" ${data} data-status="absent" onclick="sdMarkAttBtn(this)">A</button></span>`;
     }
     // Count cell
     let cntCell='<span style="color:var(--sub)">—</span>';
@@ -1866,9 +1869,13 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
   <div style="font-size:11px;color:var(--mut);margin-top:6px">Total counted: <strong>${running}</strong>${(cat==='A'||cat==='B')&&running>8?' (capped at 8 for fee)':''}</div>`;
 }
 
-function sdMarkAtt(sel){
-  let evId=sel.dataset.evid;const date=sel.dataset.date,sName=decodeURIComponent(sel.dataset.sn);const status=sel.value;
-  if(!evId||evId==='null')evId=ensureTwEventForAttendance(sdBid,sName,date,sel.dataset.start,sel.dataset.end,sel.dataset.temp==='1');
+function sdMarkAttBtn(btn){
+  const current=btn.classList.contains('on')?btn.dataset.status:'';
+  sdSaveAttendance(btn,current?'' : btn.dataset.status);
+}
+function sdSaveAttendance(el,status){
+  let evId=el.dataset.evid;const date=el.dataset.date,sName=decodeURIComponent(el.dataset.sn);
+  if(!evId||evId==='null')evId=ensureTwEventForAttendance(sdBid,sName,date,el.dataset.start,el.dataset.end,el.dataset.temp==='1');
   if(!att[evId]){const ev=getTwEvent(evId);if(!ev)return;const b2=getBatch(ev.batchId);att[evId]={date,batchId:ev.batchId,classLabel:(b2?.name||'')+' – '+date,twStart:ev.start,evId,students:[]};}
   const ev=getTwEvent(evId),info=ev?getEventStudent(ev,sdBid,sName):null;
   const idx=att[evId].students.findIndex(s=>s.batchId===sdBid&&s.name===sName);
