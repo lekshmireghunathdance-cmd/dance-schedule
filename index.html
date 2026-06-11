@@ -1831,19 +1831,19 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
       if(!info)return;
       const d=twEventDate(ev);if(d<fromDate||d>toDate)return;
       const attRec=att[ev.id];const sAtt=attRec?.students?.find(s=>s.batchId===batchId&&s.name===studentName);
-      evRows.push({date:d,start:ev.start,end:ev.end,classType:info.classType,isTemp:ev.isTemp,cancelled:ev.cancelled,status:sAtt?.status||null,makeupFor:info.makeupFor||null,evId:ev.id,isAddon:info.isAddon});
+      evRows.push({date:d,start:ev.start,end:ev.end,originStart:ev.originStart||ev.start,originEnd:ev.originEnd||ev.end,classType:info.classType,isTemp:ev.isTemp,cancelled:ev.cancelled,status:sAtt?.status||null,makeupFor:info.makeupFor||null,evId:ev.id,isAddon:info.isAddon});
     });
   });
   // Timing projections not yet in TW
   const entity=batchId.startsWith('ind_')?indStudents.find(s=>s.id===batchId):getBatch(batchId);
-  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);if(!studentActiveOn(batchId,studentName,ds))continue;const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;const exists=evRows.find(r=>r.date===ds&&r.start===slot.start&&r.end===slot.end)||allTwEvents().some(ev=>getEventStudent(ev,batchId,studentName)&&twEventDate(ev)===ds&&((ev.originStart||ev.start)===slot.start)&&((ev.originEnd||ev.end)===slot.end));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
+  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);if(!studentActiveOn(batchId,studentName,ds))continue;const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;const sameSlot=(ev)=>twEventDate(ev)===ds&&(((ev.originStart||ev.start)===slot.start&&(ev.originEnd||ev.end)===slot.end)||(ev.start===slot.start&&ev.end===slot.end));const exists=evRows.find(r=>r.date===ds&&((r.start===slot.start&&r.end===slot.end)||(r.originStart===slot.start&&r.originEnd===slot.end)))||allTwEvents().some(ev=>getEventStudent(ev,batchId,studentName)&&sameSlot(ev));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,originStart:slot.start,originEnd:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date<fromDate||rec.date>toDate)return;
     const sAtt=(rec.students||[]).find(s=>s.batchId===batchId&&s.name===studentName);
     if(!sAtt)return;
     if(evRows.some(r=>r.evId===evId))return;
     const ev=getTwEvent(evId),info=ev?getEventStudent(ev,batchId,studentName):null;
-    evRows.push({date:rec.date,start:rec.twStart||ev?.start||'',end:ev?.end||'',classType:info?.classType||'scheduled',isTemp:!!ev?.isTemp,cancelled:ev?.cancelled||sAtt.status==='cancelled',status:sAtt.status||null,makeupFor:info?.makeupFor||null,evId,isAddon:!!sAtt.isAddon});
+    evRows.push({date:rec.date,start:rec.twStart||ev?.start||'',end:ev?.end||'',originStart:ev?.originStart||ev?.start||rec.twStart||'',originEnd:ev?.originEnd||ev?.end||'',classType:info?.classType||'scheduled',isTemp:!!ev?.isTemp,cancelled:ev?.cancelled||sAtt.status==='cancelled',status:sAtt.status||null,makeupFor:info?.makeupFor||null,evId,isAddon:!!sAtt.isAddon});
   });
   evRows.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
   if(!evRows.length)return'<div style="font-size:12px;color:var(--mut)">No classes scheduled this month.</div>';
