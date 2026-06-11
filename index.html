@@ -569,7 +569,7 @@ let _bdM=null,_bdY=null;
 // ═══════════════════════════════════════════════════
 const WK_DEFAULT='https://dance-schedule.lekshmireghunath-dance.workers.dev';
 let WK_URL=localStorage.getItem('dance_wk')||WK_DEFAULT;
-let saveSeq=0;
+let saveSeq=0,saveQueues={};
 async function cloudLoad(){if(!WK_URL)return null;try{const r=await fetch(WK_URL,{method:'GET',redirect:'follow'});const j=JSON.parse(await r.text());return j.ok?j.data:null;}catch(e){console.warn(e);return null;}}
 async function cloudSave(k,v){
   if(!WK_URL)return false;
@@ -579,7 +579,12 @@ async function cloudSave(k,v){
 }
 function save(k,v){
   const n=++saveSeq;setSS('Saving…');
-  cloudSave(k,typeof v==='string'?v:JSON.stringify(v)).then(ok=>{if(n===saveSeq)setSS(ok?'Saved':'Save may be pending');setTimeout(()=>{if(n===saveSeq&&document.getElementById('ss').textContent!=='⚠ Not connected')setSS('');},1800);});
+  const payload=typeof v==='string'?v:JSON.stringify(v);
+  saveQueues[k]=(saveQueues[k]||Promise.resolve()).then(()=>cloudSave(k,payload)).then(ok=>{
+    if(n===saveSeq)setSS(ok?'Saved':'Save may be pending');
+    setTimeout(()=>{if(n===saveSeq&&document.getElementById('ss').textContent!=='⚠ Not connected')setSS('');},1800);
+    return ok;
+  });
 }
 function openSync(){document.getElementById('sync-url').value=WK_URL;openOv('ov-sync');}
 function saveSync(){const u=document.getElementById('sync-url').value.trim();if(!u)return;WK_URL=u;localStorage.setItem('dance_wk',u);closeOv('ov-sync');initLoad();}
