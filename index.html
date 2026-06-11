@@ -1002,13 +1002,23 @@ function getPendingClasses(studentName,batchId){
       (rec.students||[]).forEach(s2=>{if(s2.batchId===batchId&&s2.name===studentName){const info=ev?getEventStudent(ev,batchId,studentName):null;monthCounted[ym]=(monthCounted[ym]||0)+countStudentClass(s2.status,'B',info?.classType||'scheduled');}});
     });
     const cancelledByMonth={};
+    function addCancelledPending(date,start){
+      if(date<studentAddFrom(batchId,studentName))return;
+      const ym=date.slice(0,7);
+      if(!cancelledByMonth[ym])cancelledByMonth[ym]=[];
+      if(!cancelledByMonth[ym].find(x=>x.date===date&&x.twStart===start))cancelledByMonth[ym].push({date,twStart:start||''});
+    }
     Object.values(att).sort((a,b)=>a.date.localeCompare(b.date)).forEach(rec=>{
-      const ym=rec.date.slice(0,7);
       (rec.students||[]).forEach(s2=>{
         if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='cancelled')return;
-        if(!cancelledByMonth[ym])cancelledByMonth[ym]=[];
-        if(!cancelledByMonth[ym].find(x=>x.date===rec.date))cancelledByMonth[ym].push({date:rec.date,twStart:rec.twStart||''});
+        addCancelledPending(rec.date,rec.twStart||'');
       });
+    });
+    allTwEvents().sort((a,b)=>twEventDate(a).localeCompare(twEventDate(b))||String(a.start||'').localeCompare(String(b.start||''))).forEach(ev=>{
+      if(!ev.cancelled)return;
+      const info=getEventStudent(ev,batchId,studentName);
+      if(!info||info.classType!=='scheduled')return;
+      addCancelledPending(twEventDate(ev),ev.start||'');
     });
     const entries=[];
     const allMonths=new Set([...Object.keys(monthCounted),...Object.keys(cancelledByMonth)]);
