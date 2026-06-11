@@ -394,6 +394,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <button class="hbtn" onclick="twPrev()">← Prev</button>
       <button class="hbtn" onclick="twNext()">Next →</button>
       <button class="hbtn" onclick="twToday()" style="background:var(--bluel);color:var(--blue);font-weight:500">Today</button>
+      <button class="hbtn" id="tw-undo" onclick="twUndo()" style="background:var(--hov);color:var(--mut)" disabled>↶ Undo</button>
       
       <button class="hbtn" onclick="openTwAdd()" style="background:var(--oral);color:var(--ora)">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add Class
@@ -531,6 +532,7 @@ const sbSt={batches:true,students:true};
 let batches=[],indStudents=[],ss={},att={};
 let reminders=[];
 let twWkStart=null,twWkCache={},twRemoved={},twEvs=[],twEditId=null;
+let twUndoStack=[];
 let bEditId=null,sEditBid=null,sEditNm=null;
 let detBid=null;
 let sdBid=null,sdNm=null,sdEdit=false,sdUnsaved=false,sdMonth=null,sdYear=null;
@@ -1803,6 +1805,7 @@ function openTW(){
   if(!twWkStart)twWkStart=getMon(new Date());
   twLoadWeek();
   document.getElementById('tw-dt').value=localDS(twWkStart);twRender();openOv('ov-tw');
+  updateTwUndoButton();
 }
 function twSetWeek(){const v=document.getElementById('tw-dt').value;if(!v)return;twWkStart=getMon(new Date(v+'T12:00:00'));document.getElementById('tw-dt').value=localDS(twWkStart);twLoadWeek();twRender();}
 function twPrev(){twWkStart=addDays(twWkStart,-7);twSetWeekGo();}function twNext(){twWkStart=addDays(twWkStart,7);twSetWeekGo();}
@@ -1861,6 +1864,26 @@ function twMerge(){
 }
 function twSave(){twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;cleanAllTwCaches();syncAllAttendanceRecords();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));save('att',att);}
 function saveTwCacheOnly(){cleanAllTwCaches();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));}
+function updateTwUndoButton(){const b=document.getElementById('tw-undo');if(!b)return;b.disabled=twUndoStack.length===0;b.style.opacity=twUndoStack.length?1:.45;b.style.cursor=twUndoStack.length?'pointer':'default';}
+function twSnapshot(label){
+  twUndoStack.push({label,wkStart:twWkStart?twWkStart.toISOString():null,twWkCache:JSON.stringify(twWkCache),twRemoved:JSON.stringify(twRemoved),twEvs:JSON.stringify(twEvs),att:JSON.stringify(att)});
+  if(twUndoStack.length>2)twUndoStack.shift();
+  updateTwUndoButton();
+}
+function twUndo(){
+  const snap=twUndoStack.pop();if(!snap){showToast('Nothing to undo');updateTwUndoButton();return;}
+  twWkStart=snap.wkStart?new Date(snap.wkStart):null;
+  twRemoved=JSON.parse(snap.twRemoved||'{}');
+  att=JSON.parse(snap.att||'{}');
+  const cache=JSON.parse(snap.twWkCache||'{}');
+  twWkCache={};Object.entries(cache).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents((evs||[]).map(e=>({...e,date:new Date(e.date)})));});
+  twEvs=cleanTwEvents((JSON.parse(snap.twEvs||'[]')||[]).map(e=>({...e,date:new Date(e.date)})));
+  if(twWkStart)document.getElementById('tw-dt').value=localDS(twWkStart);
+  saveTwCacheOnly();save('att',att);twRender();refreshSD();
+  if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
+  if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
+  updateTwUndoButton();showToast('TW change undone');
+}
 function twRefresh(){showToast('Refresh removed: TW keeps saved edits.');}
 function twBlockPeople(ev,batch){
   const base=ev.studentRoles?.length?ev.studentRoles.map(r=>r.name).filter(Boolean):(ev.studentScope?[ev.studentScope]:(ev.batchId?.startsWith('ind_')&&batch?.name?[batch.name]:(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean)));
@@ -1922,6 +1945,7 @@ function markOriginalRemoved(ev,origDs){
 function twDrop(e,targetDs){
   e.preventDefault();e.currentTarget.classList.remove('dov');
   const id=e.dataTransfer.getData('text/plain');const ev=twEvs.find(x=>x.id===id);if(!ev)return;
+  twSnapshot('Move class');
   const origDs=localDS(new Date(ev.date));const dur=toMins(ev.end)-toMins(ev.start);
   const rect=e.currentTarget.getBoundingClientRect();const y=Math.max(0,Math.min(e.clientY-rect.top,TW_H));
   const mins=Math.round((y/TWX)/15)*15+TW_S*60;
@@ -2012,6 +2036,7 @@ function twaConfirm(){
   const addons=[];let addonInvalid=false;document.querySelectorAll('#twa-addons .ao-row').forEach(row=>{if(addonInvalid)return;const sv=row.querySelector('select').value;if(!sv)return;const[bid2,nm2]=sv.split('|');const type2=row.querySelector('.ao-type')?.value||'additional';const mfWrap=row.nextElementSibling;const mf2=type2==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;if(type2==='makeup'&&!mf2){showToast(`Select makeup for ${nm2}`);addonInvalid=true;return;}addons.push({name:nm2,batchId:bid2,classType:type2,makeupFor:mf2||null});});
   if(addonInvalid)return;
   if(newEvs.length>0)newEvs[newEvs.length-1].addonStudents=addons;
+  twSnapshot('Add class');
   newEvs.forEach(ev=>twEvs.push(ev));twSave();closeOv('ov-twa');twRender();refreshSD();
   if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
   if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
@@ -2039,6 +2064,7 @@ function tweSave(){
   const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;
   const nd=document.getElementById('twe-dt').value,ns=document.getElementById('twe-st').value,ne=document.getElementById('twe-en').value;
   if(toMins(ne)<=toMins(ns)){showToast('End must be after start');return;}
+  twSnapshot('Edit class');
   const origDs=localDS(new Date(ev.date));markOriginalRemoved(ev,origDs);ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
   const addons=[];document.querySelectorAll('#twe-addons .ao-row').forEach(row=>{const sv=row.querySelector('select').value;if(!sv)return;const[bid,nm]=sv.split('|');const type=row.querySelector('.ao-type')?.value||'additional';addons.push({name:nm,batchId:bid,classType:type,makeupFor:null});});ev.addonStudents=addons;
   syncAttendanceForEvent(ev);
@@ -2046,7 +2072,7 @@ function tweSave(){
 }
 function tweCancelConfirm(){openOv('ov-twc');}
 function tweDoCancel(){
-  const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;ev.cancelled=true;
+  const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;twSnapshot('Cancel class');ev.cancelled=true;
   const b=getBatch(ev.batchId);if(b){
     const d=localDS(new Date(ev.date));const stus=ev.studentScope?[ev.studentScope]:(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
     if(!att[twEditId])att[twEditId]={date:d,batchId:ev.batchId,classLabel:b.name+' – '+d,twStart:ev.start,evId:twEditId,students:[]};
@@ -2058,6 +2084,7 @@ function tweDoCancel(){
 function tweRemoveConfirm(){
   showConfirm('Remove this class? Attendance deleted.',()=>{
     const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;
+    twSnapshot('Remove class');
     const ds=localDS(new Date(ev.date));markOriginalRemoved(ev,ds);
     if(att[twEditId]){delete att[twEditId];save('att',att);}
     twEvs=twEvs.filter(x=>x.id!==twEditId);twSave();twRender();closeOv('ov-twe');refreshSD();
