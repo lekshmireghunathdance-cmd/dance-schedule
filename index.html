@@ -630,6 +630,7 @@ function istToTz(ist,tz){if(!ist)return'';let t=toMins(ist)+(TZ_OFF[tz]||0);if(t
 function istHToTz(istH,tz){let t=istH*60+(TZ_OFF[tz]||0);if(t<0)t+=1440;if(t>=1440)t-=1440;const h=Math.floor(t/60),m=t%60,p=h<12?'am':'pm',h12=h===0?12:h>12?h-12:h;return m===0?`${h12}${p}`:`${h12}:${String(m).padStart(2,'0')}${p}`;}
 function tzToIST(t,tz){if(tz==='IST')return t;let m=toMins(t)-(TZ_OFF[tz]||0);if(m<0)m+=1440;if(m>=1440)m-=1440;return minsToIST(m);}
 function localDS(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function twEventDate(ev){return(ev?.classType||'scheduled')==='scheduled'&&!ev.manuallyMoved&&ev.originDate?ev.originDate:localDS(new Date(ev.date));}
 function dateToDay(d){return['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];}
 function getMon(d){const r=new Date(d),day=r.getDay();r.setDate(r.getDate()+(day===0?-6:1-day));r.setHours(0,0,0,0);return r;}
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
@@ -654,7 +655,7 @@ function getTwEvent(id){return twEvs.find(e=>e.id===id)||allTwEvents().find(e=>e
 function eventStudents(ev){
   normalizeTwEvent(ev);
   const entity=getBatch(ev.batchId),students=[];
-  const ds=ev.date?localDS(new Date(ev.date)):'';
+  const ds=ev.date?twEventDate(ev):'';
   let baseHandled=false;
   if(ev.studentRoles?.length){ev.studentRoles.forEach(r=>students.push({name:r.name,batchId:r.batchId||ev.batchId,isAddon:false,classType:r.classType||ev.classType||'additional',makeupFor:r.makeupFor||null}));baseHandled=true;}
   if((ev.classType||'scheduled')==='scheduled'&&!ev.studentScope&&entity&&!ev.batchId.startsWith('ind_')){
@@ -671,7 +672,7 @@ function eventStudents(ev){
 function getEventStudent(ev,batchId,studentName){return eventStudents(ev).find(s=>s.batchId===batchId&&s.name===studentName)||null;}
 function syncAttendanceForEvent(ev){
   const rec=att[ev.id];if(!rec)return;
-  const entity=getBatch(ev.batchId),date=localDS(new Date(ev.date));
+  const entity=getBatch(ev.batchId),date=twEventDate(ev);
   rec.date=date;rec.batchId=ev.batchId;rec.classLabel=(entity?.name||'Class')+' – '+date;rec.twStart=ev.start;
   const valid=new Set(eventStudents(ev).map(s=>s.batchId+':'+s.name));
   rec.students=(rec.students||[]).filter(s=>valid.has(s.batchId+':'+s.name));
@@ -791,7 +792,7 @@ function toggleRemindersDd(){
 }
 function normalizeTwEvent(ev){
   if(!(ev.date instanceof Date))ev.date=new Date(ev.date);
-  const ds=localDS(new Date(ev.date));
+  const ds=twEventDate(ev);
   if((ev.classType||'scheduled')==='scheduled'){
     ev.originDate=ev.originDate||ds;
     ev.originStart=ev.originStart||ev.start;
@@ -801,9 +802,8 @@ function normalizeTwEvent(ev){
   ev.studentRoles=ev.studentRoles||[];
   if((ev.classType||'scheduled')==='scheduled'&&!ev.studentScope&&!ev.studentRoles.length&&ev.batchId&&!ev.batchId.startsWith('ind_')){
     const b=getBatch(ev.batchId);
-    const names=activeBatchStudents(b,ds);
-    const fallback=(b?.students||'').split(',').map(s=>s.trim()).filter(Boolean);
-    ev.studentRoles=(names.length?names:fallback).map(name=>({name,batchId:ev.batchId,classType:'scheduled',makeupFor:null}));
+    const names=(b?.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+    ev.studentRoles=names.map(name=>({name,batchId:ev.batchId,classType:'scheduled',makeupFor:null}));
   }
   return ev;
 }
@@ -882,7 +882,7 @@ function getScheduledDates(batchId,fromDate,toDate,studentName){
     const activeSlot=resolveClassForDate(batch,ds).some(slot=>!(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||!studentName||r.studentScope===studentName)));
     if(activeSlot)dates.add(ds);
   }
-  allTwEvents().forEach(ev=>{if(studentName&&!getEventStudent(ev,batchId,studentName))return;if(!studentName&&ev.batchId!==batchId)return;const d=localDS(new Date(ev.date));if(d>=fromDate&&d<=toDate)dates.add(d);});
+  allTwEvents().forEach(ev=>{if(studentName&&!getEventStudent(ev,batchId,studentName))return;if(!studentName&&ev.batchId!==batchId)return;const d=twEventDate(ev);if(d>=fromDate&&d<=toDate)dates.add(d);});
   Object.values(att).forEach(rec=>{if(rec.date<fromDate||rec.date>toDate)return;(rec.students||[]).forEach(s=>{if(s.batchId===batchId&&(!studentName||s.name===studentName))dates.add(rec.date);});});
   return dates;
 }
@@ -926,7 +926,7 @@ function getPendingClasses(studentName,batchId){
   // Build makeup resolution map: pendingDate → resolutionDate
   const makeupRes=new Map();
   allTwEvents().forEach(ev=>{
-    const evDate=localDS(new Date(ev.date));
+    const evDate=twEventDate(ev);
     const attRec=att[ev.id];
     if(!attRec)return;
     // Main student of event (if it is their makeup class)
@@ -1052,6 +1052,18 @@ function countedClassRows(batchId,studentName,cat,fromDate,toDate){
   });
   return rows.sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||''))||String(a.evId||'').localeCompare(String(b.evId||'')));
 }
+function attendedClassRows(batchId,studentName,fromDate,toDate){
+  const rows=[];
+  Object.entries(att).forEach(([evId,rec])=>{
+    if(rec.date<fromDate||rec.date>toDate)return;
+    const ev=getTwEvent(evId||rec.evId||'');
+    (rec.students||[]).forEach(s2=>{
+      if(s2.batchId!==batchId||s2.name!==studentName||s2.status!=='present')return;
+      rows.push({date:rec.date,start:ev?.start||rec.twStart||'',evId});
+    });
+  });
+  return rows.sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||''))||String(a.evId||'').localeCompare(String(b.evId||'')));
+}
 function pendingSummaryLines(batchId,studentName){
   const pend=getPendingClasses(studentName,batchId).filter(e=>!e.resolved);
   return pend.map(e=>`- ${e.label}`);
@@ -1070,17 +1082,21 @@ function buildCopyMessageText(){
     if(current?.start){
       const end=current.end||toDate;
       const cycleRows=countedClassRows(batchId,studentName,'D',current.start,end);
+      const attendedRows=attendedClassRows(batchId,studentName,current.start,end);
       lines[0]=`Hi, sharing ${studentName}'s dance class fee cycle summary.`;
       lines.push('',`Fee cycle: ${current.start} to ${current.end||'current'}`,'Classes in this fee cycle:');
       lines.push(...(cycleRows.length?cycleRows.map(r=>`- ${msgDateLine(r.date,r.start,tz)}`):['- No counted classes marked yet.']));
+      lines.push(`Total attended classes: ${attendedRows.length}`);
       lines.push('',`Fee for this cycle: ${moneyText(rate,cur)}`);
     }else{
       lines.push('','No active fee cycle found yet.');
     }
   }else{
     const rows=countedClassRows(batchId,studentName,cat,fromDate,toDate);
+    const attendedRows=attendedClassRows(batchId,studentName,fromDate,toDate);
     lines.push('','Counted classes:');
     lines.push(...(rows.length?rows.map(r=>`- ${msgDateLine(r.date,r.start,tz)}`):['- No counted classes marked.']));
+    lines.push(`Total attended classes: ${attendedRows.length}`);
     if(cat==='A'||cat==='B'){
       const pend=pendingSummaryLines(batchId,studentName);
       lines.push('','Pending classes to make up:');
@@ -1576,7 +1592,7 @@ function renderBatchDetail(){
 
   const evMap={};
   const batchSummaryKey=ev=>{
-    const d=typeof ev.date==='string'?ev.date:localDS(new Date(ev.date));
+    const d=typeof ev.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(ev.date)?ev.date:twEventDate(ev);
     const type=ev.classType||'scheduled';
     if(type==='scheduled')return ['scheduled',d,ev.start||'',ev.end||''].join('|');
     const roles=(ev.studentRoles||[]).map(r=>`${r.batchId||''}:${r.name}:${r.classType||type}:${r.makeupFor||''}`).sort().join(',');
@@ -1588,7 +1604,7 @@ function renderBatchDetail(){
     const slots=resolveClassForDate(b,ds);
     slots.forEach(slot=>{if(twRemovedHas(wk,detBid,ds,slot.start,slot.end))return;const ev={date:ds,start:slot.start,end:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled'};evMap[batchSummaryKey(ev)]=ev;});
   }
-  Object.values(twWkCache).forEach(evs=>{if(!Array.isArray(evs))return;cleanTwEvents(evs).forEach(ev=>{if(ev.batchId!==detBid)return;const d=localDS(new Date(ev.date));if(d>=from&&d<=to)evMap[batchSummaryKey(ev)]={...ev,date:d};});});
+  Object.values(twWkCache).forEach(evs=>{if(!Array.isArray(evs))return;cleanTwEvents(evs).forEach(ev=>{if(ev.batchId!==detBid)return;const d=twEventDate(ev);if(d>=from&&d<=to)evMap[batchSummaryKey(ev)]={...ev,date:d};});});
   const monthEvs=Object.values(evMap).sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||'')));
 
   const classRows=monthEvs.map((ev,i)=>{
@@ -1770,14 +1786,14 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
     evs.forEach(ev=>{
       const info=getEventStudent(ev,batchId,studentName);
       if(!info)return;
-      const d=localDS(new Date(ev.date));if(d<fromDate||d>toDate)return;
+      const d=twEventDate(ev);if(d<fromDate||d>toDate)return;
       const attRec=att[ev.id];const sAtt=attRec?.students?.find(s=>s.batchId===batchId&&s.name===studentName);
       evRows.push({date:d,start:ev.start,end:ev.end,classType:info.classType,isTemp:ev.isTemp,cancelled:ev.cancelled,status:sAtt?.status||null,makeupFor:info.makeupFor||null,evId:ev.id,isAddon:info.isAddon});
     });
   });
   // Timing projections not yet in TW
   const entity=batchId.startsWith('ind_')?indStudents.find(s=>s.id===batchId):getBatch(batchId);
-  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);if(!studentActiveOn(batchId,studentName,ds))continue;const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;const exists=evRows.find(r=>r.date===ds&&r.start===slot.start&&r.end===slot.end)||allTwEvents().some(ev=>getEventStudent(ev,batchId,studentName)&&(ev.originDate===ds||localDS(new Date(ev.date))===ds)&&((ev.originStart||ev.start)===slot.start)&&((ev.originEnd||ev.end)===slot.end));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
+  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);if(!studentActiveOn(batchId,studentName,ds))continue;const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(!r.studentScope||r.studentScope===studentName));if(removed)return;const exists=evRows.find(r=>r.date===ds&&r.start===slot.start&&r.end===slot.end)||allTwEvents().some(ev=>getEventStudent(ev,batchId,studentName)&&twEventDate(ev)===ds&&((ev.originStart||ev.start)===slot.start)&&((ev.originEnd||ev.end)===slot.end));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date<fromDate||rec.date>toDate)return;
     const sAtt=(rec.students||[]).find(s=>s.batchId===batchId&&s.name===studentName);
@@ -1944,13 +1960,18 @@ function twToday(){twWkStart=getMon(new Date());twSetWeekGo();}
 function twSetWeekGo(){document.getElementById('tw-dt').value=localDS(twWkStart);twLoadWeek();twRender();}
 function twLoadWeek(){const wk=twKey();if(!twWkCache[wk])twPopulate();else{const before=twWkCache[wk].length;twEvs=cleanTwEvents(twWkCache[wk].map(e=>({...e,date:new Date(e.date)})));const cleaned=twEvs.length!==before;if(twMerge()||cleaned)twSave();}}
 function twRemovedHas(wk,batchId,date,start,end){return(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===date&&(!r.start||r.start===start)&&(!r.end||r.end===end)&&!r.studentScope);}
-function makeScheduledTwEvent(entity,d,ds,slot){return normalizeTwEvent({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});}
+function makeScheduledTwEvent(entity,d,ds,slot){
+  const roles=entity.id?.startsWith('ind_')?
+    (studentActiveOn(entity.id,entity.name,ds)?[{name:entity.name,batchId:entity.id,classType:'scheduled',makeupFor:null}]:[]):
+    activeBatchStudents(entity,ds).map(name=>({name,batchId:entity.id,classType:'scheduled',makeupFor:null}));
+  return normalizeTwEvent({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:entity.id,date:new Date(d),start:slot.start,end:slot.end,originDate:ds,originStart:slot.start,originEnd:slot.end,isTemp:slot.isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,studentRoles:roles,addonStudents:[]});
+}
 function twHasScheduledOrigin(batchId,date,start,end){const key=twIdentity({batchId,date:new Date(date+'T12:00:00'),start,end,originDate:date,originStart:start,originEnd:end,classType:'scheduled',studentScope:null,addonStudents:[]});return twEvs.some(ev=>twIdentity(ev)===key);}
 function ensureTwEventForAttendance(batchId,studentName,date,start,end,isTemp){
   if(!date||!start||!end)return null;
   const wk=localDS(getMon(new Date(date+'T12:00:00')));
   if(!twWkCache[wk])twWkCache[wk]=[];
-  const existing=cleanTwEvents(twWkCache[wk]).find(ev=>getEventStudent(ev,batchId,studentName)&&(ev.originDate===date||localDS(new Date(ev.date))===date)&&((ev.originStart||ev.start)===start)&&((ev.originEnd||ev.end)===end));
+  const existing=cleanTwEvents(twWkCache[wk]).find(ev=>getEventStudent(ev,batchId,studentName)&&twEventDate(ev)===date&&((ev.originStart||ev.start)===start)&&((ev.originEnd||ev.end)===end));
   if(existing)return existing.id;
   const ev=normalizeTwEvent({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId,date:new Date(date+'T12:00:00'),start,end,originDate:date,originStart:start,originEnd:end,isTemp:!!isTemp,cancelled:false,classType:'scheduled',studentScope:null,makeupFor:null,addonStudents:[]});
   twWkCache[wk]=cleanTwEvents([...twWkCache[wk],ev]);
@@ -2032,7 +2053,7 @@ function twRender(){
   html+=`<div style="display:flex;flex-direction:column;background:var(--sur)">`;
   for(let h=TW_S;h<TW_E;h++){const l=h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;html+=`<div class="tw-tm" style="height:${60*TWX}px">${l}</div>`;}html+=`</div>`;
   days.forEach(day=>{
-    const ds=localDS(day);const dayEvs=twEvs.filter(ev=>localDS(new Date(ev.date))===ds);
+    const ds=localDS(day);const dayEvs=twEvs.filter(ev=>twEventDate(ev)===ds);
     html+=`<div class="tw-col" style="height:${TW_H}px" ondragover="twDragOver(event)" ondrop="twDrop(event,'${ds}')" ondragleave="twDragLeave(event)">`;
     for(let h=0;h<TW_E-TW_S;h++)html+=`<div style="position:absolute;left:0;right:0;top:${h*60*TWX}px;border-top:1px solid ${h===0?'var(--bdr)':'#f0f0f0'};pointer-events:none"></div>`;
     // Google Calendar-style overlap layout: only colliding time ranges share width.
@@ -2077,7 +2098,7 @@ function twDrop(e,targetDs){
   e.preventDefault();e.currentTarget.classList.remove('dov');
   const id=e.dataTransfer.getData('text/plain');const ev=twEvs.find(x=>x.id===id);if(!ev)return;
   twSnapshot('Move class');
-  const origDs=localDS(new Date(ev.date));const dur=toMins(ev.end)-toMins(ev.start);
+  const origDs=twEventDate(ev);const dur=toMins(ev.end)-toMins(ev.start);
   const rect=e.currentTarget.getBoundingClientRect();const y=Math.max(0,Math.min(e.clientY-rect.top,TW_H));
   const mins=Math.round((y/TWX)/15)*15+TW_S*60;
   const ns=minsToIST(Math.max(TW_S*60,Math.min(mins,(TW_E*60)-15)));
@@ -2193,7 +2214,7 @@ function twEditOpen(evId){
   const batch=getBatch(ev.batchId);
   document.getElementById('twe-ttl').textContent=batch?.name||'Edit Class';
   document.getElementById('twe-info').textContent=`${fmtDDMMYYYY(new Date(ev.date))} · ${ev.isTemp?'⏱ Temp':'Regular'} · ${ev.classType}`;
-  document.getElementById('twe-dt').value=localDS(new Date(ev.date));
+  document.getElementById('twe-dt').value=twEventDate(ev);
   document.getElementById('twe-st').value=ev.start;document.getElementById('twe-en').value=ev.end;
   document.getElementById('twe-canc').style.display=ev.cancelled?'none':'';
   const mainStus=ev.studentScope?[ev.studentScope]:(batch?(batch.students||'').split(',').map(s=>s.trim()).filter(Boolean):[]);
@@ -2211,7 +2232,7 @@ function tweSave(){
   const addons=[];let addonInvalid=false;document.querySelectorAll('#twe-addons .ao-row').forEach(row=>{if(addonInvalid)return;const sv=row.querySelector('select').value;if(!sv)return;const[bid,nm]=sv.split('|');const type=row.querySelector('.ao-type')?.value||'additional';const mfWrap=row.nextElementSibling;const mf=type==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;if(type==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);addonInvalid=true;return;}addons.push({name:nm,batchId:bid,classType:type,makeupFor:mf||null});});
   if(addonInvalid)return;
   twSnapshot('Edit class');
-  const origDs=localDS(new Date(ev.date));markOriginalRemoved(ev,origDs);ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
+  const origDs=twEventDate(ev);markOriginalRemoved(ev,origDs);ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
   ev.addonStudents=addons;
   syncAttendanceForEvent(ev);
   twSave();closeOv('ov-twe');twRender();refreshSD();if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
@@ -2220,7 +2241,7 @@ function tweCancelConfirm(){openOv('ov-twc');}
 function tweDoCancel(){
   const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;twSnapshot('Cancel class');ev.cancelled=true;
   const b=getBatch(ev.batchId);if(b){
-    const d=localDS(new Date(ev.date));const stus=ev.studentScope?[ev.studentScope]:(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const d=twEventDate(ev);const stus=ev.studentScope?[ev.studentScope]:(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
     if(!att[twEditId])att[twEditId]={date:d,batchId:ev.batchId,classLabel:b.name+' – '+d,twStart:ev.start,evId:twEditId,students:[]};
     stus.forEach(nm=>{const ex=att[twEditId].students.find(s=>s.batchId===ev.batchId&&s.name===nm);if(ex)ex.status='cancelled';else att[twEditId].students.push({name:nm,batchId:ev.batchId,status:'cancelled',isAddon:false});});
     save('att',att);autoCheckFeeStatuses();
@@ -2231,7 +2252,7 @@ function tweRemoveConfirm(){
   showConfirm('Remove this class? Attendance deleted.',()=>{
     const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;
     twSnapshot('Remove class');
-    const ds=localDS(new Date(ev.date));markOriginalRemoved(ev,ds);
+    const ds=twEventDate(ev);markOriginalRemoved(ev,ds);
     if(att[twEditId]){delete att[twEditId];save('att',att);}
     twEvs=twEvs.filter(x=>x.id!==twEditId);twSave();twRender();closeOv('ov-twe');refreshSD();
     if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();showToast('Class removed');
