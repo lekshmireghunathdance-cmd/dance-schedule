@@ -1027,13 +1027,13 @@ function moneyText(amount,cur){
   const sym=cur==='USD'?'$':'₹';
   return sym+(Number(amount)||0).toLocaleString('en-IN');
 }
-function studentMsgTz(batchId,studentName){
+function studentMsgTz(){
   return 'IST';
 }
-function msgDateLine(date,start,tz){
+function msgDateLine(date,start){
   const dt=new Date(date+'T12:00:00');
   let line=dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-  if(start)line+=' - '+(tz==='IST'?fmtTime(start)+' IST':istToTz(start,tz)+' '+tz);
+  if(start)line+=' - '+fmtTime(start)+' IST';
   return line;
 }
 function countedClassRows(batchId,studentName,cat,fromDate,toDate){
@@ -1069,7 +1069,7 @@ function pendingSummaryLines(batchId,studentName){
 function buildCopyMessageText(){
   const batchId=sdBid,studentName=sdNm,sObj=ss[batchId+':'+studentName]||{},cat=sObj.category||'';
   if(!cat)return'';
-  const tz=studentMsgTz(batchId,studentName),cur=sObj.currency||'INR',rate=parseFloat(sObj.rate)||0;
+  const tz=studentMsgTz(),cur=sObj.currency||'INR',rate=parseFloat(sObj.rate)||0;
   const month=sdMonth||new Date().getMonth()+1,year=sdYear||new Date().getFullYear();
   const fromDate=`${year}-${String(month).padStart(2,'0')}-01`,toDate=`${year}-${String(month).padStart(2,'0')}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`;
   const period=`${MONTHS[month-1]} ${year}`;
@@ -1083,7 +1083,7 @@ function buildCopyMessageText(){
       const attendedRows=attendedClassRows(batchId,studentName,current.start,end);
       lines[0]=`Hi, sharing ${studentName}'s dance class fee cycle summary.`;
       lines.push('',`Fee cycle: ${current.start} to ${current.end||'current'}`,'Classes in this fee cycle:');
-      lines.push(...(cycleRows.length?cycleRows.map(r=>`- ${msgDateLine(r.date,r.start,tz)}`):['- No counted classes marked yet.']));
+      lines.push(...(cycleRows.length?cycleRows.map(r=>`- ${msgDateLine(r.date,r.start)}`):['- No counted classes marked yet.']));
       lines.push(`Total attended classes: ${attendedRows.length}`);
       lines.push('',`Fee for this cycle: ${moneyText(rate,cur)}`);
     }else{
@@ -1093,7 +1093,7 @@ function buildCopyMessageText(){
     const rows=countedClassRows(batchId,studentName,cat,fromDate,toDate);
     const attendedRows=attendedClassRows(batchId,studentName,fromDate,toDate);
     lines.push('','Counted classes:');
-    lines.push(...(rows.length?rows.map(r=>`- ${msgDateLine(r.date,r.start,tz)}`):['- No counted classes marked.']));
+    lines.push(...(rows.length?rows.map(r=>`- ${msgDateLine(r.date,r.start)}`):['- No counted classes marked.']));
     lines.push(`Total attended classes: ${attendedRows.length}`);
     if(cat==='A'||cat==='B'){
       const pend=pendingSummaryLines(batchId,studentName);
