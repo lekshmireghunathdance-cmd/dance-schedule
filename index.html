@@ -224,6 +224,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <div style="display:flex;gap:7px;flex-wrap:wrap">
         <button class="bc" style="font-size:12px" onclick="downloadBackup()">Download backup</button>
         <button class="bc" style="font-size:12px" onclick="document.getElementById('backup-file').click()">Restore backup</button>
+        <button class="bc" style="font-size:12px" onclick="repairAppData()">Repair data</button>
       </div>
       <input id="backup-file" type="file" accept="application/json,.json" style="display:none" onchange="restoreBackupFile(this)"/>
     </div>
@@ -612,7 +613,8 @@ async function initLoad(){setSS('⟳ Syncing…');const d=await cloudLoad()||{};
   if(attRaw)att=JSON.parse(attRaw);
   if(remRaw)reminders=JSON.parse(remRaw);
   if(tzRaw)curTz=tzRaw;
-  if(twRaw){const p=JSON.parse(twRaw);const c=p.cache||p;twWkCache={};Object.entries(c).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents(evs.map(e=>({...e,date:new Date(e.date)})));});if(p.wkStart)twWkStart=new Date(p.wkStart);if(p.removed)twRemoved=p.removed;saveTwCacheOnly();}
+  if(twRaw){const p=JSON.parse(twRaw);const c=p.cache||p;twWkCache={};Object.entries(c).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents(evs.map(e=>({...e,date:new Date(e.date)})));});if(p.wkStart)twWkStart=new Date(p.wkStart);if(p.removed)twRemoved=p.removed;}
+  normalizeAllData(true);
   setSS(WK_URL?'':'⚠ Not connected');boot();}
 function setSS(m){document.getElementById('ss').textContent=m;}
 
@@ -639,6 +641,7 @@ function saveSettings(){
 function deleteAllDataConfirm(){
   showConfirm('Delete every batch, student, class edit, attendance record, fee record, note, and reminder? This cannot be undone.',()=>{
     batches=[];indStudents=[];ss={};att={};reminders=[];twWkStart=null;twWkCache={};twRemoved={};twEvs=[];twEditId=null;bEditId=null;sEditBid=null;sEditNm=null;detBid=null;sdBid=null;sdNm=null;_bdM=null;_bdY=null;
+    ['gSettings','batches','indStudents','ss','att','reminders','curTz','twWkCache'].forEach(k=>localStorage.removeItem(localKey(k)));
     save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);save('reminders',reminders);save('twWkCache',JSON.stringify({cache:{},wkStart:null,removed:{}}));
     closeOv('ov-settings');renderSidebar();renderCalendar();updateReminderBadge();showToast('All app data deleted');
   });
@@ -660,8 +663,18 @@ function restoreBackupFile(input){
 function restoreBackupData(data){
   gSettings=data.gSettings||gSettings;batches=data.batches||[];indStudents=data.indStudents||[];ss=data.ss||{};att=data.att||{};reminders=data.reminders||[];curTz=data.curTz||curTz;
   const p=data.twWkCache||{};const c=p.cache||p;twWkCache={};Object.entries(c||{}).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents((evs||[]).map(e=>({...e,date:new Date(e.date)})));});twWkStart=p.wkStart?new Date(p.wkStart):null;twRemoved=p.removed||{};
+  normalizeAllData(false);
   save('gSettings',gSettings);save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);save('reminders',reminders);save('curTz',curTz);save('twWkCache',JSON.stringify(backupPayload().twWkCache));
   closeOv('ov-settings');boot();showToast('Backup restored');
+}
+function repairAppData(){
+  const changed=normalizeAllData(true);
+  if(twWkStart){twLoadWeek();twRender();}
+  renderSidebar();renderCalendar();updateReminderBadge();
+  if(document.getElementById('ov-att')?.classList.contains('open'))renderAtt();
+  if(document.getElementById('ov-bd')?.classList.contains('open'))renderBatchDetail();
+  if(document.getElementById('ov-sd')?.classList.contains('open'))renderStudentDetail();
+  showToast(changed?'Data repaired':'Data already clean');
 }
 
 // ═══════════════════════════════════════════════════
@@ -730,17 +743,6 @@ function getAttendanceEventInfo(evId,rec,batchId,studentName){
   const info=getEventStudent(ev,batchId,studentName);
   return info?{ev,info}:null;
 }
-function eventMatchesAttendanceRecord(ev,rec){
-  if(!ev||!rec)return false;
-  const d=twEventDate(ev);
-  const evStart=ev.start||'',evEnd=ev.end||'',evOriginStart=ev.originStart||evStart,evOriginEnd=ev.originEnd||evEnd;
-  const recStart=rec.twStart||'',recEnd=rec.twEnd||'';
-  return rec.date===d&&(
-    (!!ev.id&&rec.evId===ev.id)||
-    (recStart===evStart&&(!recEnd||recEnd===evEnd))||
-    (recStart===evOriginStart&&(!recEnd||recEnd===evOriginEnd))
-  );
-}
 function isTwEventCancelled(ev){
   if(ev?.cancelled)return true;
   const rec=ev?.id?att[ev.id]:null;
@@ -752,12 +754,70 @@ function isTwEventCancelled(ev){
 function syncAttendanceForEvent(ev){
   const rec=att[ev.id];if(!rec)return;
   const entity=getBatch(ev.batchId),date=twEventDate(ev);
-  rec.date=date;rec.batchId=ev.batchId;rec.classLabel=(entity?.name||'Class')+' – '+date;rec.twStart=ev.start;
+  rec.date=date;rec.batchId=ev.batchId;rec.classLabel=(entity?.name||'Class')+' – '+date;rec.twStart=ev.start;rec.twEnd=ev.end;rec.evId=ev.id;
   const valid=new Set(eventStudents(ev).map(s=>s.batchId+':'+s.name));
   rec.students=(rec.students||[]).filter(s=>valid.has(s.batchId+':'+s.name));
   if(!rec.students.length)delete att[ev.id];
 }
 function syncAllAttendanceRecords(){allTwEvents().forEach(syncAttendanceForEvent);}
+function mergeAttendanceRecord(targetId,sourceRec){
+  const ev=getTwEvent(targetId);
+  if(!ev||!sourceRec)return false;
+  if(!att[targetId]){
+    const entity=getBatch(ev.batchId);
+    att[targetId]={date:twEventDate(ev),batchId:ev.batchId,classLabel:(entity?.name||'Class')+' – '+twEventDate(ev),twStart:ev.start,twEnd:ev.end,evId:targetId,students:[]};
+  }
+  let changed=false;
+  const valid=new Set(eventStudents(ev).map(s=>s.batchId+':'+s.name));
+  (sourceRec.students||[]).forEach(s=>{
+    const key=s.batchId+':'+s.name;
+    if(!valid.has(key))return;
+    const existing=att[targetId].students.find(x=>x.batchId===s.batchId&&x.name===s.name);
+    if(existing){
+      if(existing.status!==s.status){existing.status=s.status;changed=true;}
+      existing.isAddon=!!(existing.isAddon||s.isAddon);
+    }else{
+      att[targetId].students.push({name:s.name,batchId:s.batchId,status:s.status,isAddon:!!s.isAddon});
+      changed=true;
+    }
+  });
+  syncAttendanceForEvent(ev);
+  return changed;
+}
+function findAttendanceTarget(rec){
+  if(!rec)return null;
+  const candidates=allTwEvents().filter(ev=>{
+    if(!isRenderableTwEvent(ev))return false;
+    if(twEventDate(ev)!==rec.date)return false;
+    if(rec.batchId&&ev.batchId!==rec.batchId)return false;
+    const st=rec.twStart||rec.start||'',en=rec.twEnd||rec.end||'';
+    if(st&&ev.start!==st&&(ev.originStart||'')!==st)return false;
+    if(en&&ev.end!==en&&(ev.originEnd||'')!==en)return false;
+    const evKeys=new Set(eventStudents(ev).map(s=>s.batchId+':'+s.name));
+    return (rec.students||[]).some(s=>evKeys.has(s.batchId+':'+s.name));
+  });
+  if(!candidates.length)return null;
+  candidates.sort((a,b)=>{
+    const score=x=>(att[x.id]?2:0)+(x.cancelled?1:0)+(x.manuallyMoved?1:0);
+    return score(b)-score(a)||String(a.id).localeCompare(String(b.id));
+  });
+  return candidates[0].id;
+}
+function cleanAttendanceRecords(){
+  let changed=false;
+  Object.keys(att).forEach(evId=>{
+    const ev=getTwEvent(evId);
+    if(!ev||!isRenderableTwEvent(ev)){
+      const targetId=findAttendanceTarget(att[evId]);
+      if(targetId&&targetId!==evId)mergeAttendanceRecord(targetId,att[evId]);
+      delete att[evId];changed=true;return;
+    }
+    const before=JSON.stringify(att[evId]);
+    syncAttendanceForEvent(ev);
+    if(att[evId]&&JSON.stringify(att[evId])!==before)changed=true;
+  });
+  return changed;
+}
 function overlapLayout(items){
   const slot=new Array(items.length).fill(0),total=new Array(items.length).fill(1);
   const visited=new Array(items.length).fill(false);
@@ -951,6 +1011,69 @@ function cleanTwEvents(evs){
 function cleanAllTwCaches(){
   Object.keys(twWkCache).forEach(wk=>{twWkCache[wk]=cleanTwEvents(twWkCache[wk]);});
 }
+function normalizeRosterText(text){
+  const seen=new Set();
+  return String(text||'').split(',').map(s=>s.trim()).filter(Boolean).filter(name=>{
+    const key=name.toLowerCase();
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  }).join(', ');
+}
+function cleanRemovedRecords(){
+  let changed=false;
+  Object.keys(twRemoved||{}).forEach(wk=>{
+    const old=twRemoved[wk]||[];
+    const next=old.filter(r=>r&&getBatch(r.batchId)&&r.date&&r.start);
+    if(next.length)twRemoved[wk]=uniqueBy(next,r=>[r.batchId,r.date,r.start,r.end||'',r.studentScope||''].join('|'));
+    else delete twRemoved[wk];
+    if(JSON.stringify(old)!==JSON.stringify(twRemoved[wk]||[]))changed=true;
+  });
+  return changed;
+}
+function normalizeRosterData(){
+  let changed=false;
+  const batchNames=new Set();
+  batches=(batches||[]).filter(b=>{
+    if(!b||!b.id)return changed=true,false;
+    const before=JSON.stringify(b);
+    b.name=String(b.name||'Untitled batch').trim();
+    b.students=normalizeRosterText(b.students);
+    b.timings=uniqueBy(b.timings||[],t=>[t.season||'',t.day||'',t.startIST||'',t.endIST||''].join('|'));
+    b.tempTimings=uniqueBy(b.tempTimings||[],t=>[t.day||'',t.startIST||'',t.endIST||''].join('|'));
+    b.tempPeriods=uniqueBy(b.tempPeriods||[],p=>[p.from||'',p.to||''].join('|'));
+    if(batchNames.has(b.id))return changed=true,false;
+    batchNames.add(b.id);
+    if(JSON.stringify(b)!==before)changed=true;
+    return true;
+  });
+  const indNames=new Set();
+  indStudents=(indStudents||[]).filter(s=>{
+    if(!s||!s.id)return changed=true,false;
+    const before=JSON.stringify(s);
+    s.name=String(s.name||'Unnamed student').trim();
+    s.timings=uniqueBy(s.timings||[],t=>[t.season||'',t.day||'',t.startIST||'',t.endIST||''].join('|'));
+    s.tempTimings=uniqueBy(s.tempTimings||[],t=>[t.day||'',t.startIST||'',t.endIST||''].join('|'));
+    s.tempPeriods=uniqueBy(s.tempPeriods||[],p=>[p.from||'',p.to||''].join('|'));
+    if(indNames.has(s.id))return changed=true,false;
+    indNames.add(s.id);
+    if(JSON.stringify(s)!==before)changed=true;
+    return true;
+  });
+  return changed;
+}
+function normalizeAllData(saveChanges=false){
+  let changed=false;
+  changed=normalizeRosterData()||changed;
+  changed=cleanRemovedRecords()||changed;
+  const beforeTw=JSON.stringify(twWkCache);
+  cleanAllTwCaches();
+  if(JSON.stringify(twWkCache)!==beforeTw)changed=true;
+  changed=cleanAttendanceRecords()||changed;
+  if(saveChanges&&changed){
+    save('batches',batches);save('indStudents',indStudents);save('ss',ss);saveReminders();saveTwCacheOnly();save('att',att);
+  }
+  return changed;
+}
 
 // ═══════════════════════════════════════════════════
 // SECTION 5 — SEASON (per-date derivation)
@@ -1008,15 +1131,7 @@ function getScheduledDates(batchId,fromDate,toDate,studentName){
 // ═══════════════════════════════════════════════════
 // SECTION 7 — FEE & PENDING LOGIC
 // ═══════════════════════════════════════════════════
-// countClass — single source of truth for counting
-// A/B: present=1, absent=1, additional=1, makeup=0, cancelled=0
-// C/D: present=1, absent=0, additional=1, makeup=0 (N/A for C/D), cancelled=0
-function countClass(status,cat){
-  if(!status||status==='cancelled')return 0;
-  if(cat==='A'||cat==='B')return(status==='present'||status==='absent'||status==='additional')?1:0;
-  if(cat==='C'||cat==='D')return(status==='present'||status==='additional')?1:0;
-  return 0;
-}
+// Single source of truth for student-level class counting.
 function countStudentClass(status,cat,classType){
   if(!status||status==='cancelled'||classType==='makeup')return 0;
   if(classType==='additional')return status==='present'?1:0;
@@ -1945,10 +2060,29 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
     if(!ev||!info)return;
     evRows.push({date:rec.date,start,end,originStart,originEnd,classType:info?.classType||'scheduled',isTemp:!!ev?.isTemp,cancelled:!!(ev&&isTwEventCancelled(ev))||sAtt.status==='cancelled',status:sAtt.status||null,makeupFor:info?.makeupFor||null,evId,isAddon:!!sAtt.isAddon});
   });
+  const mergedRows=[];
+  const rowMap={};
+  evRows.forEach(row=>{
+    const key=[row.date,row.originStart||row.start||'',row.originEnd||row.end||'',row.classType||'scheduled',row.makeupFor||'',row.isAddon?'addon':'main'].join('|');
+    const existing=rowMap[key];
+    if(!existing){rowMap[key]=row;mergedRows.push(row);return;}
+    const rowScore=(r)=>(r.evId?2:0)+(r.status?3:0)+(r.cancelled?2:0);
+    if(rowScore(row)>rowScore(existing)){
+      Object.keys(existing).forEach(k=>delete existing[k]);
+      Object.assign(existing,row);
+    }else{
+      existing.status=existing.status||row.status||null;
+      existing.evId=existing.evId||row.evId||null;
+      existing.cancelled=!!(existing.cancelled||row.cancelled);
+      existing.isTemp=!!(existing.isTemp||row.isTemp);
+    }
+  });
+  evRows.length=0;
+  evRows.push(...mergedRows);
   evRows.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
   if(!evRows.length)return'<div style="font-size:12px;color:var(--mut)">No classes scheduled this month.</div>';
 
-  let running=0,cyclePos=0;
+  let running=0;
   const dCycleMap={};
   if(cat==='D'){
     Object.assign(dCycleMap,getRollingCountMap(batchId,studentName));
@@ -1995,7 +2129,7 @@ function sdSaveAttendance(el,status){
   if(status===''){if(idx!==-1)att[evId].students.splice(idx,1);}
   else{if(idx!==-1){att[evId].students[idx].status=status;att[evId].students[idx].batchId=sdBid;att[evId].students[idx].isAddon=!!info?.isAddon;}else att[evId].students.push({name:sName,batchId:sdBid,status,isAddon:!!info?.isAddon});}
   if(!att[evId].students.length)delete att[evId];
-  saveTwCacheOnly();save('att',att);autoCheckFeeStatuses();sdUnsaved=true;
+  saveTwCacheOnly();save('att',att);autoCheckFeeStatuses();sdUnsaved=false;
   renderStudentDetail();
   if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
   if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
@@ -2164,8 +2298,8 @@ function twMerge(){
   });
   twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;return changed;
 }
-function twSave(){twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;cleanAllTwCaches();syncAllAttendanceRecords();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));save('att',att);}
-function saveTwCacheOnly(){cleanAllTwCaches();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));}
+function twSave(){twEvs=cleanTwEvents(twEvs);twWkCache[twKey()]=twEvs;normalizeAllData(false);syncAllAttendanceRecords();cleanAttendanceRecords();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));save('att',att);}
+function saveTwCacheOnly(){cleanRemovedRecords();cleanAllTwCaches();const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=twWkCache[wk].map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});save('twWkCache',JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved}));}
 function updateTwUndoButton(){const b=document.getElementById('tw-undo');if(!b)return;b.disabled=twUndoStack.length===0;b.style.opacity=twUndoStack.length?1:.45;b.style.cursor=twUndoStack.length?'pointer':'default';}
 function twSnapshot(label){
   twUndoStack.push({label,wkStart:twWkStart?twWkStart.toISOString():null,twWkCache:JSON.stringify(twWkCache),twRemoved:JSON.stringify(twRemoved),twEvs:JSON.stringify(twEvs),att:JSON.stringify(att)});
