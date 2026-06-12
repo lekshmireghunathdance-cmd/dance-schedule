@@ -571,6 +571,8 @@ let _bdM=null,_bdY=null;
 const WK_DEFAULT='https://dance-schedule.lekshmireghunath-dance.workers.dev';
 let WK_URL=localStorage.getItem('dance_wk')||WK_DEFAULT;
 let saveSeq=0,saveQueues={};
+const CURRENT_STORAGE_KEYS=['gSettings','batches','indStudents','ss','att','reminders','curTz','twWkCache'];
+const LEGACY_STORAGE_KEYS=['classes','season','tz','twWeekCache','attendance','individualStudents','studentsSettings','appState'];
 async function cloudLoad(){if(!WK_URL)return null;try{const r=await fetch(WK_URL,{method:'GET',redirect:'follow'});const j=JSON.parse(await r.text());return j.ok?j.data:null;}catch(e){console.warn(e);return null;}}
 async function cloudSave(k,v){
   if(!WK_URL)return false;
@@ -601,6 +603,16 @@ function save(k,v){
     setTimeout(()=>{if(n===saveSeq&&document.getElementById('ss').textContent!=='⚠ Not connected')setSS('');},1800);
     return ok;
   });
+}
+function clearLocalStorageKeys(keys){
+  keys.forEach(k=>{
+    localStorage.removeItem(k);
+    localStorage.removeItem(localKey(k));
+  });
+}
+async function clearLegacyCloudRows(){
+  if(!WK_URL)return;
+  await Promise.all(LEGACY_STORAGE_KEYS.map(k=>cloudSave(k,'')));
 }
 function openSync(){document.getElementById('sync-url').value=WK_URL;openOv('ov-sync');}
 function saveSync(){const u=document.getElementById('sync-url').value.trim();if(!u)return;WK_URL=u;localStorage.setItem('dance_wk',u);closeOv('ov-sync');initLoad();}
@@ -639,11 +651,14 @@ function saveSettings(){
   renderTzDd();updateSeasonBadge();renderCalendar();closeOv('ov-settings');showToast('Settings saved');
 }
 function deleteAllDataConfirm(){
-  showConfirm('Delete every batch, student, class edit, attendance record, fee record, note, and reminder? This cannot be undone.',()=>{
+  showConfirm('Delete every batch, student, class edit, attendance record, fee record, note, reminder, and old legacy storage row? This cannot be undone.',async()=>{
+    gSettings={seasonYear:new Date().getFullYear(),summerStart:'',winterStart:''};
+    curTz='EDT';
     batches=[];indStudents=[];ss={};att={};reminders=[];twWkStart=null;twWkCache={};twRemoved={};twEvs=[];twEditId=null;bEditId=null;sEditBid=null;sEditNm=null;detBid=null;sdBid=null;sdNm=null;_bdM=null;_bdY=null;
-    ['gSettings','batches','indStudents','ss','att','reminders','curTz','twWkCache'].forEach(k=>localStorage.removeItem(localKey(k)));
-    save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);save('reminders',reminders);save('twWkCache',JSON.stringify({cache:{},wkStart:null,removed:{}}));
-    closeOv('ov-settings');renderSidebar();renderCalendar();updateReminderBadge();showToast('All app data deleted');
+    clearLocalStorageKeys([...CURRENT_STORAGE_KEYS,...LEGACY_STORAGE_KEYS]);
+    save('gSettings',gSettings);save('curTz',curTz);save('batches',batches);save('indStudents',indStudents);save('ss',ss);save('att',att);save('reminders',reminders);save('twWkCache',JSON.stringify({cache:{},wkStart:null,removed:{}}));
+    await clearLegacyCloudRows();
+    closeOv('ov-settings');document.getElementById('tz-lbl').textContent=curTz;renderTzDd();updateSeasonBadge();renderSidebar();renderCalendar();updateReminderBadge();showToast('All app data deleted');
   });
 }
 function backupPayload(){
