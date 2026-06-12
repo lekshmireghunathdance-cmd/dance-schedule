@@ -572,7 +572,7 @@ const WK_DEFAULT='https://dance-schedule.lekshmireghunath-dance.workers.dev';
 let WK_URL=localStorage.getItem('dance_wk')||WK_DEFAULT;
 let saveSeq=0,saveQueues={};
 const CURRENT_STORAGE_KEYS=['gSettings','batches','indStudents','ss','att','reminders','curTz','twWkCache'];
-const LEGACY_STORAGE_KEYS=['classes','season','tz','twWeekCache','attendance','individualStudents','studentsSettings','appState'];
+const LEGACY_STORAGE_KEYS=['classes','season','tz','twWeekCache','attendance','individualStudents','studentSettings','studentsSettings','appState'];
 async function cloudLoad(){if(!WK_URL)return null;try{const r=await fetch(WK_URL,{method:'GET',redirect:'follow'});const j=JSON.parse(await r.text());return j.ok?j.data:null;}catch(e){console.warn(e);return null;}}
 async function cloudSave(k,v){
   if(!WK_URL)return false;
