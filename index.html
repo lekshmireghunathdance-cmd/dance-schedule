@@ -331,14 +331,13 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       </div>
       <div id="s-fee-D" style="display:none">
         <div class="field"><label>Current fee cycle started on</label><input id="s-d-cs" type="date" style="width:100%"/></div>
-        <div class="field"><label>Starting class number in current cycle (X/8)</label><input id="s-d-sc" type="number" min="1" max="8" value="1" style="width:60px"/></div>
         <div class="field"><label>Fee per 8-class cycle</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-d-rate" type="number" min="0" placeholder="2800"/><select id="s-d-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div class="field"><label>Previous fee cycle start date</label><input id="s-d-prev-start" type="date" style="width:100%"/></div>
           <div class="field"><label>Previous fee cycle end date</label><input id="s-d-prev" type="date" style="width:100%"/></div>
         </div>
         <div class="field"><label>Previous fee cycle status</label><select id="s-d-prev-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
-        <div class="warn" style="font-size:11px;margin-top:4px">The first/current cycle is never prorated. Previous cycle dates are used only to display the immediately previous completed cycle and should not be counted into the current running cycle.</div>
+        <div class="warn" style="font-size:11px;margin-top:4px">The entered cycle start date is always counted as class 1/8. Backfill the class dates for that fee cycle so the app can count the rolling cycle in order.</div>
       </div>
     </div>
     <div class="mf">
@@ -1076,9 +1075,19 @@ function normalizeRosterData(){
   });
   return changed;
 }
+function normalizeStudentSettings(){
+  let changed=false;
+  Object.values(ss||{}).forEach(s=>{
+    if(!s||s.category!=='D'||s.startingClassNum===undefined)return;
+    delete s.startingClassNum;
+    changed=true;
+  });
+  return changed;
+}
 function normalizeAllData(saveChanges=false){
   let changed=false;
   changed=normalizeRosterData()||changed;
+  changed=normalizeStudentSettings()||changed;
   changed=cleanRemovedRecords()||changed;
   const beforeTw=JSON.stringify(twWkCache);
   cleanAllTwCaches();
@@ -1444,7 +1453,7 @@ function getRollingCountMap(batchId,studentName){
     });
   }
   if(cs){
-    let pos=parseInt(sObj.startingClassNum)||1;
+    let pos=1;
     counted.filter(x=>x.date>=cs).forEach(x=>{
       map[rollingAttKey(x)]=pos;
       pos=pos===8?1:pos+1;
@@ -1463,7 +1472,7 @@ function getRollingCycles(batchId,studentName){
     cycles.push({key:s.prevCycleStartDate,start:s.prevCycleStartDate,end:s.prevCycleEndDate,count:8,status:stored.status||s.prevCycleStatus||'pending',payDate:stored.payDate||null,amount:rate,previous:true});
   }
   const dates=getStudentCountedAttendanceDates(batchId,studentName,'D',cs).map(x=>x.date);
-  let pos=parseInt(s.startingClassNum)||1;let start=cs;let last=null;
+  let pos=1;let start=cs;let last=null;
   if(!dates.length){
     cycles.push({key:start,start,end:null,count:Math.max(pos-1,0),status:feeStatusValue(s[cycleFeeKey(start)])||'ongoing',payDate:s[cycleFeeKey(start)]?.payDate||null,amount:rate,current:true,nextClass:pos});
     return cycles.sort((a,b)=>a.start.localeCompare(b.start));
@@ -1734,7 +1743,7 @@ function prefillFee(sObj){
   if(c==='A'){sv('s-a-rate',sObj.rate);sv('s-a-cur',sObj.currency||'INR');sv('s-a-lpm',sObj.lastPaidMonth);sv('s-a-lpy',sObj.lastPaidYear);}
   else if(c==='B'){sv('s-b-rate',sObj.rate);sv('s-b-cur',sObj.currency||'INR');sv('s-b-lpm',sObj.lastPaidMonth);sv('s-b-lpy',sObj.lastPaidYear);}
   else if(c==='C'){sv('s-c-rate',sObj.rate);sv('s-c-cur',sObj.currency||'INR');sv('s-c-lpm',sObj.lastPaidMonth);sv('s-c-lpy',sObj.lastPaidYear);}
-  else if(c==='D'){sv('s-d-cs',sObj.cycleStartDate);sv('s-d-sc',sObj.startingClassNum||1);sv('s-d-rate',sObj.rate);sv('s-d-cur',sObj.currency||'INR');sv('s-d-prev-start',sObj.prevCycleStartDate);sv('s-d-prev',sObj.prevCycleEndDate);sv('s-d-prev-status',sObj.prevCycleStatus||'pending');}
+  else if(c==='D'){sv('s-d-cs',sObj.cycleStartDate);sv('s-d-rate',sObj.rate);sv('s-d-cur',sObj.currency||'INR');sv('s-d-prev-start',sObj.prevCycleStartDate);sv('s-d-prev',sObj.prevCycleEndDate);sv('s-d-prev-status',sObj.prevCycleStatus||'pending');}
 }
 function readFee(cat){
   const gv=id=>document.getElementById(id)?.value||'';
@@ -1743,7 +1752,7 @@ function readFee(cat){
   if(cat==='A')return{rate:gv('s-a-rate'),currency:gv('s-a-cur')||'INR',periodMonth:af.month,periodYear:af.year,...lp('s-a-lpm','s-a-lpy')};
   if(cat==='B')return{rate:gv('s-b-rate'),currency:gv('s-b-cur')||'INR',periodMonth:af.month,periodYear:af.year,...lp('s-b-lpm','s-b-lpy')};
   if(cat==='C')return{rate:gv('s-c-rate'),currency:gv('s-c-cur')||'INR',periodMonth:af.month,periodYear:af.year,...lp('s-c-lpm','s-c-lpy')};
-  if(cat==='D')return{rate:gv('s-d-rate'),currency:gv('s-d-cur')||'INR',cycleStartDate:gv('s-d-cs'),startingClassNum:parseInt(gv('s-d-sc'))||1,prevCycleStartDate:gv('s-d-prev-start'),prevCycleEndDate:gv('s-d-prev'),prevCycleStatus:gv('s-d-prev-status')||'pending',trackStartDate:gv('s-d-cs')};
+  if(cat==='D')return{rate:gv('s-d-rate'),currency:gv('s-d-cur')||'INR',cycleStartDate:gv('s-d-cs'),prevCycleStartDate:gv('s-d-prev-start'),prevCycleEndDate:gv('s-d-prev'),prevCycleStatus:gv('s-d-prev-status')||'pending',trackStartDate:gv('s-d-cs')};
   return{};
 }
 function sStep1Save(){
