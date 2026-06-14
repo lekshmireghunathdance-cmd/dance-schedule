@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Dance Schedule</title>
+<title>DanceOps</title>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -137,6 +137,11 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 .attbtn.a.on{background:var(--redl);color:var(--red)}
 .ao-row{display:grid;grid-template-columns:1fr 100px auto;gap:6px;align-items:center;margin-top:5px;padding:7px;background:var(--bg);border-radius:var(--r)}
 .ao-row select{font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px;background:var(--sur);font-family:'Roboto',sans-serif}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.dash-card{border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);padding:12px}
+.dash-num{font-size:22px;font-weight:700;margin-top:4px}
+.dash-section{margin-bottom:18px}
+.dash-section-title{font-family:'Google Sans',sans-serif;font-size:15px;font-weight:500;margin-bottom:8px;color:var(--txt)}
 .career-card{border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);padding:10px;cursor:pointer}
 .career-card:hover{background:#fafafa}
 .career-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
@@ -162,7 +167,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <button class="burger" onclick="toggleSidebar()">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect y="4" width="24" height="2" rx="1"/><rect y="11" width="24" height="2" rx="1"/><rect y="18" width="24" height="2" rx="1"/></svg>
   </button>
-  <span class="logo">Dance <span>Schedule</span></span>
+  <span class="logo">Dance<span>Ops</span></span>
   <div class="hsp"></div>
   <span id="season-badge" class="sbadge"></span>
   <button class="hbtn" id="btn-ist" onclick="toggleIst()">IST only</button>
@@ -182,6 +187,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
     Attendance
   </button>
+  <button class="hbtn" onclick="openDashboard()" style="background:#ecfdf5;color:var(--grn);font-weight:500">Dashboard</button>
   <button class="hbtn" onclick="openCareer()" style="background:#f3e8ff;color:#6b21a8;font-weight:500">Career/Admin</button>
   <div class="bell-wrap">
     <button class="bell-btn" id="bell-btn" onclick="toggleRemindersDd()" title="Reminders">
@@ -510,6 +516,27 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <h2>Cancel this class?</h2>
     <p style="font-size:12px;color:var(--mut);margin-bottom:14px">The class stays visible in TW with a cancelled mark. Pending class logic applies only to Type B students.</p>
     <div class="mf"><button class="bc" onclick="closeOv('ov-twc')">Go back</button><button class="bd" onclick="tweDoCancel()">Confirm cancel</button></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="ov" id="ov-dash" style="align-items:stretch;padding:0">
+  <div class="modal fs">
+    <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:10px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+      <span style="font-family:'Google Sans',sans-serif;font-size:16px;font-weight:500;color:var(--grn)">DanceOps Dashboard</span>
+      <select id="dash-mode" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+        <option value="month">Monthly View</option><option value="year">Yearly View</option>
+      </select>
+      <select id="dash-mo" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+        <option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option>
+      </select>
+      <select id="dash-yr" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+        <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="hbtn" onclick="closeOv('ov-dash')" style="color:var(--red)">✕ Close</button>
+    </div>
+    <div style="flex:1;overflow:auto;padding:16px"><div id="dash-inner"></div></div>
   </div>
 </div>
 
@@ -1133,6 +1160,113 @@ function syncCareerReminders(){
   careerData.tasks.forEach(t=>{if(t.remindOn&&t.status!=='completed'){const id='rem_task_'+t.id,prev=old[id]||{};reminders.push({id,targetType:'task',sourceId:t.id,text:t.title,createdAt:t.remindOn,remindOn:t.remindOn,done:!!prev.done,resolvedAt:prev.resolvedAt||null});}});
   careerData.applications.forEach(a=>(a.followups||[]).forEach((f,i)=>{if(f.date){const id='rem_app_'+a.id+'_'+i,prev=old[id]||{};reminders.push({id,targetType:'application',sourceId:a.id,text:f.note||('Follow up '+a.title),createdAt:f.date,remindOn:f.date,done:!!prev.done,resolvedAt:prev.resolvedAt||null});}}));
   save('reminders',reminders);
+}
+
+// ═══════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════
+function openDashboard(){
+  const now=new Date();document.getElementById('dash-mo').value=now.getMonth()+1;document.getElementById('dash-yr').value=now.getFullYear();
+  renderDashboard();openOv('ov-dash');
+}
+function dashboardPeriod(){
+  const mode=document.getElementById('dash-mode')?.value||'month',month=parseInt(document.getElementById('dash-mo').value),year=parseInt(document.getElementById('dash-yr').value);
+  document.getElementById('dash-mo').style.display=mode==='year'?'none':'';
+  if(mode==='year')return{mode,year,from:`${year}-01-01`,to:`${year}-12-31`,label:String(year)};
+  const ms=String(month).padStart(2,'0'),dim=new Date(year,month,0).getDate();
+  return{mode,year,month,from:`${year}-${ms}-01`,to:`${year}-${ms}-${String(dim).padStart(2,'0')}`,label:`${MONTHS[month-1]} ${year}`};
+}
+function dashboardEventsInRange(from,to){
+  return cleanTwEvents(allTwEvents()).filter(ev=>{const ds=twEventDate(ev);return ds>=from&&ds<=to&&isRenderableTwEvent(ev);}).sort((a,b)=>twEventDate(a).localeCompare(twEventDate(b))||String(a.start||'').localeCompare(String(b.start||'')));
+}
+function dashboardAttStatus(ev,stu){
+  const rec=att[ev.id];
+  return rec?.students?.find(s=>s.batchId===stu.batchId&&s.name===stu.name)?.status||'';
+}
+function allStudentInfoRows(){
+  const rows=[];
+  batches.forEach(b=>(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name=>rows.push({batchId:b.id,batchName:b.name,name,details:ss[b.id+':'+name]?.details||{}})));
+  indStudents.forEach(s=>rows.push({batchId:s.id,batchName:'Individual',name:s.name,details:ss[s.id+':'+s.name]?.details||{}}));
+  return rows;
+}
+function countBy(rows,key){
+  const out={};rows.forEach(r=>{const v=(typeof key==='function'?key(r):r.details?.[key])||'Not set';out[v]=(out[v]||0)+1;});
+  return Object.entries(out).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+}
+function miniBreakdown(title,pairs){
+  return`<div class="dash-card"><div class="stitle">${title}</div>${pairs.length?pairs.map(([k,v])=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px solid #f3f3f3;padding:4px 0"><span>${escHtml(k)}</span><b>${v}</b></div>`).join(''):'<div style="font-size:12px;color:var(--mut)">No data yet.</div>'}</div>`;
+}
+function renderDashboard(){
+  const period=dashboardPeriod();
+  const events=dashboardEventsInRange(period.from,period.to),classes=events.filter(ev=>(ev.classType||'scheduled')!=='block'),blocks=events.filter(ev=>(ev.classType||'scheduled')==='block');
+  const s={classes:classes.length,present:0,absent:0,pending:0,makeup:0,additional:0,cancelled:0,blocks:blocks.length,students:0,hours:0,blockHours:0};
+  const studentSet=new Set();
+  classes.forEach(ev=>{
+    const ds=twEventDate(ev),students=eventStudents(ev),cancelled=isTwEventCancelled(ev);if(cancelled)s.cancelled++;
+    s.hours+=Math.max(0,toMins(ev.end)-toMins(ev.start))/60;
+    let p=0,a=0,pend=0,m=0,ad=0;
+    students.forEach(stu=>{
+      studentSet.add(stu.batchId+':'+stu.name);
+      const status=dashboardAttStatus(ev,stu);
+      const ctype=stu.classType||ev.classType||'scheduled';
+      if(status==='present')p++;else if(status==='absent')a++;else if(status==='cancelled'){}else pend++;
+      if(ctype==='makeup'&&status==='present')m++;
+      if(ctype==='additional'&&status==='present')ad++;
+    });
+    s.present+=p;s.absent+=a;s.pending+=pend;s.makeup+=m;s.additional+=ad;
+  });
+  blocks.forEach(ev=>{const h=Math.max(0,toMins(ev.end)-toMins(ev.start))/60;s.hours+=h;s.blockHours+=h;});
+  s.students=studentSet.size;
+  const perf=careerData.performances.filter(p=>p.date&&p.date>=period.from&&p.date<=period.to);
+  const perfIncome=perf.reduce((n,p)=>n+(Number(p.income)||0),0),perfExpenses=perf.reduce((n,p)=>n+perfExpensesTotal(p),0),perfNetTotal=perfIncome-perfExpenses;
+  const apps=careerData.applications.filter(a=>(a.deadline&&a.deadline>=period.from&&a.deadline<=period.to)||(a.appliedDate&&a.appliedDate>=period.from&&a.appliedDate<=period.to));
+  const appFollowups=careerData.applications.flatMap(a=>(a.followups||[]).filter(f=>f.date&&f.date>=period.from&&f.date<=period.to).map(f=>({app:a,date:f.date,note:f.note})));
+  const taskRows=careerData.tasks.filter(t=>(t.remindOn&&t.remindOn>=period.from&&t.remindOn<=period.to)||(t.dueDate&&t.dueDate>=period.from&&t.dueDate<=period.to));
+  const studentRows=allStudentInfoRows();
+  const demoWithDetails=studentRows.filter(r=>Object.values(r.details||{}).some(Boolean)).length;
+  const appStatus=countBy(apps.map(a=>({details:{status:a.status||'Preparing'}})),'status');
+  const pendingTasks=taskRows.filter(t=>t.status!=='completed').length,completedTasks=taskRows.length-pendingTasks;
+  const pendingApps=apps.filter(a=>!['Accepted','Rejected','Withdrawn'].includes(a.status||'')).length;
+  const card=(label,num,color='var(--txt)',sub='')=>`<div class="dash-card"><div class="stitle">${label}</div><div class="dash-num" style="color:${color}">${num}</div>${sub?`<div style="font-size:11px;color:var(--mut);margin-top:3px">${sub}</div>`:''}</div>`;
+  document.getElementById('dash-inner').innerHTML=`<div style="font-size:13px;color:var(--mut);margin-bottom:12px">Showing ${period.label}</div>
+  <div class="dash-section"><div class="dash-section-title">Teaching</div><div class="dash-grid">
+    ${card('TW classes taught',s.classes,'var(--blue)','Class blocks, not per-student count')}
+    ${card('Unique students',s.students,'var(--blue)')}
+    ${card('Teaching hours',Math.max(0,s.hours-s.blockHours).toFixed(1),'var(--txt)')}
+    ${card('Cancelled classes',s.cancelled,'var(--red)')}
+  </div></div>
+  <div class="dash-section"><div class="dash-section-title">Attendance</div><div class="dash-grid">
+    ${card('Presences',s.present,'var(--grn)')}
+    ${card('Absences',s.absent,'var(--red)')}
+    ${card('Pending attendance',s.pending,'var(--ora)','Student entries still unmarked')}
+    ${card('Made up',s.makeup,'#7c3aed','Present makeup entries')}
+    ${card('Additional',s.additional,'#5e35b1','Present additional entries')}
+  </div></div>
+  <div class="dash-section"><div class="dash-section-title">Career/Admin</div><div class="dash-grid">
+    ${card('Performances',perf.length,'#6b21a8')}
+    ${card('Performance income',money(perfIncome),'var(--grn)')}
+    ${card('Performance expenses',money(perfExpenses),'var(--red)')}
+    ${card('Performance net',money(perfNetTotal),perfNetTotal>=0?'var(--grn)':'var(--red)')}
+    ${card('Applications',apps.length,'#1d4ed8',`${pendingApps} open`)}
+    ${card('Application follow-ups',appFollowups.length,'var(--ora)')}
+    ${card('Career tasks',taskRows.length,'var(--mut)',`${completedTasks} completed · ${pendingTasks} pending`)}
+  </div>${miniBreakdown('Application Status',appStatus)}</div>
+  <div class="dash-section"><div class="dash-section-title">Planning / Blocks</div><div class="dash-grid">
+    ${card('Blocked entries',s.blocks,'var(--mut)')}
+    ${card('Blocked hours',s.blockHours.toFixed(1),'var(--mut)')}
+    ${card('Total calendar hours',s.hours.toFixed(1),'var(--txt)','Classes + blocked time')}
+  </div></div>
+  <div class="dash-section"><div class="dash-section-title">Student Demographics</div>
+    <div class="dash-grid">
+      ${card('Student details filled',demoWithDetails,'var(--blue)',`${studentRows.length} total students`)}
+      ${miniBreakdown('Age Group',countBy(studentRows,'ageGroup'))}
+      ${miniBreakdown('Level',countBy(studentRows,'level'))}
+      ${miniBreakdown('Student Status',countBy(studentRows,'status'))}
+      ${miniBreakdown('Source',countBy(studentRows,'source'))}
+      ${miniBreakdown('Performance Interest',countBy(studentRows,'performanceInterest'))}
+      ${miniBreakdown('Communication',countBy(studentRows,'comm'))}
+    </div>
+  </div>`;
 }
 function normalizeTwEvent(ev){
   if(!(ev.date instanceof Date))ev.date=new Date(ev.date);
@@ -2233,6 +2367,7 @@ function renderStudentDetail(){
       <div class="stitle" style="display:flex;align-items:center;justify-content:space-between"><span>Message Template</span><button class="bp" style="font-size:11px;padding:5px 12px" onclick="copyStudentMessage()">Copy message</button></div>
       <pre style="white-space:pre-wrap;font-family:'Roboto',sans-serif;font-size:12px;line-height:1.45;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r);padding:10px;max-height:180px;overflow:auto">${escHtml(buildCopyMessageText()||'Set student category first.')}</pre>
     </div>
+    ${buildStudentDetailsTab(sObj)}
     <div style="border-top:1px solid var(--bdr);padding-top:14px;margin-top:14px">
       <div class="stitle">Note</div>
       <textarea id="sd-note" maxlength="300" placeholder="Add a short note..." style="width:100%;min-height:58px;font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--r);font-family:'Roboto',sans-serif;resize:vertical">${escHtml(sObj.note||'')}</textarea>
@@ -2247,6 +2382,31 @@ function sdTab(t){document.getElementById('sds-su').style.display=t==='su'?'':'n
 function sdApplyMonth(){sdMonth=parseInt(document.getElementById('sdm-sel').value);sdYear=parseInt(document.getElementById('sdy-sel').value);renderStudentDetail();}
 function saveStudentNote(){const k=sdBid+':'+sdNm;if(!ss[k])ss[k]={};ss[k].note=(document.getElementById('sd-note')?.value||'').slice(0,300);save('ss',ss);showToast('Student note saved');renderStudentDetail();}
 function clearStudentNote(){const k=sdBid+':'+sdNm;if(!ss[k])ss[k]={};ss[k].note='';save('ss',ss);showToast('Student note cleared');renderStudentDetail();}
+function buildStudentDetailsTab(sObj){
+  const d=sObj.details||{};
+  const opt=(v,label)=>`<option value="${escHtml(v)}"${d.status===v||d.level===v||d.source===v||d.ageGroup===v||d.performanceInterest===v||d.comm===v?' selected':''}>${escHtml(label||v)}</option>`;
+  return`<div style="border-top:1px solid var(--bdr);padding-top:14px;margin-top:14px">
+    <div class="tab-row" style="margin-bottom:10px"><button class="tab-btn act">Student Details</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+      <div class="field"><label>Age group</label><select id="sd-det-age"><option value="">—</option>${['Child','Teen','Adult'].map(v=>opt(v)).join('')}</select></div>
+      <div class="field"><label>Level</label><select id="sd-det-level"><option value="">—</option>${['Beginner','Intermediate','Advanced'].map(v=>opt(v)).join('')}</select></div>
+      <div class="field"><label>Student status</label><select id="sd-det-status"><option value="">—</option>${['Trial','Active','Paused','Stopped'].map(v=>opt(v)).join('')}</select></div>
+      <div class="field"><label>Source</label><select id="sd-det-source"><option value="">—</option>${['Referral','Instagram','Website','Existing student','Festival/event','Other'].map(v=>opt(v)).join('')}</select></div>
+      <div class="field"><label>Location</label><input id="sd-det-location" value="${escHtml(d.location||'')}" placeholder="City / country"/></div>
+      <div class="field"><label>Communication</label><select id="sd-det-comm"><option value="">—</option>${['WhatsApp','Email','Text','Parent only','Student directly'].map(v=>opt(v)).join('')}</select></div>
+      <div class="field"><label>Performance interest</label><select id="sd-det-perf"><option value="">—</option>${['Yes','Maybe','No'].map(v=>opt(v)).join('')}</select></div>
+      <div class="field"><label>Joined date</label><input id="sd-det-joined" type="date" value="${escHtml(d.joined||'')}"/></div>
+    </div>
+    <div class="field"><label>Goals / context</label><textarea id="sd-det-goals" maxlength="300" placeholder="Learning goals, parent context, performance/exam interest...">${escHtml(d.goals||'')}</textarea></div>
+    <div style="display:flex;justify-content:flex-end;gap:6px"><button class="bc" style="font-size:11px;padding:4px 10px" onclick="clearStudentDetails()">Clear details</button><button class="bp" style="font-size:11px;padding:4px 10px" onclick="saveStudentDetails()">Save details</button></div>
+  </div>`;
+}
+function saveStudentDetails(){
+  const k=sdBid+':'+sdNm;if(!ss[k])ss[k]={};
+  ss[k].details={ageGroup:document.getElementById('sd-det-age')?.value||'',level:document.getElementById('sd-det-level')?.value||'',status:document.getElementById('sd-det-status')?.value||'',source:document.getElementById('sd-det-source')?.value||'',location:(document.getElementById('sd-det-location')?.value||'').trim(),comm:document.getElementById('sd-det-comm')?.value||'',performanceInterest:document.getElementById('sd-det-perf')?.value||'',joined:document.getElementById('sd-det-joined')?.value||'',goals:(document.getElementById('sd-det-goals')?.value||'').trim().slice(0,300)};
+  save('ss',ss);showToast('Student details saved');renderStudentDetail();
+}
+function clearStudentDetails(){const k=sdBid+':'+sdNm;if(!ss[k])ss[k]={};ss[k].details={};save('ss',ss);showToast('Student details cleared');renderStudentDetail();}
 function sdEditTimings(){const b=indStudents.find(s=>s.id===sdBid);sEditBid=sdBid;sEditNm=sdNm;document.getElementById('s-nm').value=sdNm;document.getElementById('s2-lbl').textContent=sdNm;fillSlots('s-su',(b?.timings||[]).filter(t=>t.season==='summer'));fillSlots('s-wi',(b?.timings||[]).filter(t=>t.season==='winter'));fillSlots('s-tp',b?.tempTimings||[]);document.getElementById('s-same').checked=b?.sameAsWinter||false;document.getElementById('s-wi-wrap').style.display=b?.sameAsWinter?'none':'';fillPeriods('s-tp-periods',b?.tempPeriods||[]);openOv('ov-s2');}
 
 function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
