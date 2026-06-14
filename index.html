@@ -142,6 +142,13 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 .dash-num{font-size:22px;font-weight:700;margin-top:4px}
 .dash-section{margin-bottom:18px}
 .dash-section-title{font-family:'Google Sans',sans-serif;font-size:15px;font-weight:500;margin-bottom:8px;color:var(--txt)}
+.dash-viz{border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);padding:12px;margin-bottom:14px}
+.dash-bar{display:grid;grid-template-columns:92px 1fr 42px;gap:8px;align-items:center;font-size:12px;margin:7px 0}
+.dash-bar-track{height:9px;background:var(--bg);border-radius:9px;overflow:hidden}
+.dash-bar-fill{height:100%;border-radius:9px;background:var(--blue)}
+.mapbox{height:190px;border:1px solid var(--bdr);border-radius:var(--r);background:linear-gradient(135deg,#eff6ff,#f8fafc);position:relative;overflow:hidden}
+.mapbox::before{content:'';position:absolute;inset:18px;border:1px dashed rgba(95,99,104,.25);border-radius:50% 45% 52% 40%;transform:rotate(-8deg)}
+.heat-dot{position:absolute;border-radius:50%;background:rgba(124,58,237,.42);border:2px solid rgba(107,33,168,.75);transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;color:#3b0764;font-size:9px;font-weight:700}
 .career-card{border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);padding:10px;cursor:pointer}
 .career-card:hover{background:#fafafa}
 .career-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
@@ -647,7 +654,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <div class="field"><label>Application link</label><input id="app-link" type="url"/></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="field"><label>How application was sent</label><select id="app-method"><option>Website form</option><option>Email</option><option>Google Form</option><option>Instagram/DM</option><option>WhatsApp</option><option>Referral/contact</option><option>Other</option></select></div>
-      <div class="field"><label>Status</label><select id="app-status"><option>Considering</option><option>Preparing</option><option>Submitted</option><option>Follow-up needed</option><option>Accepted</option><option>Rejected</option><option>Waitlisted</option><option>Withdrawn</option></select></div>
+      <div class="field"><label>Status</label><select id="app-status"><option>To Apply</option><option>Applied</option><option>Accepted</option><option>Rejected</option><option>Follow Up</option><option>Reapply</option></select></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
       <div class="field"><label>Date applied</label><input id="app-applied" type="date"/></div>
@@ -1085,8 +1092,9 @@ function toggleRemindersDd(){
 // ═══════════════════════════════════════════════════
 // CAREER / ADMIN
 // ═══════════════════════════════════════════════════
-let careerView='perf',perfEditId=null,taskEditId=null,appEditId=null;
+let careerView='perf',perfEditId=null,taskEditId=null,appEditId=null,careerPerfMode='month',careerPerfMonth=(new Date().getMonth()+1),careerPerfYear=new Date().getFullYear();
 const APP_MATERIALS=['Bio','Photos','Video link','Proposal','Budget','Resume/CV','Payment made'];
+const APP_STATUSES=['To Apply','Applied','Accepted','Rejected','Follow Up','Reapply'];
 function ensureCareerData(){careerData={performances:careerData.performances||[],tasks:careerData.tasks||[],applications:careerData.applications||[]};}
 function saveCareerData(refresh=true){ensureCareerData();save('careerData',careerData);syncCareerReminders();if(refresh){renderCareer();if(document.getElementById('ov-tw')?.classList.contains('open'))twRender();}updateReminderBadge();}
 function openCareer(){ensureCareerData();careerTab(careerView||'perf');openOv('ov-career');}
@@ -1097,6 +1105,15 @@ function perfNet(p){return(Number(p.income)||0)-perfExpensesTotal(p);}
 function dateRangeText(from,to){if(!from&&!to)return'';return from===to||!to?from:`${from} → ${to}`;}
 function careerSortDate(v){return v||'9999-12-31';}
 function firstFollowupDate(a){return(a.followups||[]).map(f=>f.date).filter(Boolean).sort()[0]||'';}
+function normalizeAppStatus(st){
+  const m={'Considering':'To Apply','Preparing':'To Apply','Submitted':'Applied','Follow-up needed':'Follow Up','Waitlisted':'Follow Up','Withdrawn':'Rejected'};
+  return APP_STATUSES.includes(st)?st:(m[st]||'To Apply');
+}
+function periodFor(mode,year,month){
+  if(mode==='year')return{from:`${year}-01-01`,to:`${year}-12-31`,label:String(year)};
+  const ms=String(month).padStart(2,'0'),dim=new Date(year,month,0).getDate();
+  return{from:`${year}-${ms}-01`,to:`${year}-${ms}-${String(dim).padStart(2,'0')}`,label:`${MONTHS[month-1]} ${year}`};
+}
 function taskLinkValue(t){return t.linkType&&t.linkId?`${t.linkType}:${t.linkId}`:'none';}
 function taskLinkedLabel(t){
   if(!t.linkType||!t.linkId)return'None';
@@ -1116,12 +1133,22 @@ function careerTable(headers,rows,empty){
   if(!rows.length)return`<div class="career-empty">${empty}</div>`;
   return`<div class="career-table-wrap"><table class="career-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
+function careerPerfControls(){
+  const mOpts=MONTHS.map((n,i)=>`<option value="${i+1}"${i+1===careerPerfMonth?' selected':''}>${n}</option>`).join('');
+  const yOpts=[2025,2026,2027,2028].map(y=>`<option value="${y}"${y===careerPerfYear?' selected':''}>${y}</option>`).join('');
+  return`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <select id="car-perf-mode" onchange="careerPerfMode=this.value;renderCareer()" style="font-size:12px;padding:5px 9px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif"><option value="month"${careerPerfMode==='month'?' selected':''}>Monthly View</option><option value="year"${careerPerfMode==='year'?' selected':''}>Yearly View</option></select>
+    <select id="car-perf-month" onchange="careerPerfMonth=parseInt(this.value);renderCareer()" style="display:${careerPerfMode==='year'?'none':''};font-size:12px;padding:5px 9px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">${mOpts}</select>
+    <select id="car-perf-year" onchange="careerPerfYear=parseInt(this.value);renderCareer()" style="font-size:12px;padding:5px 9px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">${yOpts}</select>
+  </div>`;
+}
 function renderCareer(){
   const el=document.getElementById('career-content');if(!el)return;ensureCareerData();
   if(careerView==='perf'){
-    const list=careerData.performances.slice().sort((a,b)=>careerSortDate(a.date).localeCompare(careerSortDate(b.date))||String(a.title||'').localeCompare(String(b.title||'')));
+    const period=periodFor(careerPerfMode,careerPerfYear,careerPerfMonth);
+    const list=careerData.performances.filter(p=>p.date&&p.date>=period.from&&p.date<=period.to).slice().sort((a,b)=>careerSortDate(a.date).localeCompare(careerSortDate(b.date))||String(a.title||'').localeCompare(String(b.title||'')));
     const totalNet=list.reduce((s,p)=>s+perfNet(p),0);
-    el.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+    el.innerHTML=`${careerPerfControls()}<div style="font-size:12px;color:var(--mut);margin:-4px 0 10px">Showing ${period.label}</div><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <div class="career-card" style="cursor:default"><div class="stitle">Performances</div><div style="font-size:20px;font-weight:600">${list.length}</div></div>
       <div class="career-card" style="cursor:default"><div class="stitle">Net Income</div><div style="font-size:20px;font-weight:600;color:${totalNet>=0?'var(--grn)':'var(--red)'}">${money(totalNet)}</div></div>
     </div>${careerTable(['Date','Festival / Title','Organisers','Location','Income','Expenses','Net','Repertoire','Extra Dates'],list.map(p=>{const net=perfNet(p),extra=(p.extraDates||[]).map(x=>dateRangeText(x.from,x.to)+(x.label?` · ${escHtml(x.label)}`:'')).join('<br>');return`<tr onclick="openPerformanceEdit('${p.id}')"><td>${p.date||'—'}</td><td><b>${escHtml(p.title||'Untitled')}</b></td><td>${escHtml(p.org||'—')}</td><td>${escHtml(p.location||p.loc||'—')}</td><td>${money(p.income)}</td><td>${money(perfExpensesTotal(p))}</td><td style="font-weight:600;color:${net>=0?'var(--grn)':'var(--red)'}">${money(net)}</td><td>${escHtml(p.rep||'—')}</td><td>${extra||'—'}</td></tr>`;}),'No performances yet.')}`;
@@ -1130,7 +1157,7 @@ function renderCareer(){
     el.innerHTML=careerTable(['Remind On','Due Date','Task','Category','Linked To','Status','Notes'],list.map(t=>`<tr onclick="openTaskEdit('${t.id}')" style="${t.status==='completed'?'opacity:.62':''}"><td>${t.remindOn||'—'}</td><td>${t.dueDate||'—'}</td><td><b>${escHtml(t.title||'Untitled task')}</b></td><td>${escHtml(t.category||'General admin')}</td><td>${escHtml(taskLinkedLabel(t))}</td><td><span class="${t.status==='completed'?'fpd':'fpnd'}">${t.status==='completed'?'Completed':'Pending'}</span></td><td>${escHtml(t.notes||'—')}</td></tr>`),'No tasks yet.');
   }else{
     const list=careerData.applications.slice().sort((a,b)=>careerSortDate(a.deadline||firstFollowupDate(a)||a.appliedDate).localeCompare(careerSortDate(b.deadline||firstFollowupDate(b)||b.appliedDate))||String(a.title||'').localeCompare(String(b.title||'')));
-    el.innerHTML=careerTable(['Deadline','Applied','Application','Organisation','Method','Status','Follow-ups','Fee','Notes'],list.map(a=>{const fus=(a.followups||[]).filter(f=>f.date||f.note).map(f=>(f.date||'—')+(f.note?` · ${escHtml(f.note)}`:'')).join('<br>');return`<tr onclick="openApplicationEdit('${a.id}')"><td>${a.deadline||'—'}</td><td>${a.appliedDate||'—'}</td><td><b>${escHtml(a.title||'Untitled application')}</b></td><td>${escHtml(a.org||'—')}</td><td>${escHtml(a.method||'—')}</td><td><span class="fon">${escHtml(a.status||'Preparing')}</span></td><td>${fus||'—'}</td><td>${money(a.fee)}</td><td>${escHtml(a.notes||'—')}</td></tr>`;}),'No applications yet.');
+    el.innerHTML=careerTable(['Deadline','Applied','Application','Organisation','Method','Status','Follow-ups','Fee','Notes'],list.map(a=>{const fus=(a.followups||[]).filter(f=>f.date||f.note).map(f=>(f.date||'—')+(f.note?` · ${escHtml(f.note)}`:'')).join('<br>');return`<tr onclick="openApplicationEdit('${a.id}')"><td>${a.deadline||'—'}</td><td>${a.appliedDate||'—'}</td><td><b>${escHtml(a.title||'Untitled application')}</b></td><td>${escHtml(a.org||'—')}</td><td>${escHtml(a.method||'—')}</td><td><span class="fon">${escHtml(normalizeAppStatus(a.status))}</span></td><td>${fus||'—'}</td><td>${money(a.fee)}</td><td>${escHtml(a.notes||'—')}</td></tr>`;}),'No applications yet.');
   }
 }
 function expenseRowHtml(e={}){const id='exp_'+Date.now()+Math.random().toString(36).slice(2);return`<div class="pr-row" id="${id}"><input placeholder="Item" value="${escHtml(e.item||'')}"/><span style="font-size:11px;color:var(--mut)">₹</span><input type="number" min="0" placeholder="Cost" value="${e.cost||''}" oninput="renderPerfNet()"/><button class="delbtn" onclick="document.getElementById('${id}').remove();renderPerfNet()">×</button></div>`;}
@@ -1151,8 +1178,8 @@ function addFollowupRow(f){document.getElementById('app-followups').insertAdjace
 function readFollowups(){return[...document.querySelectorAll('#app-followups .pr-row')].map(r=>{const i=r.querySelectorAll('input');return{date:i[0].value,note:i[1].value.trim()};}).filter(f=>f.date||f.note);}
 function renderMaterials(vals={}){document.getElementById('app-materials').innerHTML=APP_MATERIALS.map(m=>`<label style="font-size:12px;display:flex;gap:6px;align-items:center"><input type="checkbox" data-mat="${escHtml(m)}"${vals[m]?' checked':''}/> ${escHtml(m)}</label>`).join('');}
 function readMaterials(){const out={};document.querySelectorAll('#app-materials input').forEach(i=>out[i.dataset.mat]=i.checked);return out;}
-function openApplicationEdit(id=null){appEditId=id;const a=careerData.applications.find(x=>x.id===id)||{};document.getElementById('app-ttl').textContent=id?'Edit Application':'Add Application';['title','org','link','applied','deadline','fee','result','notes'].forEach(k=>{const el=document.getElementById('app-'+k);if(el)el.value=a[k]||a[k+'Date']||'';});document.getElementById('app-method').value=a.method||'Website form';document.getElementById('app-status').value=a.status||'Preparing';document.getElementById('app-followups').innerHTML='';(a.followups||[]).forEach(addFollowupRow);renderMaterials(a.materials||{});document.getElementById('app-del').style.display=id?'':'none';openOv('ov-app');}
-function saveApplication(){const title=document.getElementById('app-title').value.trim();if(!title){showToast('Add application name');return;}const a={id:appEditId||'app_'+Date.now(),title,org:document.getElementById('app-org').value.trim(),link:document.getElementById('app-link').value.trim(),method:document.getElementById('app-method').value,status:document.getElementById('app-status').value,appliedDate:document.getElementById('app-applied').value,deadline:document.getElementById('app-deadline').value,fee:Number(document.getElementById('app-fee').value)||0,resultDate:document.getElementById('app-result').value,followups:readFollowups(),materials:readMaterials(),notes:document.getElementById('app-notes').value.trim()};const i=careerData.applications.findIndex(x=>x.id===a.id);if(i>=0)careerData.applications[i]=a;else careerData.applications.push(a);closeOv('ov-app');saveCareerData();showToast('Application saved');}
+function openApplicationEdit(id=null){appEditId=id;const a=careerData.applications.find(x=>x.id===id)||{};document.getElementById('app-ttl').textContent=id?'Edit Application':'Add Application';['title','org','link','applied','deadline','fee','result','notes'].forEach(k=>{const el=document.getElementById('app-'+k);if(el)el.value=a[k]||a[k+'Date']||'';});document.getElementById('app-method').value=a.method||'Website form';document.getElementById('app-status').value=normalizeAppStatus(a.status);document.getElementById('app-followups').innerHTML='';(a.followups||[]).forEach(addFollowupRow);renderMaterials(a.materials||{});document.getElementById('app-del').style.display=id?'':'none';openOv('ov-app');}
+function saveApplication(){const title=document.getElementById('app-title').value.trim();if(!title){showToast('Add application name');return;}const a={id:appEditId||'app_'+Date.now(),title,org:document.getElementById('app-org').value.trim(),link:document.getElementById('app-link').value.trim(),method:document.getElementById('app-method').value,status:normalizeAppStatus(document.getElementById('app-status').value),appliedDate:document.getElementById('app-applied').value,deadline:document.getElementById('app-deadline').value,fee:Number(document.getElementById('app-fee').value)||0,resultDate:document.getElementById('app-result').value,followups:readFollowups(),materials:readMaterials(),notes:document.getElementById('app-notes').value.trim()};const i=careerData.applications.findIndex(x=>x.id===a.id);if(i>=0)careerData.applications[i]=a;else careerData.applications.push(a);closeOv('ov-app');saveCareerData();showToast('Application saved');}
 function deleteApplication(){showConfirm('Delete this application?',()=>{careerData.applications=careerData.applications.filter(x=>x.id!==appEditId);reminders=reminders.filter(r=>!(r.targetType==='application'&&r.sourceId===appEditId));closeOv('ov-app');saveCareerData();saveReminders();showToast('Application deleted');});}
 function syncCareerReminders(){
   const old={};reminders.forEach(r=>{if(['task','application'].includes(r.targetType))old[r.id]=r;});
@@ -1196,6 +1223,23 @@ function countBy(rows,key){
 function miniBreakdown(title,pairs){
   return`<div class="dash-card"><div class="stitle">${title}</div>${pairs.length?pairs.map(([k,v])=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px solid #f3f3f3;padding:4px 0"><span>${escHtml(k)}</span><b>${v}</b></div>`).join(''):'<div style="font-size:12px;color:var(--mut)">No data yet.</div>'}</div>`;
 }
+function dashBars(title,pairs,color='var(--blue)'){
+  const max=Math.max(1,...pairs.map(p=>p[1]||0));
+  return`<div class="dash-viz"><div class="dash-section-title" style="font-size:14px">${title}</div>${pairs.length?pairs.map(([k,v])=>`<div class="dash-bar"><span>${escHtml(k)}</span><div class="dash-bar-track"><div class="dash-bar-fill" style="width:${Math.max(3,(v/max)*100)}%;background:${color}"></div></div><b>${v}</b></div>`).join(''):'<div style="font-size:12px;color:var(--mut)">No data yet.</div>'}</div>`;
+}
+function performanceIncomeGraph(year){
+  const vals=Array.from({length:12},(_,i)=>careerData.performances.filter(p=>p.date&&p.date.startsWith(`${year}-${String(i+1).padStart(2,'0')}`)).reduce((s,p)=>s+(Number(p.income)||0),0));
+  const pairs=MONTHS.map((m,i)=>[m.slice(0,3),vals[i]]);
+  return dashBars(`Performance Income Over Time (${year})`,pairs,'var(--grn)');
+}
+function simpleHash(str){let h=0;for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return h;}
+function performanceLocationHeatmap(perfs){
+  const counts={};perfs.forEach(p=>{const loc=(p.location||p.loc||'').trim()||'Location not set';counts[loc]=(counts[loc]||0)+1;});
+  const pairs=Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  const max=Math.max(1,...pairs.map(p=>p[1]));
+  const dots=pairs.map(([loc,count])=>{const h=simpleHash(loc),x=12+(h%76),y=18+((h>>8)%64),size=18+(count/max)*30;return`<span class="heat-dot" title="${escHtml(loc)} · ${count}" style="left:${x}%;top:${y}%;width:${size}px;height:${size}px">${count}</span>`;}).join('');
+  return`<div class="dash-viz"><div class="dash-section-title" style="font-size:14px">Performance Location Heatmap</div><div class="mapbox">${dots||'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--mut)">No performance locations yet.</div>'}</div><div style="margin-top:8px">${pairs.slice(0,6).map(([loc,count])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f3f3f3"><span>${escHtml(loc)}</span><b>${count}</b></div>`).join('')}</div></div>`;
+}
 function renderDashboard(){
   const period=dashboardPeriod();
   const events=dashboardEventsInRange(period.from,period.to),classes=events.filter(ev=>(ev.classType||'scheduled')!=='block'),blocks=events.filter(ev=>(ev.classType||'scheduled')==='block');
@@ -1224,9 +1268,12 @@ function renderDashboard(){
   const taskRows=careerData.tasks.filter(t=>(t.remindOn&&t.remindOn>=period.from&&t.remindOn<=period.to)||(t.dueDate&&t.dueDate>=period.from&&t.dueDate<=period.to));
   const studentRows=allStudentInfoRows();
   const demoWithDetails=studentRows.filter(r=>Object.values(r.details||{}).some(Boolean)).length;
-  const appStatus=countBy(apps.map(a=>({details:{status:a.status||'Preparing'}})),'status');
+  const appStatus=APP_STATUSES.map(st=>[st,apps.filter(a=>normalizeAppStatus(a.status)===st).length]);
+  const appliedCount=apps.filter(a=>['Applied','Accepted','Rejected','Follow Up','Reapply'].includes(normalizeAppStatus(a.status))).length;
+  const acceptedCount=apps.filter(a=>normalizeAppStatus(a.status)==='Accepted').length;
+  const toApplyCount=apps.filter(a=>normalizeAppStatus(a.status)==='To Apply').length;
   const pendingTasks=taskRows.filter(t=>t.status!=='completed').length,completedTasks=taskRows.length-pendingTasks;
-  const pendingApps=apps.filter(a=>!['Accepted','Rejected','Withdrawn'].includes(a.status||'')).length;
+  const pendingApps=apps.filter(a=>!['Accepted','Rejected'].includes(normalizeAppStatus(a.status))).length;
   const card=(label,num,color='var(--txt)',sub='')=>`<div class="dash-card"><div class="stitle">${label}</div><div class="dash-num" style="color:${color}">${num}</div>${sub?`<div style="font-size:11px;color:var(--mut);margin-top:3px">${sub}</div>`:''}</div>`;
   document.getElementById('dash-inner').innerHTML=`<div style="font-size:13px;color:var(--mut);margin-bottom:12px">Showing ${period.label}</div>
   <div class="dash-section"><div class="dash-section-title">Teaching</div><div class="dash-grid">
@@ -1248,9 +1295,12 @@ function renderDashboard(){
     ${card('Performance expenses',money(perfExpenses),'var(--red)')}
     ${card('Performance net',money(perfNetTotal),perfNetTotal>=0?'var(--grn)':'var(--red)')}
     ${card('Applications',apps.length,'#1d4ed8',`${pendingApps} open`)}
+    ${card('Applied for',appliedCount,'#1d4ed8')}
+    ${card('Accepted',acceptedCount,'var(--grn)')}
+    ${card('To Apply',toApplyCount,'var(--ora)')}
     ${card('Application follow-ups',appFollowups.length,'var(--ora)')}
     ${card('Career tasks',taskRows.length,'var(--mut)',`${completedTasks} completed · ${pendingTasks} pending`)}
-  </div>${miniBreakdown('Application Status',appStatus)}</div>
+  </div><div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">${performanceIncomeGraph(period.year)}${dashBars('Application Status',appStatus,'#1d4ed8')}</div>${performanceLocationHeatmap(perf)}</div>
   <div class="dash-section"><div class="dash-section-title">Planning / Blocks</div><div class="dash-grid">
     ${card('Blocked entries',s.blocks,'var(--mut)')}
     ${card('Blocked hours',s.blockHours.toFixed(1),'var(--mut)')}
