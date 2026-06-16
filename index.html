@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0137)file:///Users/lekshmireghunath/Documents/Codex/2026-06-10/files-mentioned-by-the-user-additional/outputs/dance-schedule-repaired-v51.html -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>DanceOps</title>
-<link href="./DanceOps_files/css2" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -172,70 +172,70 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <!-- HEADER -->
 <header class="hdr">
   <button class="burger" onclick="toggleSidebar()">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect y="4" width="24" height="2" rx="1"></rect><rect y="11" width="24" height="2" rx="1"></rect><rect y="18" width="24" height="2" rx="1"></rect></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect y="4" width="24" height="2" rx="1"/><rect y="11" width="24" height="2" rx="1"/><rect y="18" width="24" height="2" rx="1"/></svg>
   </button>
   <span class="logo">Dance<span>Ops</span></span>
   <div class="hsp"></div>
-  <span id="season-badge" class="sbadge" style="background: rgb(255, 248, 225); color: rgb(230, 81, 0);">☀ Summer</span>
+  <span id="season-badge" class="sbadge"></span>
   <button class="hbtn" id="btn-ist" onclick="toggleIst()">IST only</button>
   <div class="tz-wrap" id="tz-wrap">
     <button class="tz-btn" onclick="toggleTzDd()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"></path></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
       <span id="tz-lbl">EDT</span>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
     </button>
-    <div class="tz-dd" id="tz-dd"><div class="tz-opt active" onclick="setTz(&#39;EDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>EDT – Eastern Summer</div><div class="tz-opt" onclick="setTz(&#39;EST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>EST – Eastern Winter</div><div class="tz-opt" onclick="setTz(&#39;CDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>CDT – Central Summer</div><div class="tz-opt" onclick="setTz(&#39;CST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>CST – Central Winter</div><div class="tz-opt" onclick="setTz(&#39;PDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>PDT – Pacific Summer</div><div class="tz-opt" onclick="setTz(&#39;PST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>PST – Pacific Winter</div><div class="tz-opt" onclick="setTz(&#39;AEDT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>AEDT – Australian Summer</div><div class="tz-opt" onclick="setTz(&#39;AEST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>AEST – Australian Winter</div><div class="tz-opt" onclick="setTz(&#39;BST&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>BST – British Summer</div><div class="tz-opt" onclick="setTz(&#39;GMT&#39;)"><svg class="tz-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"></path></svg>GMT – Greenwich Mean Time</div></div>
+    <div class="tz-dd" id="tz-dd"></div>
   </div>
   <button class="hbtn" onclick="openTW()" style="background:var(--oral);color:var(--ora);font-weight:500">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     This Week
   </button>
   <button class="hbtn" onclick="openAtt()" style="background:var(--bluel);color:var(--blue);font-weight:500">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
     Attendance
   </button>
   <button class="hbtn" onclick="openDashboard()" style="background:#ecfdf5;color:var(--grn);font-weight:500">Dashboard</button>
   <button class="hbtn" onclick="openCareer()" style="background:#f3e8ff;color:#6b21a8;font-weight:500">Career/Admin</button>
   <div class="bell-wrap">
     <button class="bell-btn" id="bell-btn" onclick="toggleRemindersDd()" title="Reminders">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-      <span class="bell-count" id="bell-count" style="display: none;">0</span>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="bell-count" id="bell-count">0</span>
     </button>
     <div class="bell-dd" id="bell-dd"></div>
   </div>
   <button class="hbtn" onclick="openSettings()">⚙ Settings</button>
-  <span id="ss" style="font-size:10px;color:var(--mut);flex-shrink:0">Saved</span>
+  <span id="ss" style="font-size:10px;color:var(--mut);flex-shrink:0"></span>
 </header>
 
 <div class="body">
   <aside class="sidebar" id="sidebar">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 10px">
-      <button id="btn-ab" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-family:&#39;Roboto&#39;,sans-serif;font-weight:500">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>Add batch
+      <button id="btn-ab" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-family:'Roboto',sans-serif;font-weight:500">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Add batch
       </button>
-      <button id="btn-as" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:none;color:var(--blue);border:1px solid var(--blue);border-radius:var(--r);cursor:pointer;font-size:11px;font-family:&#39;Roboto&#39;,sans-serif;font-weight:500">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>Add student
+      <button id="btn-as" style="display:flex;align-items:center;justify-content:center;gap:3px;padding:7px 5px;background:none;color:var(--blue);border:1px solid var(--blue);border-radius:var(--r);cursor:pointer;font-size:11px;font-family:'Roboto',sans-serif;font-weight:500">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Add student
       </button>
     </div>
     <div class="sb-sec">
-      <div class="sb-lbl" onclick="toggleSec(&#39;batches&#39;)">
+      <div class="sb-lbl" onclick="toggleSec('batches')">
         <span>Batches</span>
-        <svg id="cv-batches" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"></path></svg>
+        <svg id="cv-batches" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg>
       </div>
-      <div id="sb-batches"><div id="batch-list"></div><div id="batch-empty" style="font-size: 11px; color: var(--sub); padding: 6px 4px; display: block;">No batches yet.</div></div>
+      <div id="sb-batches"><div id="batch-list"></div><div id="batch-empty" style="font-size:11px;color:var(--sub);padding:6px 4px;display:none">No batches yet.</div></div>
     </div>
     <div class="sb-div"></div>
     <div class="sb-sec">
-      <div class="sb-lbl" onclick="toggleSec(&#39;students&#39;)">
+      <div class="sb-lbl" onclick="toggleSec('students')">
         <span>Students</span>
-        <svg id="cv-students" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"></path></svg>
+        <svg id="cv-students" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg>
       </div>
-      <div id="sb-students"><div id="student-list"></div><div id="student-empty" style="font-size: 11px; color: var(--sub); padding: 6px 4px; display: block;">No students yet.</div></div>
+      <div id="sb-students"><div id="student-list"></div><div id="student-empty" style="font-size:11px;color:var(--sub);padding:6px 4px;display:none">No students yet.</div></div>
     </div>
     <div class="sb-div"></div>
     <div class="sb-sec"><div style="font-size:9px;color:var(--sub);padding:3px">Auto-saved to cloud</div></div>
   </aside>
-  <main class="cal-outer"><div id="cal-inner"><div class="cal-grid" style="grid-template-columns:52px 52px repeat(7,minmax(88px,1fr))"><div class="cal-hc" style="font-size:9px;font-weight:600;color:var(--sub);display:flex;align-items:flex-end;justify-content:flex-end;padding:0 5px 5px;border-right:1px solid var(--bdr)">IST</div><div class="cal-hc" style="font-size:9px;font-weight:600;color:var(--blue);display:flex;align-items:flex-end;padding:0 5px 5px;border-right:1px solid var(--bdr)">EDT</div><div class="cal-hdr" style="">Mon<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">15-06</span></div><div class="cal-hdr" style="color:var(--ora);">Tue<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">16-06</span></div><div class="cal-hdr" style="">Wed<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">17-06</span></div><div class="cal-hdr" style="">Thu<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">18-06</span></div><div class="cal-hdr" style="">Fri<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">19-06</span></div><div class="cal-hdr" style="">Sat<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">20-06</span></div><div class="cal-hdr" style="">Sun<span style="display:block;font-size:9px;font-weight:400;color:var(--mut);margin-top:1px">21-06</span></div><div style="display:flex;flex-direction:column;background:var(--sur)"><div class="cal-tm" style="height:66px">4am</div><div class="cal-tm" style="height:66px">5am</div><div class="cal-tm" style="height:66px">6am</div><div class="cal-tm" style="height:66px">7am</div><div class="cal-tm" style="height:66px">8am</div><div class="cal-tm" style="height:66px">9am</div><div class="cal-tm" style="height:66px">10am</div><div class="cal-tm" style="height:66px">11am</div><div class="cal-tm" style="height:66px">12pm</div><div class="cal-tm" style="height:66px">1pm</div><div class="cal-tm" style="height:66px">2pm</div><div class="cal-tm" style="height:66px">3pm</div><div class="cal-tm" style="height:66px">4pm</div><div class="cal-tm" style="height:66px">5pm</div><div class="cal-tm" style="height:66px">6pm</div><div class="cal-tm" style="height:66px">7pm</div><div class="cal-tm" style="height:66px">8pm</div><div class="cal-tm" style="height:66px">9pm</div><div class="cal-tm" style="height:66px">10pm</div><div class="cal-tm" style="height:66px">11pm</div></div><div style="display:flex;flex-direction:column;background:var(--sur)"><div class="cal-tmtz" style="height:66px">6:30pm</div><div class="cal-tmtz" style="height:66px">7:30pm</div><div class="cal-tmtz" style="height:66px">8:30pm</div><div class="cal-tmtz" style="height:66px">9:30pm</div><div class="cal-tmtz" style="height:66px">10:30pm</div><div class="cal-tmtz" style="height:66px">11:30pm</div><div class="cal-tmtz" style="height:66px">12:30am</div><div class="cal-tmtz" style="height:66px">1:30am</div><div class="cal-tmtz" style="height:66px">2:30am</div><div class="cal-tmtz" style="height:66px">3:30am</div><div class="cal-tmtz" style="height:66px">4:30am</div><div class="cal-tmtz" style="height:66px">5:30am</div><div class="cal-tmtz" style="height:66px">6:30am</div><div class="cal-tmtz" style="height:66px">7:30am</div><div class="cal-tmtz" style="height:66px">8:30am</div><div class="cal-tmtz" style="height:66px">9:30am</div><div class="cal-tmtz" style="height:66px">10:30am</div><div class="cal-tmtz" style="height:66px">11:30am</div><div class="cal-tmtz" style="height:66px">12:30pm</div><div class="cal-tmtz" style="height:66px">1:30pm</div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div></div><div class="cal-col" style="height:1254px"><div class="hl s" style="top:0px"></div><div class="hl" style="top:33px"></div><div class="hl s" style="top:66px"></div><div class="hl" style="top:99.00000000000001px"></div><div class="hl s" style="top:132px"></div><div class="hl" style="top:165px"></div><div class="hl s" style="top:198.00000000000003px"></div><div class="hl" style="top:231.00000000000003px"></div><div class="hl s" style="top:264px"></div><div class="hl" style="top:297px"></div><div class="hl s" style="top:330px"></div><div class="hl" style="top:363.00000000000006px"></div><div class="hl s" style="top:396.00000000000006px"></div><div class="hl" style="top:429.00000000000006px"></div><div class="hl s" style="top:462.00000000000006px"></div><div class="hl" style="top:495.00000000000006px"></div><div class="hl s" style="top:528px"></div><div class="hl" style="top:561px"></div><div class="hl s" style="top:594px"></div><div class="hl" style="top:627px"></div><div class="hl s" style="top:660px"></div><div class="hl" style="top:693px"></div><div class="hl s" style="top:726.0000000000001px"></div><div class="hl" style="top:759.0000000000001px"></div><div class="hl s" style="top:792.0000000000001px"></div><div class="hl" style="top:825.0000000000001px"></div><div class="hl s" style="top:858.0000000000001px"></div><div class="hl" style="top:891.0000000000001px"></div><div class="hl s" style="top:924.0000000000001px"></div><div class="hl" style="top:957.0000000000001px"></div><div class="hl s" style="top:990.0000000000001px"></div><div class="hl" style="top:1023.0000000000001px"></div><div class="hl s" style="top:1056px"></div><div class="hl" style="top:1089px"></div><div class="hl s" style="top:1122px"></div><div class="hl" style="top:1155px"></div><div class="hl s" style="top:1188px"></div><div class="hl" style="top:1221px"></div><div class="hl s" style="top:1254px"></div></div></div></div></main>
+  <main class="cal-outer"><div id="cal-inner"></div></main>
 </div>
 
 <!-- GLOBAL SETTINGS -->
@@ -244,8 +244,8 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <h2>⚙ Global Settings</h2>
     <div class="field"><label>Year</label><select id="gs-yr"><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field"><label>Summer starts on</label><input id="gs-su" type="date"></div>
-      <div class="field"><label>Winter starts on</label><input id="gs-wi" type="date"></div>
+      <div class="field"><label>Summer starts on</label><input id="gs-su" type="date"/></div>
+      <div class="field"><label>Winter starts on</label><input id="gs-wi" type="date"/></div>
     </div>
     <div style="background:var(--bg);border-radius:var(--r);padding:10px;font-size:12px;color:var(--mut);margin-bottom:8px" id="gs-showing">Currently showing: —</div>
     <div class="field"><label>Display timezone</label><select id="gs-tz"></select></div>
@@ -254,17 +254,17 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Download a backup before major edits, or restore from a backup file.</div>
       <div style="display:flex;gap:7px;flex-wrap:wrap">
         <button class="bc" style="font-size:12px" onclick="downloadBackup()">Download backup</button>
-        <button class="bc" style="font-size:12px" onclick="document.getElementById(&#39;backup-file&#39;).click()">Restore backup</button>
+        <button class="bc" style="font-size:12px" onclick="document.getElementById('backup-file').click()">Restore backup</button>
         <button class="bc" style="font-size:12px" onclick="repairAppData()">Repair data</button>
       </div>
-      <input id="backup-file" type="file" accept="application/json,.json" style="display:none" onchange="restoreBackupFile(this)">
+      <input id="backup-file" type="file" accept="application/json,.json" style="display:none" onchange="restoreBackupFile(this)"/>
     </div>
     <div style="border-top:1px solid var(--bdr);margin-top:12px;padding-top:12px">
       <div class="stitle" style="color:var(--red)">Danger Zone</div>
       <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Delete all batches, students, attendance, TW edits, notes, reminders, and fee records from this app.</div>
       <button class="bd" style="margin-right:0" onclick="deleteAllDataConfirm()">Delete all app data</button>
     </div>
-    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-settings&#39;)">Cancel</button><button class="bp" onclick="saveSettings()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv('ov-settings')">Cancel</button><button class="bp" onclick="saveSettings()">Save</button></div>
   </div>
 </div>
 
@@ -275,7 +275,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <h2 style="margin-bottom:0" id="b1-ttl">Add Batch Details</h2>
       <span style="font-size:11px;color:var(--blue);font-weight:500">Step 1 of 2</span>
     </div>
-    <div class="field"><label>Batch name</label><input id="b-nm" type="text" placeholder="e.g. Ohio 1"></div>
+    <div class="field"><label>Batch name</label><input id="b-nm" type="text" placeholder="e.g. Ohio 1"/></div>
     <div class="field"><label>Students <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--sub)">(comma-separated)</span></label><textarea id="b-sts" placeholder="Ava, Harini, ..."></textarea></div>
     <div class="field"><label>Preferred timezone</label>
       <select id="b-tz"><option value="IST">IST</option><option value="Eastern">Eastern (EDT/EST)</option><option value="Central">Central (CDT/CST)</option><option value="Pacific">Pacific (PDT/PST)</option><option value="Australian">Australian (AEDT/AEST)</option><option value="British">British (BST/GMT)</option></select>
@@ -283,7 +283,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <div class="field"><label>Colour</label><div class="cg" id="b-cg"></div></div>
     <div class="mf">
       <button class="bd" id="b-del" onclick="deleteBatch()" style="display:none">Delete batch</button>
-      <button class="bc" onclick="closeOv(&#39;ov-b1&#39;)">Cancel</button>
+      <button class="bc" onclick="closeOv('ov-b1')">Cancel</button>
       <button class="bp" onclick="bStep2()">Save &amp; Next →</button>
     </div>
   </div>
@@ -297,23 +297,23 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <span style="font-size:11px;color:var(--blue);font-weight:500">Step 2 of 2</span>
     </div>
     <div style="font-size:12px;color:var(--mut);margin-bottom:12px" id="b2-lbl"></div>
-    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-su"></div><button class="addslot" onclick="bAddSlot(&#39;su&#39;)">+ Add slot</button></div>
-    <div class="ts-wrap" id="b-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-wi"></div><button class="addslot" onclick="bAddSlot(&#39;wi&#39;)">+ Add slot</button></div>
+    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-su"></div><button class="addslot" onclick="bAddSlot('su')">+ Add slot</button></div>
+    <div class="ts-wrap" id="b-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="b-wi"></div><button class="addslot" onclick="bAddSlot('wi')">+ Add slot</button></div>
     <div class="field" style="margin:6px 0 8px;padding:0 2px">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt)">
-        <input type="checkbox" id="b-same" onchange="bToggleSame()" style="width:14px;height:14px;cursor:pointer"> Same as summer timings
+        <input type="checkbox" id="b-same" onchange="bToggleSame()" style="width:14px;height:14px;cursor:pointer"/> Same as summer timings
       </label>
     </div>
     <div class="ts-wrap"><div class="ts-ttl tp">⏱ Temporary Timings <span style="font-size:9px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--mut)">(replaces regular during date ranges below)</span></div>
       <div class="field" style="margin-bottom:6px"><label>Applies during</label><select id="b-tpss"><option value="both">Both seasons</option><option value="summer">Summer only</option><option value="winter">Winter only</option></select></div>
       <div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div>
-      <div id="b-tp"></div><button class="addslot" onclick="bAddSlot(&#39;tp&#39;)">+ Add slot</button>
+      <div id="b-tp"></div><button class="addslot" onclick="bAddSlot('tp')">+ Add slot</button>
       <div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Active date ranges</div>
         <div id="b-tp-periods"></div>
-        <button onclick="bAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif">+ Add date range</button>
+        <button onclick="bAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif">+ Add date range</button>
       </div>
     </div>
-    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-b2&#39;)">Cancel</button><button class="bp" onclick="saveBatch()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv('ov-b2')">Cancel</button><button class="bp" onclick="saveBatch()">Save</button></div>
   </div>
 </div>
 
@@ -321,11 +321,11 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-bd" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
-      <span id="bd-ttl" style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:17px;font-weight:500"></span>
+      <span id="bd-ttl" style="font-family:'Google Sans',sans-serif;font-size:17px;font-weight:500"></span>
       <div style="flex:1"></div>
       <button class="bc" onclick="bdEditBatch()">Edit Batch Details</button>
       <button class="bd" style="margin-right:0" onclick="bdDeleteConfirm()">Delete Batch</button>
-      <button class="bc" onclick="closeOv(&#39;ov-bd&#39;)">Exit</button>
+      <button class="bc" onclick="closeOv('ov-bd')">Exit</button>
     </div>
     <div style="flex:1;overflow:auto;padding:20px"><div id="bd-content"></div></div>
   </div>
@@ -338,7 +338,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <h2 style="margin-bottom:0" id="s1-ttl">Add Student Details</h2>
       <span id="s1-step" style="font-size:11px;color:var(--blue);font-weight:500"></span>
     </div>
-    <div class="field"><label>Student name</label><input id="s-nm" type="text" placeholder="Student name"></div>
+    <div class="field"><label>Student name</label><input id="s-nm" type="text" placeholder="Student name"/></div>
     <div class="field"><label>Batch <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--sub)">(empty = individual)</span></label><select id="s-bat" onchange="sBatChange()"><option value="">No batch — individual student</option></select></div>
     <div class="field"><label>Preferred timezone</label>
       <select id="s-tz"><option value="IST">IST</option><option value="Eastern">Eastern</option><option value="Central">Central</option><option value="Pacific">Pacific</option><option value="Australian">Australian</option><option value="British">British</option></select>
@@ -346,26 +346,26 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <div class="field"><label>Student type</label>
       <select id="s-cat" onchange="sCatChange()"><option value="">— select —</option><option value="A">Type A — Ohio Standard</option><option value="B">Type B — Monthly Block</option><option value="C">Type C — True Per-Class</option><option value="D">Type D — Rolling Cycle</option></select>
     </div>
-    <div class="field"><label>Add from</label><input id="s-add-from" type="date"></div>
+    <div class="field"><label>Add from</label><input id="s-add-from" type="date"/></div>
     <div id="s-fee-wrap" style="display:none">
       <div id="s-fee-A" style="display:none">
-        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-a-rate" type="number" min="0" placeholder="400"><select id="s-a-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-a-rate" type="number" min="0" placeholder="400"/><select id="s-a-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div class="field"><label>Last fee paid for</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-a-lpm"></select><select id="s-a-lpy"></select></div></div>
       </div>
       <div id="s-fee-B" style="display:none">
-        <div class="field"><label>Per month fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-b-rate" type="number" min="0" placeholder="3000"><select id="s-b-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Per month fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-b-rate" type="number" min="0" placeholder="3000"/><select id="s-b-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div class="field"><label>Last fee paid for</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-b-lpm"></select><select id="s-b-lpy"></select></div></div>
       </div>
       <div id="s-fee-C" style="display:none">
-        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-c-rate" type="number" min="0" placeholder="500"><select id="s-c-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Per class fee</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-c-rate" type="number" min="0" placeholder="500"/><select id="s-c-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div class="field"><label>Last fee paid for</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><select id="s-c-lpm"></select><select id="s-c-lpy"></select></div></div>
       </div>
       <div id="s-fee-D" style="display:none">
-        <div class="field"><label>Current fee cycle started on</label><input id="s-d-cs" type="date" style="width:100%"></div>
-        <div class="field"><label>Fee per 8-class cycle</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-d-rate" type="number" min="0" placeholder="2800"><select id="s-d-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
+        <div class="field"><label>Current fee cycle started on</label><input id="s-d-cs" type="date" style="width:100%"/></div>
+        <div class="field"><label>Fee per 8-class cycle</label><div style="display:grid;grid-template-columns:1fr 70px;gap:7px"><input id="s-d-rate" type="number" min="0" placeholder="2800"/><select id="s-d-cur"><option value="INR">INR</option><option value="USD">USD</option></select></div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="field"><label>Previous fee cycle start date</label><input id="s-d-prev-start" type="date" style="width:100%"></div>
-          <div class="field"><label>Previous fee cycle end date</label><input id="s-d-prev" type="date" style="width:100%"></div>
+          <div class="field"><label>Previous fee cycle start date</label><input id="s-d-prev-start" type="date" style="width:100%"/></div>
+          <div class="field"><label>Previous fee cycle end date</label><input id="s-d-prev" type="date" style="width:100%"/></div>
         </div>
         <div class="field"><label>Previous fee cycle status</label><select id="s-d-prev-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
         <div class="warn" style="font-size:11px;margin-top:4px">The entered cycle start date is always counted as class 1/8. Backfill the class dates for that fee cycle so the app can count the rolling cycle in order.</div>
@@ -373,7 +373,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     </div>
     <div class="mf">
       <button class="bd" id="s-del" onclick="deleteStudentConfirm()" style="display:none">Delete student</button>
-      <button class="bc" onclick="closeOv(&#39;ov-s1&#39;)">Cancel</button>
+      <button class="bc" onclick="closeOv('ov-s1')">Cancel</button>
       <button class="bp" id="s-save" onclick="sStep1Save()">Save</button>
     </div>
   </div>
@@ -387,22 +387,22 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <span style="font-size:11px;color:var(--blue);font-weight:500">Step 2 of 2</span>
     </div>
     <div style="font-size:12px;color:var(--mut);margin-bottom:12px" id="s2-lbl"></div>
-    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-su"></div><button class="addslot" onclick="sAddSlot(&#39;su&#39;)">+ Add slot</button></div>
-    <div class="ts-wrap" id="s-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-wi"></div><button class="addslot" onclick="sAddSlot(&#39;wi&#39;)">+ Add slot</button></div>
+    <div class="ts-wrap"><div class="ts-ttl su">☀ Summer Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-su"></div><button class="addslot" onclick="sAddSlot('su')">+ Add slot</button></div>
+    <div class="ts-wrap" id="s-wi-wrap"><div class="ts-ttl wi">❄ Winter Timings</div><div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-wi"></div><button class="addslot" onclick="sAddSlot('wi')">+ Add slot</button></div>
     <div class="field" style="margin:6px 0 8px;padding:0 2px">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt)">
-        <input type="checkbox" id="s-same" onchange="sToggleSame()" style="width:14px;height:14px;cursor:pointer"> Same as summer timings
+        <input type="checkbox" id="s-same" onchange="sToggleSame()" style="width:14px;height:14px;cursor:pointer"/> Same as summer timings
       </label>
     </div>
     <div class="ts-wrap"><div class="ts-ttl tp">⏱ Temporary Timings</div>
       <div class="field" style="margin-bottom:6px"><label>Applies during</label><select id="s-tpss"><option value="both">Both seasons</option><option value="summer">Summer only</option><option value="winter">Winter only</option></select></div>
-      <div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-tp"></div><button class="addslot" onclick="sAddSlot(&#39;tp&#39;)">+ Add slot</button>
+      <div class="ts-hdr"><span>Day</span><span>TZ</span><span>Start</span><span>End</span><span></span></div><div id="s-tp"></div><button class="addslot" onclick="sAddSlot('tp')">+ Add slot</button>
       <div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Active date ranges</div>
         <div id="s-tp-periods"></div>
-        <button onclick="sAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif">+ Add date range</button>
+        <button onclick="sAddPeriod()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif">+ Add date range</button>
       </div>
     </div>
-    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-s2&#39;)">Cancel</button><button class="bp" onclick="sStep2Save()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv('ov-s2')">Cancel</button><button class="bp" onclick="sStep2Save()">Save</button></div>
   </div>
 </div>
 
@@ -410,7 +410,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-sd" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
-      <span id="sd-ttl" style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:17px;font-weight:500"></span>
+      <span id="sd-ttl" style="font-family:'Google Sans',sans-serif;font-size:17px;font-weight:500"></span>
       <div style="flex:1"></div>
       <button class="bp" id="sd-save" onclick="sdSave()" style="display:none">Save</button>
       <button class="bc" id="sd-edit" onclick="sdEditMode()">Edit Student Details</button>
@@ -424,22 +424,22 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-tw" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:10px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
-      <span style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:16px;font-weight:500;color:var(--ora)">📅 This Week</span>
-      <input type="date" id="tw-dt" onchange="twSetWeek()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
+      <span style="font-family:'Google Sans',sans-serif;font-size:16px;font-weight:500;color:var(--ora)">📅 This Week</span>
+      <input type="date" id="tw-dt" onchange="twSetWeek()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif"/>
       <button class="hbtn" onclick="twPrev()">← Prev</button>
       <button class="hbtn" onclick="twNext()">Next →</button>
       <button class="hbtn" onclick="twToday()" style="background:var(--bluel);color:var(--blue);font-weight:500">Today</button>
-      <button class="hbtn" id="tw-undo" onclick="twUndo()" style="background:var(--hov);color:var(--mut)" disabled="">↶ Undo</button>
+      <button class="hbtn" id="tw-undo" onclick="twUndo()" style="background:var(--hov);color:var(--mut)" disabled>↶ Undo</button>
       
       <button class="hbtn" onclick="openTwAdd()" style="background:var(--oral);color:var(--ora)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg> Add Class
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add Class
       </button>
       <button class="hbtn" onclick="openTwBlock()" style="background:var(--hov);color:var(--mut)">
         ▣ Block Time
       </button>
       <div style="flex:1"></div>
       <span style="font-size:10px;color:var(--sub)">Drag to move · Mark attendance in student popup</span>
-      <button class="hbtn" onclick="closeOv(&#39;ov-tw&#39;)" style="color:var(--red)">✕ Close</button>
+      <button class="hbtn" onclick="closeOv('ov-tw')" style="color:var(--red)">✕ Close</button>
     </div>
     <div style="flex:1;overflow:auto"><div id="tw-inner"></div></div>
   </div>
@@ -449,16 +449,16 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-twb" style="z-index:350">
   <div class="modal" style="width:460px">
     <h2 id="twb-ttl">Block Time</h2>
-    <div class="field"><label>Title</label><input id="twb-title" placeholder="Trial class, parent meeting, choreo planning..."></div>
+    <div class="field"><label>Title</label><input id="twb-title" placeholder="Trial class, parent meeting, choreo planning..."/></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="field"><label>Date</label><input id="twb-dt" type="date"></div>
-      <div class="field"><label>Start (IST)</label><input id="twb-st" type="time"></div>
-      <div class="field"><label>End (IST)</label><input id="twb-en" type="time"></div>
+      <div class="field"><label>Date</label><input id="twb-dt" type="date"/></div>
+      <div class="field"><label>Start (IST)</label><input id="twb-st" type="time"/></div>
+      <div class="field"><label>End (IST)</label><input id="twb-en" type="time"/></div>
     </div>
-    <div class="field"><label>Note</label><textarea id="twb-note" maxlength="180" placeholder="Optional note..." style="width:100%;min-height:56px;font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--r);font-family:&#39;Roboto&#39;,sans-serif;resize:vertical"></textarea></div>
+    <div class="field"><label>Note</label><textarea id="twb-note" maxlength="180" placeholder="Optional note..." style="width:100%;min-height:56px;font-size:12px;padding:8px 10px;border:1px solid var(--bdr);border-radius:var(--r);font-family:'Roboto',sans-serif;resize:vertical"></textarea></div>
     <div class="mf">
       <button class="bc" id="twb-remove" onclick="twBlockRemove()" style="display:none;color:var(--red);border-color:var(--red);margin-right:auto">Remove</button>
-      <button class="bc" onclick="closeOv(&#39;ov-twb&#39;)">Cancel</button>
+      <button class="bc" onclick="closeOv('ov-twb')">Cancel</button>
       <button class="bp" onclick="twBlockSave()">Save</button>
     </div>
   </div>
@@ -469,13 +469,13 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
     <h2>Add a Class</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="field"><label>Date</label><input id="twa-dt" type="date"></div>
-      <div class="field"><label>Start (IST)</label><input id="twa-st" type="time"></div>
-      <div class="field"><label>End (IST)</label><input id="twa-en" type="time"></div>
+      <div class="field"><label>Date</label><input id="twa-dt" type="date"/></div>
+      <div class="field"><label>Start (IST)</label><input id="twa-st" type="time"/></div>
+      <div class="field"><label>End (IST)</label><input id="twa-en" type="time"/></div>
     </div>
     <div class="field">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:10px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.4px">
-        <input type="checkbox" id="twa-fb" onchange="twaToggleBatch()" style="width:14px;height:14px;cursor:pointer"> Schedule for entire batch
+        <input type="checkbox" id="twa-fb" onchange="twaToggleBatch()" style="width:14px;height:14px;cursor:pointer"/> Schedule for entire batch
       </label>
     </div>
     <div id="twa-bwrap" style="display:none">
@@ -488,9 +488,9 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <div class="field" id="twa-mfw" style="display:none"><label>Makeup for (pending class)</label><select id="twa-mf"><option value="">— select pending class —</option></select></div>
     </div>
     <div class="field" style="margin-top:6px"><label>+ Add student to class</label><div id="twa-addons"></div>
-      <button onclick="twaAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif;margin-top:4px">+ Add student</button>
+      <button onclick="twaAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif;margin-top:4px">+ Add student</button>
     </div>
-    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-twa&#39;)">Cancel</button><button class="bp" onclick="twaConfirm()">Save</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv('ov-twa')">Cancel</button><button class="bp" onclick="twaConfirm()">Save</button></div>
   </div>
 </div>
 
@@ -500,18 +500,18 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <h2 id="twe-ttl">Edit Class</h2>
     <div id="twe-info" style="font-size:11px;color:var(--mut);margin:-10px 0 12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="field"><label>Date</label><input id="twe-dt" type="date"></div>
-      <div class="field"><label>Start (IST)</label><input id="twe-st" type="time"></div>
-      <div class="field"><label>End (IST)</label><input id="twe-en" type="time"></div>
+      <div class="field"><label>Date</label><input id="twe-dt" type="date"/></div>
+      <div class="field"><label>Start (IST)</label><input id="twe-st" type="time"/></div>
+      <div class="field"><label>End (IST)</label><input id="twe-en" type="time"/></div>
     </div>
     <div class="field"><label>Add-on students</label><div id="twe-addons"></div>
-      <button onclick="tweAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:&#39;Roboto&#39;,sans-serif;margin-top:4px">+ Add student</button>
+      <button onclick="tweAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif;margin-top:4px">+ Add student</button>
     </div>
     <div id="twe-warn" class="warn" style="display:none">⚠ Cancel Class is intended for Type B students. Use Remove for other types.</div>
     <div class="mf">
       <button class="bd" id="twe-canc" onclick="tweCancelConfirm()" style="margin-right:0">Cancel class</button>
       <button class="bc" onclick="tweRemoveConfirm()" style="color:var(--red);border-color:var(--red)">Remove</button>
-      <button class="bc" onclick="closeOv(&#39;ov-twe&#39;)">Close</button>
+      <button class="bc" onclick="closeOv('ov-twe')">Close</button>
       <button class="bp" onclick="tweSave()">Save</button>
     </div>
   </div>
@@ -522,7 +522,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <div class="modal sm">
     <h2>Cancel this class?</h2>
     <p style="font-size:12px;color:var(--mut);margin-bottom:14px">The class stays visible in TW with a cancelled mark. Pending class logic applies only to Type B students.</p>
-    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-twc&#39;)">Go back</button><button class="bd" onclick="tweDoCancel()">Confirm cancel</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv('ov-twc')">Go back</button><button class="bd" onclick="tweDoCancel()">Confirm cancel</button></div>
   </div>
 </div>
 
@@ -530,18 +530,18 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-dash" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:10px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
-      <span style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:16px;font-weight:500;color:var(--grn)">DanceOps Dashboard</span>
-      <select id="dash-mode" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
+      <span style="font-family:'Google Sans',sans-serif;font-size:16px;font-weight:500;color:var(--grn)">DanceOps Dashboard</span>
+      <select id="dash-mode" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
         <option value="month">Monthly View</option><option value="year">Yearly View</option>
       </select>
-      <select id="dash-mo" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
+      <select id="dash-mo" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
         <option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option>
       </select>
-      <select id="dash-yr" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
-        <option value="2025">2025</option><option value="2026" selected="">2026</option><option value="2027">2027</option>
+      <select id="dash-yr" onchange="renderDashboard()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+        <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
       </select>
       <div style="flex:1"></div>
-      <button class="hbtn" onclick="closeOv(&#39;ov-dash&#39;)" style="color:var(--red)">✕ Close</button>
+      <button class="hbtn" onclick="closeOv('ov-dash')" style="color:var(--red)">✕ Close</button>
     </div>
     <div style="flex:1;overflow:auto;padding:16px"><div id="dash-inner"></div></div>
   </div>
@@ -551,18 +551,18 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-att" style="align-items:stretch;padding:0">
   <div class="modal fs">
     <div style="background:var(--sur);border-bottom:1px solid var(--bdr);padding:10px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
-      <span style="font-family:&#39;Google Sans&#39;,sans-serif;font-size:16px;font-weight:500;color:var(--blue)">📊 Attendance &amp; Fee Tracker</span>
-      <select id="att-mo" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
+      <span style="font-family:'Google Sans',sans-serif;font-size:16px;font-weight:500;color:var(--blue)">📊 Attendance &amp; Fee Tracker</span>
+      <select id="att-mo" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
         <option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option>
       </select>
-      <select id="att-yr" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
-        <option value="2025">2025</option><option value="2026" selected="">2026</option><option value="2027">2027</option>
+      <select id="att-yr" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
+        <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
       </select>
-      <select id="att-bf" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:&#39;Roboto&#39;,sans-serif">
+      <select id="att-bf" onchange="renderAtt()" style="font-size:12px;padding:4px 8px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur);font-family:'Roboto',sans-serif">
         <option value="all">All Students</option><option value="ind">Individual Students</option>
       </select>
       <div style="flex:1"></div>
-      <button class="hbtn" onclick="closeOv(&#39;ov-att&#39;)" style="color:var(--red)">✕ Close</button>
+      <button class="hbtn" onclick="closeOv('ov-att')" style="color:var(--red)">✕ Close</button>
     </div>
     <div style="flex:1;overflow:auto;padding:14px"><div id="att-inner"></div></div>
   </div>
@@ -572,8 +572,8 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-sync">
   <div class="modal sm">
     <h2>☁ Cloud sync</h2>
-    <div class="field"><label>Cloudflare Worker URL</label><input id="sync-url" type="url" placeholder="https://…workers.dev"></div>
-    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-sync&#39;)">Cancel</button><button class="bp" onclick="saveSync()">Connect</button></div>
+    <div class="field"><label>Cloudflare Worker URL</label><input id="sync-url" type="url" placeholder="https://…workers.dev"/></div>
+    <div class="mf"><button class="bc" onclick="closeOv('ov-sync')">Cancel</button><button class="bp" onclick="saveSync()">Connect</button></div>
   </div>
 </div>
 
@@ -582,7 +582,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <div class="modal sm">
     <h2 id="conf-ttl">Confirm</h2>
     <p id="conf-msg" style="font-size:13px;color:var(--mut);margin-bottom:14px"></p>
-    <div class="mf"><button class="bc" onclick="closeOv(&#39;ov-conf&#39;)">Cancel</button><button class="bd" id="conf-ok">Confirm</button></div>
+    <div class="mf"><button class="bc" onclick="closeOv('ov-conf')">Cancel</button><button class="bd" id="conf-ok">Confirm</button></div>
   </div>
 </div>
 
@@ -594,13 +594,13 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <button class="bp" onclick="openPerformanceEdit()">+ Add Performance</button>
       <button class="bp" onclick="openTaskEdit()">+ Add Task</button>
       <button class="bp" onclick="openApplicationEdit()">+ Add Application</button>
-      <button class="bc" onclick="closeOv(&#39;ov-career&#39;)">Close</button>
+      <button class="bc" onclick="closeOv('ov-career')">Close</button>
     </div>
     <div style="padding:12px 18px;border-bottom:1px solid var(--bdr)">
       <div class="tab-row" style="margin-bottom:0">
-        <button class="tab-btn act" id="car-tab-perf" onclick="careerTab(&#39;perf&#39;)">Performances</button>
-        <button class="tab-btn" id="car-tab-task" onclick="careerTab(&#39;task&#39;)">Tasks</button>
-        <button class="tab-btn" id="car-tab-app" onclick="careerTab(&#39;app&#39;)">Applications</button>
+        <button class="tab-btn act" id="car-tab-perf" onclick="careerTab('perf')">Performances</button>
+        <button class="tab-btn" id="car-tab-task" onclick="careerTab('task')">Tasks</button>
+        <button class="tab-btn" id="car-tab-app" onclick="careerTab('app')">Applications</button>
       </div>
     </div>
     <div id="career-content" style="padding:16px 18px;overflow:auto;flex:1"></div>
@@ -610,12 +610,12 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 <div class="ov" id="ov-perf" style="z-index:430">
   <div class="modal lg">
     <h2 id="perf-ttl">Add Performance</h2>
-    <div class="field"><label>Festival / Title</label><input id="perf-title"></div>
-    <div class="field"><label>Organisers</label><input id="perf-org"></div>
-    <div class="field"><label>Location</label><input id="perf-loc"></div>
+    <div class="field"><label>Festival / Title</label><input id="perf-title"/></div>
+    <div class="field"><label>Organisers</label><input id="perf-org"/></div>
+    <div class="field"><label>Location</label><input id="perf-loc"/></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field"><label>Performance date</label><input id="perf-date" type="date"></div>
-      <div class="field"><label>Income</label><input id="perf-income" type="number" min="0" oninput="renderPerfNet()"></div>
+      <div class="field"><label>Performance date</label><input id="perf-date" type="date"/></div>
+      <div class="field"><label>Income</label><input id="perf-income" type="number" min="0" oninput="renderPerfNet()"/></div>
     </div>
     <div class="stitle">Expenses</div>
     <div id="perf-expenses"></div>
@@ -626,49 +626,49 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <button class="addslot" onclick="addExtraDateRow()">+ Add date range</button>
     <div class="field" style="margin-top:10px"><label>Repertoire</label><textarea id="perf-rep" placeholder="What you danced..."></textarea></div>
     <div class="field"><label>Notes</label><textarea id="perf-notes"></textarea></div>
-    <div class="mf"><button class="bd" id="perf-del" onclick="deletePerformance()" style="display:none">Delete</button><button class="bc" onclick="closeOv(&#39;ov-perf&#39;)">Cancel</button><button class="bp" onclick="savePerformance()">Save</button></div>
+    <div class="mf"><button class="bd" id="perf-del" onclick="deletePerformance()" style="display:none">Delete</button><button class="bc" onclick="closeOv('ov-perf')">Cancel</button><button class="bp" onclick="savePerformance()">Save</button></div>
   </div>
 </div>
 
 <div class="ov" id="ov-task" style="z-index:430">
   <div class="modal sm">
     <h2 id="task-ttl">Add Task</h2>
-    <div class="field"><label>Task title</label><input id="task-title"></div>
+    <div class="field"><label>Task title</label><input id="task-title"/></div>
     <div class="field"><label>Category</label><select id="task-cat"><option>Performance</option><option>Application</option><option>Practice</option><option>Rehearsal</option><option>Costume</option><option>Music/audio</option><option>Video/editing</option><option>Travel</option><option>Finance</option><option>General admin</option></select></div>
     <div class="field"><label>Linked to</label><select id="task-link"></select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="field"><label>Status</label><select id="task-status"><option value="pending">Pending</option><option value="completed">Completed</option></select></div>
-      <div class="field"><label>Due date</label><input id="task-due" type="date"></div>
+      <div class="field"><label>Due date</label><input id="task-due" type="date"/></div>
     </div>
-    <div class="field"><label>Remind on</label><input id="task-remind" type="date"></div>
+    <div class="field"><label>Remind on</label><input id="task-remind" type="date"/></div>
     <div class="field"><label>Notes</label><textarea id="task-notes"></textarea></div>
-    <div class="mf"><button class="bd" id="task-del" onclick="deleteTask()" style="display:none">Delete</button><button class="bc" onclick="closeOv(&#39;ov-task&#39;)">Cancel</button><button class="bp" onclick="saveTask()">Save</button></div>
+    <div class="mf"><button class="bd" id="task-del" onclick="deleteTask()" style="display:none">Delete</button><button class="bc" onclick="closeOv('ov-task')">Cancel</button><button class="bp" onclick="saveTask()">Save</button></div>
   </div>
 </div>
 
 <div class="ov" id="ov-app" style="z-index:430">
   <div class="modal lg">
     <h2 id="app-ttl">Add Application</h2>
-    <div class="field"><label>Application / Festival name</label><input id="app-title"></div>
-    <div class="field"><label>Organisation</label><input id="app-org"></div>
-    <div class="field"><label>Application link</label><input id="app-link" type="url"></div>
+    <div class="field"><label>Application / Festival name</label><input id="app-title"/></div>
+    <div class="field"><label>Organisation</label><input id="app-org"/></div>
+    <div class="field"><label>Application link</label><input id="app-link" type="url"/></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="field"><label>How application was sent</label><select id="app-method"><option>Website form</option><option>Email</option><option>Google Form</option><option>Instagram/DM</option><option>WhatsApp</option><option>Referral/contact</option><option>Other</option></select></div>
       <div class="field"><label>Status</label><select id="app-status"><option>To Apply</option><option>Applied</option><option>Accepted</option><option>Rejected</option><option>Follow Up</option><option>Reapply</option></select></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-      <div class="field"><label>Date applied</label><input id="app-applied" type="date"></div>
-      <div class="field"><label>Deadline</label><input id="app-deadline" type="date"></div>
-      <div class="field"><label>Application fee</label><input id="app-fee" type="number" min="0"></div>
+      <div class="field"><label>Date applied</label><input id="app-applied" type="date"/></div>
+      <div class="field"><label>Deadline</label><input id="app-deadline" type="date"/></div>
+      <div class="field"><label>Application fee</label><input id="app-fee" type="number" min="0"/></div>
     </div>
-    <div class="field"><label>Expected result date</label><input id="app-result" type="date"></div>
+    <div class="field"><label>Expected result date</label><input id="app-result" type="date"/></div>
     <div class="stitle">Follow-up reminders</div>
     <div id="app-followups"></div>
     <button class="addslot" onclick="addFollowupRow()">+ Add follow-up</button>
     <div class="stitle" style="margin-top:10px">Materials checklist</div>
     <div id="app-materials" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px"></div>
     <div class="field" style="margin-top:10px"><label>Notes</label><textarea id="app-notes"></textarea></div>
-    <div class="mf"><button class="bd" id="app-del" onclick="deleteApplication()" style="display:none">Delete</button><button class="bc" onclick="closeOv(&#39;ov-app&#39;)">Cancel</button><button class="bp" onclick="saveApplication()">Save</button></div>
+    <div class="mf"><button class="bd" id="app-del" onclick="deleteApplication()" style="display:none">Delete</button><button class="bc" onclick="closeOv('ov-app')">Cancel</button><button class="bp" onclick="saveApplication()">Save</button></div>
   </div>
 </div>
 
@@ -708,7 +708,7 @@ let _bdM=null,_bdY=null;
 // ═══════════════════════════════════════════════════
 const WK_DEFAULT='https://dance-schedule.lekshmireghunath-dance.workers.dev';
 let WK_URL=localStorage.getItem('dance_wk')||WK_DEFAULT;
-let saveSeq=0,saveQueues={};
+let saveSeq=0,saveQueues={},dataReady=false,initPromise=null;
 const CURRENT_STORAGE_KEYS=['gSettings','batches','indStudents','ss','att','reminders','careerData','curTz','twWkCache'];
 const LEGACY_STORAGE_KEYS=['classes','season','tz','twWeekCache','attendance','individualStudents','studentSettings','studentsSettings','appState'];
 async function cloudLoad(){if(!WK_URL)return null;try{const r=await fetch(WK_URL,{method:'GET',redirect:'follow'});const j=JSON.parse(await r.text());return j.ok?j.data:null;}catch(e){console.warn(e);return null;}}
@@ -717,6 +717,14 @@ async function cloudSave(k,v){
   const sv=typeof v==='string'?v:JSON.stringify(v);const p=JSON.stringify({key:k,value:sv});
   try{const r=await fetch(WK_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:p,redirect:'follow'});return r.ok;}
   catch(e){console.warn(e);if(navigator.sendBeacon)navigator.sendBeacon(WK_URL,new Blob([p],{type:'text/plain'}));return false;}
+}
+function beaconCloudSave(k,wrapped){
+  if(!WK_URL||!navigator.sendBeacon||!wrapped)return false;
+  try{return navigator.sendBeacon(WK_URL,new Blob([JSON.stringify({key:k,value:wrapped})],{type:'text/plain'}));}
+  catch(e){console.warn(e);return false;}
+}
+function flushLocalSaves(){
+  CURRENT_STORAGE_KEYS.forEach(k=>beaconCloudSave(k,localStorage.getItem(localKey(k))));
 }
 function wrapSavedValue(value){return JSON.stringify({__danceSaved:1,updatedAt:Date.now(),value});}
 function unwrapSavedValue(raw){
@@ -736,6 +744,7 @@ function save(k,v){
   const payload=typeof v==='string'?v:JSON.stringify(v);
   const wrapped=wrapSavedValue(payload);
   localStorage.setItem(localKey(k),wrapped);
+  if(k==='twWkCache'||k==='att')beaconCloudSave(k,wrapped);
   saveQueues[k]=(saveQueues[k]||Promise.resolve()).then(()=>cloudSave(k,wrapped)).then(ok=>{
     if(n===saveSeq)setSS(ok?'Saved':'Save may be pending');
     setTimeout(()=>{if(n===saveSeq&&document.getElementById('ss').textContent!=='⚠ Not connected')setSS('');},1800);
@@ -753,8 +762,8 @@ async function clearLegacyCloudRows(){
   await Promise.all(LEGACY_STORAGE_KEYS.map(k=>cloudSave(k,'')));
 }
 function openSync(){document.getElementById('sync-url').value=WK_URL;openOv('ov-sync');}
-function saveSync(){const u=document.getElementById('sync-url').value.trim();if(!u)return;WK_URL=u;localStorage.setItem('dance_wk',u);closeOv('ov-sync');initLoad();}
-async function initLoad(){setSS('⟳ Syncing…');const d=await cloudLoad()||{};
+function saveSync(){const u=document.getElementById('sync-url').value.trim();if(!u)return;WK_URL=u;localStorage.setItem('dance_wk',u);closeOv('ov-sync');initPromise=initLoad();}
+async function initLoad(){dataReady=false;setSS('⟳ Syncing…');const d=await cloudLoad()||{};
   const gRaw=loadSavedValue(d,'gSettings'),bRaw=loadSavedValue(d,'batches'),iRaw=loadSavedValue(d,'indStudents'),ssRaw=loadSavedValue(d,'ss'),attRaw=loadSavedValue(d,'att'),remRaw=loadSavedValue(d,'reminders'),careerRaw=loadSavedValue(d,'careerData'),tzRaw=loadSavedValue(d,'curTz'),twRaw=loadSavedValue(d,'twWkCache');
   if(gRaw)gSettings=JSON.parse(gRaw);
   if(bRaw)batches=JSON.parse(bRaw);
@@ -767,7 +776,7 @@ async function initLoad(){setSS('⟳ Syncing…');const d=await cloudLoad()||{};
   if(twRaw){const p=JSON.parse(twRaw);const c=p.cache||p;twWkCache={};Object.entries(c).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents(evs.map(e=>({...e,date:new Date(e.date)})));});if(p.wkStart)twWkStart=new Date(p.wkStart);if(p.removed)twRemoved=p.removed;}
   normalizeAllData(true);
   ensureCareerData();syncCareerReminders();
-  setSS(WK_URL?'':'⚠ Not connected');boot();}
+  setSS(WK_URL?'':'⚠ Not connected');boot();dataReady=true;}
 function setSS(m){document.getElementById('ss').textContent=m;}
 
 // Settings
@@ -2703,6 +2712,11 @@ function refreshSD(){if(document.getElementById('ov-sd').classList.contains('ope
 // SECTION 15 — THIS WEEK
 // ═══════════════════════════════════════════════════
 function openTW(){
+  if(!dataReady){
+    showToast('Still syncing saved TW changes...');
+    (initPromise||Promise.resolve()).then(()=>openTW());
+    return;
+  }
   if(!twWkStart)twWkStart=getMon(new Date());
   twLoadWeek();
   document.getElementById('tw-dt').value=localDS(twWkStart);twRender();openOv('ov-tw');
@@ -3192,6 +3206,9 @@ function openOv(id){document.getElementById(id).classList.add('open');}
 function closeOv(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.ov').forEach(ov=>{ov.addEventListener('click',e=>{if(e.target===ov&&!ov.querySelector('.modal.fs'))closeOv(ov.id);});});
 document.addEventListener('click',e=>{if(!e.target.closest('.bell-wrap'))document.getElementById('bell-dd')?.classList.remove('open');});
+window.addEventListener('pagehide',flushLocalSaves);
+window.addEventListener('beforeunload',flushLocalSaves);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushLocalSaves();});
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
 function showConfirm(msg,onOk){document.getElementById('conf-msg').textContent=msg;const btn=document.getElementById('conf-ok');btn.onclick=()=>{closeOv('ov-conf');onOk();};openOv('ov-conf');}
 
@@ -3204,8 +3221,7 @@ function boot(){
 }
 document.getElementById('btn-ab').addEventListener('click',()=>openAddBatch());
 document.getElementById('btn-as').addEventListener('click',()=>openAddStudent());
-boot();initLoad();
+boot();initPromise=initLoad();
 </script>
-
-
-</body></html>
+</body>
+</html>
