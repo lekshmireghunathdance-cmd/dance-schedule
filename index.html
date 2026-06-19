@@ -3181,7 +3181,7 @@ function tweRemoveConfirm(){
 // ═══════════════════════════════════════════════════
 // SECTION 16 — ATTENDANCE & FEE TRACKER
 // ═══════════════════════════════════════════════════
-let attTrackerView='att';
+let attTrackerView='att',feeEditRows={};
 function openAtt(){
   const now=new Date();document.getElementById('att-mo').value=now.getMonth()+1;document.getElementById('att-yr').value=now.getFullYear();
   const bf=document.getElementById('att-bf');const existing=Array.from(bf.options).map(o=>o.value);
@@ -3254,10 +3254,13 @@ function feePeriodRow(r,year,month,fromDate,toDate){
   const cur=sObj.currency||'INR',sym=cur==='USD'?'$':'₹';
   if(!cat)return{...r,ssKey,cat,count:'—',amount:0,amountLabel:'—',status:'pending',payDate:'',editable:false,note:'Set category'};
   if(cat==='D'){
-    const cycles=getRollingCycles(r.batchId,r.name).filter(c=>c.start&&c.start>=fromDate&&c.start<=toDate);
-    const c=cycles[0];
-    if(!c)return{...r,ssKey,cat,count:'—',amount:0,amountLabel:'—',status:'pending',payDate:'',editable:false,note:'No new cycle starts this month'};
-    return{...r,ssKey,cat,count:`${c.count||0}/8`,amount:Number(c.amount)||0,amountLabel:`${sym}${(Number(c.amount)||0).toLocaleString('en-IN')}`,status:c.status==='paid'?'paid':'pending',payDate:c.payDate||'',editable:true,cycleKey:c.key,note:`Cycle starts ${c.start}`};
+    const cycles=getRollingCycles(r.batchId,r.name).filter(c=>c.start&&c.start<=toDate&&((c.end||'9999-12-31')>=fromDate));
+    const c=cycles.find(x=>x.start>=fromDate&&x.start<=toDate)||cycles[0];
+    if(!c)return{...r,ssKey,cat,count:'—',amount:0,amountLabel:'—',status:'pending',payDate:'',editable:false,note:'No active fee cycle this month'};
+    const startsThisMonth=c.start>=fromDate&&c.start<=toDate;
+    const feeTxt=`${sym}${(Number(c.amount)||0).toLocaleString('en-IN')}`;
+    const paidTxt=c.status==='paid'?(c.payDate?`Paid ${c.payDate}`:'Paid'):'Pending';
+    return{...r,ssKey,cat,count:`${c.count||0}/8`,amount:startsThisMonth?(Number(c.amount)||0):0,amountLabel:startsThisMonth?feeTxt:'—',status:c.status==='paid'?'paid':'pending',payDate:c.payDate||'',editable:true,cycleKey:c.key,note:startsThisMonth?`Cycle starts ${c.start}`:`Cycle started ${c.start} · ${paidTxt} · ${feeTxt}`};
   }
   const feeAmt=computeFeeAmt(r.name,r.batchId,year,month),status=computeDisplayFeeStatus(ssKey,cat,year,month)==='paid'?'paid':'pending';
   const v=sObj[feeKey(year,month)];
@@ -3268,14 +3271,15 @@ function renderFeeTrackerView(){
   const ms=String(month).padStart(2,'0'),fromDate=`${year}-${ms}-01`,toDate=`${year}-${ms}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`;
   const rows=attFilteredRows().map(r=>feePeriodRow(r,year,month,fromDate,toDate));
   if(!rows.length){document.getElementById('att-inner').innerHTML='<div style="font-size:13px;color:var(--mut);padding:14px">No students.</div>';return;}
+  feeEditRows={};
   let totalFees=0,pendingFees=0,lastBatch='';
-  const tr=rows.map(row=>{
+  const tr=rows.map((row,i)=>{
     totalFees+=row.amount||0;if(row.editable&&row.status!=='paid')pendingFees+=row.amount||0;
-    const idBase=encodeURIComponent(row.ssKey+(row.cycleKey?':'+row.cycleKey:`:${year}:${month}`));
-    const saveArgs=`${JSON.stringify(row.ssKey)},${year},${month},${JSON.stringify(row.cycleKey||'')}`;
+    const idBase='fee_'+i;
+    feeEditRows[idBase]={ssKey:row.ssKey,year,month,cycleKey:row.cycleKey||''};
     const statusClass=row.status==='paid'?'fee-status-paid':'fee-status-pending';
-    const statusCell=row.editable?`<select id="fee-st-${idBase}" class="fee-status ${statusClass}" onchange="saveFeeTableRow(${saveArgs})"><option value="pending"${row.status!=='paid'?' selected':''}>Pending</option><option value="paid"${row.status==='paid'?' selected':''}>Paid</option></select>`:`<span style="color:var(--sub)">—</span>`;
-    const dateCell=row.editable?`<input id="fee-dt-${idBase}" type="date" value="${row.payDate||''}" onchange="saveFeeTableRow(${saveArgs})" style="font-size:12px;padding:4px 7px;border:1px solid var(--bdr);border-radius:var(--r);font-family:'Roboto',sans-serif"/>`:`<span style="color:var(--sub)">—</span>`;
+    const statusCell=row.editable?`<select id="fee-st-${idBase}" class="fee-status ${statusClass}" onchange="saveFeeTableRow('${idBase}')"><option value="pending"${row.status!=='paid'?' selected':''}>Pending</option><option value="paid"${row.status==='paid'?' selected':''}>Paid</option></select>`:`<span style="color:var(--sub)">—</span>`;
+    const dateCell=row.editable?`<input id="fee-dt-${idBase}" type="date" value="${row.payDate||''}" onchange="saveFeeTableRow('${idBase}')" style="font-size:12px;padding:4px 7px;border:1px solid var(--bdr);border-radius:var(--r);font-family:'Roboto',sans-serif"/>`:`<span style="color:var(--sub)">—</span>`;
     const batchHeader=row.batchName!==lastBatch?`<tr class="fee-batch-row"><td colspan="6">${escHtml(row.batchName)}</td></tr>`:'';
     lastBatch=row.batchName;
     return`${batchHeader}<tr class="${row.status==='paid'?'fee-row-paid':'fee-row-pending'}"><td class="fee-student" onclick="openStudentDetail(${JSON.stringify(row.batchId)},${JSON.stringify(row.name)})">${escHtml(row.name)}</td><td>${escHtml(row.batchName)}</td><td><span class="fee-count">${row.count}</span></td><td><strong>${row.amountLabel}</strong><div style="font-size:10px;color:var(--mut);margin-top:1px">${escHtml(row.note)}</div></td><td>${statusCell}</td><td>${dateCell}</td></tr>`;
@@ -3308,14 +3312,16 @@ function studentCollectionRows(fromDate,toDate){
   });
   return rows;
 }
-function saveFeeTableRow(ssKey,year,month,cycleKey=''){
-  const idBase=encodeURIComponent(ssKey+(cycleKey?':'+cycleKey:`:${year}:${month}`));
+function saveFeeTableRow(rowId){
+  const row=feeEditRows[rowId];if(!row)return;
+  const{ssKey,year,month,cycleKey}=row,idBase=rowId;
   const status=document.getElementById('fee-st-'+idBase)?.value||'pending';
   let date=document.getElementById('fee-dt-'+idBase)?.value||'';
   if(status==='paid'&&!date)date=localDS(new Date());
   if(!ss[ssKey])ss[ssKey]={};
   if(cycleKey){
     ss[ssKey][cycleFeeKey(cycleKey)]={status,payDate:status==='paid'?date:null,receivedDate:status==='paid'?date:null};
+    save('ss',ss);
   }else if(status==='paid'){
     saveFeeStatus(ssKey,year,month,'paid',date);
   }else{
