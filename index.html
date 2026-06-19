@@ -3218,6 +3218,10 @@ function attFilteredRows(){
   else{const b=getBatch(bFilter);if(b)(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>rows.push({name:n,batchId:bFilter,batchName:b.name,color:b.color}));}
   return rows;
 }
+function studentVisibleInFeePeriod(batchId,name,fromDate,toDate){
+  const addFrom=studentAddFrom(batchId,name);
+  return !addFrom||addFrom<=toDate;
+}
 function renderAtt(){
   document.getElementById('att-tab-att')?.classList.toggle('act',attTrackerView==='att');
   document.getElementById('att-tab-fee')?.classList.toggle('act',attTrackerView==='fee');
@@ -3288,7 +3292,7 @@ function feePeriodRow(r,year,month,fromDate,toDate){
 function renderFeeTrackerView(){
   const month=parseInt(document.getElementById('att-mo').value),year=parseInt(document.getElementById('att-yr').value);
   const ms=String(month).padStart(2,'0'),fromDate=`${year}-${ms}-01`,toDate=`${year}-${ms}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`;
-  const rows=attFilteredRows().map(r=>feePeriodRow(r,year,month,fromDate,toDate));
+  const rows=attFilteredRows().filter(r=>studentVisibleInFeePeriod(r.batchId,r.name,fromDate,toDate)).map(r=>feePeriodRow(r,year,month,fromDate,toDate));
   if(!rows.length){document.getElementById('att-inner').innerHTML='<div style="font-size:13px;color:var(--mut);padding:14px">No students.</div>';return;}
   feeEditRows={};
   let totalFees=0,pendingFees=0,lastBatch='';
