@@ -1717,6 +1717,22 @@ function computeFeeAmt(studentName,batchId,year,month){
     default:return{amount:null,label:'—'};
   }
 }
+function may2026FeeCountOverride(ssKey){
+  const v=ss[ssKey]?.feeCountOverrides?.['2026-05'];
+  return v===''||v==null?null:Number(v);
+}
+function feeAmountForCount(studentName,batchId,year,month,countOverride=null){
+  const s=ss[batchId+':'+studentName]||{};
+  const cat=s.category||'',rate=parseFloat(s.rate)||0,cur=s.currency||'INR',sym=cur==='USD'?'$':'₹';
+  if(!rate||!cat)return{amount:null,label:'—'};
+  if(cat==='A'||cat==='C'){
+    const c=countOverride!=null?Number(countOverride):computeMonthCount(studentName,batchId,year,month,cat);
+    return{amount:rate*c,label:`${sym}${(rate*c).toLocaleString('en-IN')} (${c}×${sym}${rate.toLocaleString('en-IN')})`};
+  }
+  if(cat==='B')return{amount:rate,label:`${sym}${rate.toLocaleString('en-IN')} monthly`};
+  if(cat==='D')return{amount:rate,label:`${sym}${rate.toLocaleString('en-IN')} per 8-class cycle`};
+  return{amount:null,label:'—'};
+}
 function moneyText(amount,cur){
   const sym=cur==='USD'?'$':'₹';
   return sym+(Number(amount)||0).toLocaleString('en-IN');
@@ -3262,9 +3278,12 @@ function feePeriodRow(r,year,month,fromDate,toDate){
     const paidTxt=c.status==='paid'?(c.payDate?`Paid ${c.payDate}`:'Paid'):'Pending';
     return{...r,ssKey,cat,count:`${c.count||0}/8`,amount:startsThisMonth?(Number(c.amount)||0):0,amountLabel:startsThisMonth?feeTxt:'—',status:c.status==='paid'?'paid':'pending',payDate:c.payDate||'',editable:true,cycleKey:c.key,note:startsThisMonth?`Cycle starts ${c.start}`:`Cycle started ${c.start} · ${paidTxt} · ${feeTxt}`};
   }
-  const feeAmt=computeFeeAmt(r.name,r.batchId,year,month),status=computeDisplayFeeStatus(ssKey,cat,year,month)==='paid'?'paid':'pending';
+  const canOverride=year===2026&&month===5&&['A','B','C'].includes(cat);
+  const override=canOverride?may2026FeeCountOverride(ssKey):null;
+  const displayCount=override!=null?override:computeMonthCount(r.name,r.batchId,year,month,cat);
+  const feeAmt=feeAmountForCount(r.name,r.batchId,year,month,override),status=computeDisplayFeeStatus(ssKey,cat,year,month)==='paid'?'paid':'pending';
   const v=sObj[feeKey(year,month)];
-  return{...r,ssKey,cat,count:computeMonthCount(r.name,r.batchId,year,month,cat),amount:feeAmt.amount||0,amountLabel:feeAmt.label,status,payDate:paymentReceivedDate(v),editable:feeAmt.amount!=null,year,month,note:cat==='B'?'Monthly fee':'Class-period fee'};
+  return{...r,ssKey,cat,count:displayCount,amount:feeAmt.amount||0,amountLabel:feeAmt.label,status,payDate:paymentReceivedDate(v),editable:feeAmt.amount!=null,year,month,note:canOverride?'May 2026 manual count':cat==='B'?'Monthly fee':'Class-period fee',countEditable:canOverride};
 }
 function renderFeeTrackerView(){
   const month=parseInt(document.getElementById('att-mo').value),year=parseInt(document.getElementById('att-yr').value);
@@ -3280,9 +3299,10 @@ function renderFeeTrackerView(){
     const statusClass=row.status==='paid'?'fee-status-paid':'fee-status-pending';
     const statusCell=row.editable?`<select id="fee-st-${idBase}" class="fee-status ${statusClass}" onchange="saveFeeTableRow('${idBase}')"><option value="pending"${row.status!=='paid'?' selected':''}>Pending</option><option value="paid"${row.status==='paid'?' selected':''}>Paid</option></select>`:`<span style="color:var(--sub)">—</span>`;
     const dateCell=row.editable?`<input id="fee-dt-${idBase}" type="date" value="${row.payDate||''}" onchange="saveFeeTableRow('${idBase}')" style="font-size:12px;padding:4px 7px;border:1px solid var(--bdr);border-radius:var(--r);font-family:'Roboto',sans-serif"/>`:`<span style="color:var(--sub)">—</span>`;
+    const countCell=row.countEditable?`<input id="fee-cnt-${idBase}" type="number" min="0" max="31" step="1" value="${row.count}" onchange="saveFeeCountOverride('${idBase}')" style="width:62px;font-size:12px;padding:4px 7px;border:1px solid var(--bdr);border-radius:var(--r);font-family:'Roboto',sans-serif;text-align:center"/>`:`<span class="fee-count">${row.count}</span>`;
     const batchHeader=row.batchName!==lastBatch?`<tr class="fee-batch-row"><td colspan="6">${escHtml(row.batchName)}</td></tr>`:'';
     lastBatch=row.batchName;
-    return`${batchHeader}<tr class="${row.status==='paid'?'fee-row-paid':'fee-row-pending'}"><td class="fee-student" onclick="openStudentDetail(${JSON.stringify(row.batchId)},${JSON.stringify(row.name)})">${escHtml(row.name)}</td><td>${escHtml(row.batchName)}</td><td><span class="fee-count">${row.count}</span></td><td><strong>${row.amountLabel}</strong><div style="font-size:10px;color:var(--mut);margin-top:1px">${escHtml(row.note)}</div></td><td>${statusCell}</td><td>${dateCell}</td></tr>`;
+    return`${batchHeader}<tr class="${row.status==='paid'?'fee-row-paid':'fee-row-pending'}"><td class="fee-student" onclick="openStudentDetail(${JSON.stringify(row.batchId)},${JSON.stringify(row.name)})">${escHtml(row.name)}</td><td>${escHtml(row.batchName)}</td><td>${countCell}</td><td><strong>${row.amountLabel}</strong><div style="font-size:10px;color:var(--mut);margin-top:1px">${escHtml(row.note)}</div></td><td>${statusCell}</td><td>${dateCell}</td></tr>`;
   }).join('');
   const cash=studentCollectionRows(fromDate,toDate);
   const collected=cash.reduce((s,r)=>s+r.amount,0);
@@ -3330,6 +3350,18 @@ function saveFeeTableRow(rowId){
     save('ss',ss);
   }
   autoCheckFeeStatuses();renderFeeTrackerView();if(document.getElementById('ov-dash').classList.contains('open'))renderDashboard();showToast('Fee status saved');
+}
+function saveFeeCountOverride(rowId){
+  const row=feeEditRows[rowId];if(!row||row.year!==2026||row.month!==5)return;
+  const val=document.getElementById('fee-cnt-'+rowId)?.value;
+  if(!ss[row.ssKey])ss[row.ssKey]={};
+  if(!ss[row.ssKey].feeCountOverrides)ss[row.ssKey].feeCountOverrides={};
+  const num=Math.max(0,parseInt(val)||0);
+  ss[row.ssKey].feeCountOverrides['2026-05']=num;
+  save('ss',ss);
+  renderFeeTrackerView();
+  if(document.getElementById('ov-dash').classList.contains('open'))renderDashboard();
+  showToast('May count saved');
 }
 
 // ═══════════════════════════════════════════════════
