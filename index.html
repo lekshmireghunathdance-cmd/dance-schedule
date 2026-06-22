@@ -253,6 +253,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <div class="stitle">Backup</div>
       <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Download a backup before major edits, or restore from a backup file.</div>
       <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <button class="bc" style="font-size:12px" onclick="saveAllNow()">Save all now</button>
         <button class="bc" style="font-size:12px" onclick="downloadBackup()">Download backup</button>
         <button class="bc" style="font-size:12px" onclick="document.getElementById('backup-file').click()">Restore backup</button>
         <button class="bc" style="font-size:12px" onclick="repairAppData()">Repair data</button>
@@ -755,6 +756,24 @@ function save(k,v){
     return ok;
   });
 }
+function serializedTwCache(){
+  const ser={};Object.keys(twWkCache).forEach(wk=>{ser[wk]=(twWkCache[wk]||[]).map(e=>({...e,date:e.date instanceof Date?e.date.toISOString():e.date}));});
+  return JSON.stringify({cache:ser,wkStart:twWkStart?twWkStart.toISOString():null,removed:twRemoved});
+}
+async function saveAllNow(){
+  setSS('Saving all…');
+  const data={gSettings,batches,indStudents,ss,att,reminders,careerData,curTz,twWkCache:serializedTwCache()};
+  const results=[];
+  for(const [k,v] of Object.entries(data)){
+    const payload=typeof v==='string'?v:JSON.stringify(v);
+    const wrapped=wrapSavedValue(payload);
+    localStorage.setItem(localKey(k),wrapped);
+    results.push(await cloudSave(k,wrapped));
+  }
+  setSS(results.every(Boolean)?'Saved all':'Some saves may be pending');
+  showToast(results.every(Boolean)?'All changes saved':'Local save done; cloud may still be pending');
+  setTimeout(()=>{if(document.getElementById('ss').textContent!=='⚠ Not connected')setSS('');},2200);
+}
 function clearLocalStorageKeys(keys){
   keys.forEach(k=>{
     localStorage.removeItem(k);
@@ -923,9 +942,7 @@ function syncAttendanceForEvent(ev){
   const rec=att[ev.id];if(!rec)return;
   const entity=getBatch(ev.batchId),date=twEventDate(ev);
   rec.date=date;rec.batchId=ev.batchId;rec.classLabel=(entity?.name||'Class')+' – '+date;rec.twStart=ev.start;rec.twEnd=ev.end;rec.evId=ev.id;
-  const valid=new Set(eventStudents(ev).map(s=>s.batchId+':'+s.name));
-  rec.students=(rec.students||[]).filter(s=>valid.has(s.batchId+':'+s.name));
-  if(!rec.students.length)delete att[ev.id];
+  rec.students=rec.students||[];
 }
 function syncAllAttendanceRecords(){allTwEvents().forEach(syncAttendanceForEvent);}
 function mergeAttendanceRecord(targetId,sourceRec){
@@ -977,8 +994,11 @@ function cleanAttendanceRecords(){
     const ev=getTwEvent(evId);
     if(!ev||!isRenderableTwEvent(ev)){
       const targetId=findAttendanceTarget(att[evId]);
-      if(targetId&&targetId!==evId)mergeAttendanceRecord(targetId,att[evId]);
-      delete att[evId];changed=true;return;
+      if(targetId&&targetId!==evId){
+        mergeAttendanceRecord(targetId,att[evId]);
+        delete att[evId];changed=true;
+      }
+      return;
     }
     const before=JSON.stringify(att[evId]);
     syncAttendanceForEvent(ev);
