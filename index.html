@@ -925,7 +925,11 @@ function eventStudents(ev){
 }
 function getEventStudent(ev,batchId,studentName){return eventStudents(ev).find(s=>s.batchId===batchId&&s.name===studentName)||null;}
 function getAttendanceEventInfo(evId,rec,batchId,studentName){
-  const ev=getTwEvent(evId||rec?.evId||'');
+  let ev=getTwEvent(evId||rec?.evId||'');
+  if(!ev&&rec){
+    const targetId=findAttendanceTarget(rec);
+    if(targetId)ev=getTwEvent(targetId);
+  }
   if(!ev||!isRenderableTwEvent(ev))return null;
   const info=getEventStudent(ev,batchId,studentName);
   return info?{ev,info}:null;
@@ -1419,7 +1423,7 @@ function cleanTwEvents(evs){
     if(!canMerge){out.push(ev);return;}
     const key=[ev.batchId,localDS(new Date(ev.date)),ev.start,ev.end,ev.classType||'additional'].join('|');
     if(!grouped[key]){
-      grouped[key]=normalizeTwEvent({...ev,id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),studentScope:null,makeupFor:null,studentRoles:[]});
+      grouped[key]=normalizeTwEvent({...ev,id:ev.id||'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),studentScope:null,makeupFor:null,studentRoles:[]});
       out.push(grouped[key]);
     }
     grouped[key].studentRoles.push({name:ev.studentScope,batchId:ev.batchId,classType:ev.classType||'additional',makeupFor:ev.makeupFor||null});
@@ -2657,19 +2661,20 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
     if(rec.date<fromDate||rec.date>toDate)return;
     const sAtt=(rec.students||[]).find(s=>s.batchId===batchId&&s.name===studentName);
     if(!sAtt)return;
-    const ev=getTwEvent(evId),info=ev?getEventStudent(ev,batchId,studentName):null;
+    const targetId=getTwEvent(evId)?evId:(findAttendanceTarget(rec)||evId);
+    const ev=getTwEvent(targetId),info=ev?getEventStudent(ev,batchId,studentName):null;
     const start=rec.twStart||ev?.start||'',end=ev?.end||'',originStart=ev?.originStart||ev?.start||rec.twStart||'',originEnd=ev?.originEnd||ev?.end||'';
-    const existing=evRows.find(r=>r.evId===evId)||evRows.find(r=>r.date===rec.date&&(((r.start||'')===start&&(!end||(r.end||'')===end))||((r.originStart||'')===originStart&&(!originEnd||(r.originEnd||'')===originEnd))));
+    const existing=evRows.find(r=>r.evId===evId||r.evId===targetId)||evRows.find(r=>r.date===rec.date&&(((r.start||'')===start&&(!end||(r.end||'')===end))||((r.originStart||'')===originStart&&(!originEnd||(r.originEnd||'')===originEnd))));
     if(existing){
       existing.status=sAtt.status||existing.status||null;
       existing.cancelled=existing.cancelled||sAtt.status==='cancelled'||!!(ev&&isTwEventCancelled(ev));
-      existing.evId=existing.evId||evId;
+      existing.evId=existing.evId||targetId||evId;
       existing.isAddon=existing.isAddon||!!sAtt.isAddon;
       if(info){existing.classType=info.classType||existing.classType;existing.makeupFor=info.makeupFor||existing.makeupFor||null;}
       return;
     }
     if(!ev||!info)return;
-    evRows.push({date:rec.date,start,end,originStart,originEnd,classType:info?.classType||'scheduled',isTemp:!!ev?.isTemp,cancelled:!!(ev&&isTwEventCancelled(ev))||sAtt.status==='cancelled',status:sAtt.status||null,makeupFor:info?.makeupFor||null,evId,isAddon:!!sAtt.isAddon});
+    evRows.push({date:rec.date,start,end,originStart,originEnd,classType:info?.classType||'scheduled',isTemp:!!ev?.isTemp,cancelled:!!(ev&&isTwEventCancelled(ev))||sAtt.status==='cancelled',status:sAtt.status||null,makeupFor:info?.makeupFor||null,evId:targetId||evId,isAddon:!!sAtt.isAddon});
   });
   const mergedRows=[];
   const rowMap={};
