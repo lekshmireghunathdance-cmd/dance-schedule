@@ -1926,21 +1926,21 @@ function buildCopyMessageText(){
       const count=computeMonthCount(studentName,batchId,year,month,'A');
       const pendingAll=getPendingClasses(studentName,batchId);
       const monthMissed=pendingAll.filter(e=>e.type==='absent'&&e.date>=fromDate&&e.date<=toDate);
+      const makeupStatusEntries=pendingAll.filter(e=>!e.resolved||(e.resolvedOn&&e.resolvedOn>=fromDate&&e.resolvedOn<=toDate)||(e.date>=fromDate&&e.date<=toDate));
       const pendingByDate={};monthMissed.forEach(e=>{pendingByDate[e.date]=e;});
-      const shownRows=rows.slice(0,count);
+      const shownRows=rows;
       lines.push('',`Counted classes for ${MONTHS[month-1]}:`);
       lines.push(...(shownRows.length?shownRows.map(r=>{
         const missed=pendingByDate[r.date];
         if(missed?.resolved&&missed.resolvedOn){
           return`* ${msgDateLineBoth(missed.resolvedOn,missed.resolvedStart||'',batchId,studentName)} — Makeup class for ${msgDateOnly(missed.date,true)}`;
         }
-        if(r.classType==='additional')return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)} — Additional class`;
         if(r.classType==='makeup')return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)}${r.makeupFor?` — Makeup class for ${msgDateOnly(r.makeupFor,true)}`:' — Makeup class'}`;
         if(r.status==='absent')return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)} — Missed class, counted; makeup pending`;
         return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)}`;
       }):['* No counted classes marked.']));
-      lines.push('',`Total counted classes: ${count}`,'','Missed classes and makeup status:');
-      lines.push(...(monthMissed.length?monthMissed.map(e=>e.resolved&&e.resolvedOn
+      lines.push('',`Total counted classes: ${shownRows.length}`,'','Missed classes and makeup status:');
+      lines.push(...(makeupStatusEntries.length?makeupStatusEntries.map(e=>e.resolved&&e.resolvedOn
         ?`* ${msgDateOnly(e.date)} — Makeup completed on ${msgDateOnly(e.resolvedOn,true)}`
         :`* ${msgDateOnly(e.date)} — Makeup pending`):['* None']));
       lines.push('',`Fee for ${MONTHS[month-1]}: ${moneyText(rate*count,cur)} (${count} × ${moneyText(rate,cur)})`);
