@@ -1856,6 +1856,10 @@ function msgDateLine(date,start){
   if(start)line+=' - '+fmtTime(start)+' IST';
   return line;
 }
+function msgDateOnly(date,short=false){
+  const dt=new Date(date+'T12:00:00');
+  return dt.toLocaleDateString('en-GB',short?{day:'numeric',month:'short'}:{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+}
 function countedClassRows(batchId,studentName,cat,fromDate,toDate){
   const rows=[];
   const bCancelledCountMap=cat==='B'?typeBCancelledCountMap(batchId,studentName,fromDate,toDate):{};
@@ -1868,7 +1872,7 @@ function countedClassRows(batchId,studentName,cat,fromDate,toDate){
       if(s2.batchId!==batchId||s2.name!==studentName)return;
       const start=valid.ev.start||rec.twStart||'';
       const bCancelledCounts=s2.status==='cancelled'&&bCancelledCountMap[[rec.date,start].join('|')];
-      if(bCancelledCounts||countStudentClass(s2.status,cat,valid.info.classType||'scheduled')>0)rows.push({date:rec.date,start,evId});
+      if(bCancelledCounts||countStudentClass(s2.status,cat,valid.info.classType||'scheduled')>0)rows.push({date:rec.date,start,evId,status:s2.status,classType:valid.info.classType||'scheduled',makeupFor:valid.info.makeupFor||null});
     });
   });
   return rows.sort((a,b)=>a.date.localeCompare(b.date)||String(a.start||'').localeCompare(String(b.start||''))||String(a.evId||'').localeCompare(String(b.evId||'')));
@@ -1917,33 +1921,43 @@ function buildCopyMessageText(){
   }else{
     const rows=countedClassRows(batchId,studentName,cat,fromDate,toDate);
     const attendedRows=attendedClassRows(batchId,studentName,fromDate,toDate);
-    lines.push('','Counted classes:');
     if(cat==='A'){
+      lines[0]=`Hi, sharing ${studentName}’s dance class summary for ${period}.`;
+      const count=computeMonthCount(studentName,batchId,year,month,'A');
       const pendingAll=getPendingClasses(studentName,batchId);
-      const pendingByDate={};pendingAll.forEach(e=>{pendingByDate[e.date]=e;});
-      lines.push(...(rows.length?rows.map(r=>{
-        const e=pendingByDate[r.date];
-        if(e?.resolved&&e.resolvedOn)return`- ${msgDateLineBoth(e.resolvedOn,e.resolvedStart||'',batchId,studentName)} — Makeup class`;
-        const suffix=e?' — Missed class, counted; makeup pending':'';
-        return`- ${msgDateLineBoth(r.date,r.start,batchId,studentName)}${suffix}`;
-      }):['- No counted classes marked.']));
+      const monthMissed=pendingAll.filter(e=>e.type==='absent'&&e.date>=fromDate&&e.date<=toDate);
+      const pendingByDate={};monthMissed.forEach(e=>{pendingByDate[e.date]=e;});
+      const shownRows=rows.slice(0,count);
+      lines.push('',`Counted classes for ${MONTHS[month-1]}:`);
+      lines.push(...(shownRows.length?shownRows.map(r=>{
+        const missed=pendingByDate[r.date];
+        if(missed?.resolved&&missed.resolvedOn){
+          return`* ${msgDateLineBoth(missed.resolvedOn,missed.resolvedStart||'',batchId,studentName)} — Makeup class for ${msgDateOnly(missed.date,true)}`;
+        }
+        if(r.classType==='additional')return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)} — Additional class`;
+        if(r.classType==='makeup')return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)}${r.makeupFor?` — Makeup class for ${msgDateOnly(r.makeupFor,true)}`:' — Makeup class'}`;
+        if(r.status==='absent')return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)} — Missed class, counted; makeup pending`;
+        return`* ${msgDateLineBoth(r.date,r.start,batchId,studentName)}`;
+      }):['* No counted classes marked.']));
+      lines.push('',`Total counted classes: ${count}`,'','Missed classes and makeup status:');
+      lines.push(...(monthMissed.length?monthMissed.map(e=>e.resolved&&e.resolvedOn
+        ?`* ${msgDateOnly(e.date)} — Makeup completed on ${msgDateOnly(e.resolvedOn,true)}`
+        :`* ${msgDateOnly(e.date)} — Makeup pending`):['* None']));
+      lines.push('',`Fee for ${MONTHS[month-1]}: ${moneyText(rate*count,cur)} (${count} × ${moneyText(rate,cur)})`);
     }else{
+      lines.push('','Counted classes:');
       lines.push(...(rows.length?rows.map(r=>`- ${msgDateLine(r.date,r.start)}`):['- No counted classes marked.']));
-    }
-    lines.push(`Total attended classes: ${attendedRows.length}`);
-    if(cat==='A'||cat==='B'){
-      const pend=pendingSummaryLines(batchId,studentName);
-      lines.push('','Pending classes to make up:');
-      if(pend.length){
-        lines.push(...(cat==='A'?getPendingClasses(studentName,batchId).filter(e=>!e.resolved).map(e=>`- ${msgDateLineBoth(e.date,e.start||'',batchId,studentName)} — Missed class counted; makeup pending`):pend));
-        lines.push(cat==='A'?'Missed classes have been counted whether they have been made up or not. Pending missed classes are eligible for makeup. Please contact the teacher to schedule makeup class(es).':'These classes are counted, so please schedule makeup class(es).');
-      }else lines.push('- None');
-    }
-    if(cat==='A'||cat==='C'){
-      const count=computeMonthCount(studentName,batchId,year,month,cat);
-      lines.push('',`Total fee to pay: ${moneyText(rate*count,cur)} (${count} x ${moneyText(rate,cur)})`);
-    }else if(cat==='B'){
-      lines.push('','This is only a class summary for the past month, not a fee collection message.');
+      lines.push(`Total attended classes: ${attendedRows.length}`);
+      if(cat==='B'){
+        const pend=pendingSummaryLines(batchId,studentName);
+        lines.push('','Pending classes to make up:');
+        if(pend.length){lines.push(...pend);lines.push('These classes are counted, so please schedule makeup class(es).');}
+        else lines.push('- None');
+        lines.push('','This is only a class summary for the past month, not a fee collection message.');
+      }else if(cat==='C'){
+        const count=computeMonthCount(studentName,batchId,year,month,cat);
+        lines.push('',`Total fee to pay: ${moneyText(rate*count,cur)} (${count} x ${moneyText(rate,cur)})`);
+      }
     }
   }
   lines.push('','This is an autogenerated message.');
