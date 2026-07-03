@@ -3029,6 +3029,7 @@ function ensureTwWeekCache(wk){
   twPopulate();
   twWkStart=oldStart;twEvs=oldEvs;
 }
+function twTimeWithinGrid(start,end){return toMins(start)>=TW_S*60&&toMins(end)<=TW_E*60;}
 function placeTwEventInWeek(ev,oldId=null){
   const targetWk=localDS(getMon(new Date(twEventDate(ev)+'T12:00:00')));
   const curWk=twKey();
@@ -3040,6 +3041,7 @@ function placeTwEventInWeek(ev,oldId=null){
   twEvs=cleanTwEvents((twWkCache[targetWk]||[]).map(e=>({...e,date:new Date(e.date)})));
   document.getElementById('tw-dt').value=localDS(twWkStart);
   saveTwCacheOnly();
+  return twEvs.some(x=>x.id===ev.id);
 }
 function moveTwEventToDateWeek(ev,oldId=null){
   const targetWk=localDS(getMon(new Date(twEventDate(ev)+'T12:00:00')));
@@ -3051,11 +3053,12 @@ function moveTwEventToDateWeek(ev,oldId=null){
     twEvs=cleanTwEvents(twEvs);
     twWkCache[currentWk]=twEvs;
     twSave();
-    return;
+    return twEvs.some(x=>x.id===ev.id);
   }
-  placeTwEventInWeek(ev,oldId);
+  const stored=placeTwEventInWeek(ev,oldId);
   syncAttendanceForEvent(ev);
   save('att',att);
+  return stored;
 }
 function twBlockSave(){
   const title=(document.getElementById('twb-title').value||'').trim();
@@ -3064,6 +3067,7 @@ function twBlockSave(){
   if(!title){showToast('Add a title');return;}
   if(!dv||!st||!en){showToast('Fill date and times');return;}
   if(toMins(en)<=toMins(st)){showToast('End must be after start');return;}
+  if(!twTimeWithinGrid(st,en)){showToast('TW displays 5am–11pm IST. Choose a time within that range.');return;}
   twSnapshot(twBlockEditId?'Edit block time':'Block time');
   let ev=twBlockEditId?twEvs.find(x=>x.id===twBlockEditId):null;
   const oldId=ev?.id||null;
@@ -3073,7 +3077,8 @@ function twBlockSave(){
   }else{
     ev={id:'twb_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:'__block__',date:new Date(dv+'T12:00:00'),start:st,end:en,classType:'block',blockTitle:title,blockNote:note,cancelled:false,isTemp:false};
   }
-  placeTwEventInWeek(ev,oldId);
+  const stored=placeTwEventInWeek(ev,oldId);
+  if(!stored){showToast('Block could not be saved. Please check the details.');return;}
   closeOv('ov-twb');twRender();showToast('Block saved');
 }
 function twBlockRemove(){
@@ -3091,7 +3096,7 @@ function openTwAdd(){
   document.getElementById('twa-bat').innerHTML=batches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
   document.getElementById('twa-type').value='makeup';twaTypeChange();openOv('ov-twa');
 }
-function twaToggleBatch(){const ch=document.getElementById('twa-fb').checked;document.getElementById('twa-bwrap').style.display=ch?'':'none';document.getElementById('twa-iwrap').style.display=ch?'none':'';}
+function twaToggleBatch(){const ch=document.getElementById('twa-fb').checked;document.getElementById('twa-bwrap').style.display=ch?'':'none';document.getElementById('twa-iwrap').style.display=ch?'none':'';if(ch)twaLoadBatch();}
 function twaLoadBatch(){
   const bid=document.getElementById('twa-bat').value;const b=getBatch(bid);if(!b)return;
   const stus=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -3155,13 +3160,16 @@ function twaConfirm(){
   const dv=document.getElementById('twa-dt').value,st=document.getElementById('twa-st').value,en=document.getElementById('twa-en').value;
   if(!dv||!st||!en){showToast('Fill date and times');return;}
   if(toMins(en)<=toMins(st)){showToast('End must be after start');return;}
+  if(!twTimeWithinGrid(st,en)){showToast('TW displays 5am–11pm IST. Choose a time within that range.');return;}
   const forBatch=document.getElementById('twa-fb').checked;const newEvs=[];
   if(forBatch){
     const bid=document.getElementById('twa-bat').value;if(!bid){showToast('Select batch');return;}
-    const rows2=document.querySelectorAll('#twa-bstus [data-student]');
+    let rows2=document.querySelectorAll('#twa-bstus [data-student]');
+    if(!rows2.length){twaLoadBatch();rows2=document.querySelectorAll('#twa-bstus [data-student]');}
     let invalid=false;const roles=[];
-    rows2.forEach(row=>{if(invalid)return;const nm=row.dataset.student;const role=row.querySelector('.twa-srole')?.value||'additional';const mf=role==='makeup'?row.querySelector('.twa-smfsel')?.value||null:null;if(role==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);invalid=true;return;}roles.push({name:nm,batchId:bid,classType:role,makeupFor:mf||null});});
+    rows2.forEach(row=>{if(invalid)return;const nm=row.dataset.student;if(!studentExistsInEntity(bid,nm,dv))return;const role=row.querySelector('.twa-srole')?.value||'additional';const mf=role==='makeup'?row.querySelector('.twa-smfsel')?.value||null:null;if(role==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);invalid=true;return;}roles.push({name:nm,batchId:bid,classType:role,makeupFor:mf||null});});
     if(invalid)return;
+    if(!roles.length){showToast('No active students found for this batch on the selected date.');return;}
     const roleSet=[...new Set(roles.map(r=>r.classType))];
     newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:roleSet.length===1?roleSet[0]:'batch',studentScope:null,makeupFor:null,studentRoles:roles,addonStudents:[]});
   } else {
@@ -3175,7 +3183,8 @@ function twaConfirm(){
   if(addonInvalid)return;
   if(newEvs.length>0)newEvs[newEvs.length-1].addonStudents=addons;
   twSnapshot('Add class');
-  newEvs.forEach(ev=>moveTwEventToDateWeek(normalizeTwEvent(ev)));
+  const stored=newEvs.every(ev=>moveTwEventToDateWeek(normalizeTwEvent(ev)));
+  if(!stored){showToast('Class could not be added. Please check the student and date.');return;}
   closeOv('ov-twa');twRender();refreshSD();
   if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();
   if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
