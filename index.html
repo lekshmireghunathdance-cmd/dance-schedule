@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -497,7 +498,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
 
 <!-- TW EDIT CLASS -->
 <div class="ov" id="ov-twe" style="z-index:350">
-  <div class="modal" style="width:500px">
+  <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
     <h2 id="twe-ttl">Edit Class</h2>
     <div id="twe-info" style="font-size:11px;color:var(--mut);margin:-10px 0 12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -505,7 +506,10 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <div class="field"><label>Start (IST)</label><input id="twe-st" type="time"/></div>
       <div class="field"><label>End (IST)</label><input id="twe-en" type="time"/></div>
     </div>
-    <div class="field"><label>Add-on students</label><div id="twe-addons"></div>
+    <div class="field"><label>Students in this class</label><div id="twe-students"></div>
+      <button onclick="tweAddStudent()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif;margin-top:4px">+ Add student</button>
+    </div>
+    <div class="field"><label>Extra students</label><div id="twe-addons"></div>
       <button onclick="tweAddAddon()" style="font-size:11px;padding:3px 9px;border:1px dashed var(--bdr);border-radius:var(--r);background:none;cursor:pointer;color:var(--blue);font-family:'Roboto',sans-serif;margin-top:4px">+ Add student</button>
     </div>
     <div id="twe-warn" class="warn" style="display:none">⚠ Cancel Class is intended for Type B students. Use Remove for other types.</div>
@@ -3140,21 +3144,22 @@ function twaLoadStu(){
 }
   function twaTypeChange(){const type=document.getElementById('twa-type').value;const mfw=document.getElementById('twa-mfw');if(!mfw)return;mfw.style.display=type==='makeup'?'':'none';if(type==='makeup'){const val=document.getElementById('twa-stu').value;if(val){const[bid,nm]=val.split('|');const pend=getPendingClasses(nm,bid).filter(e=>!e.resolved);document.getElementById('twa-mf').innerHTML='<option value="">— select pending —</option>'+pend.map(e=>`<option value="${e.date}">${e.label}</option>`).join('');}}}
   function buildStuOpts(){return batches.flatMap(b=>(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).map(n=>`<option value="${b.id}|${n}">${n} (${b.name})</option>`)).join('')+indStudents.map(s=>`<option value="${s.id}|${s.name}">${s.name} (Individual)</option>`).join('');}
-  function addonRowHtml(id,a={}){
+  function addonRowHtml(id,a={},allowScheduled=false){
     const selectedVal=a.batchId&&a.name?`${a.batchId}|${a.name}`:'';
     const rawOpts=buildStuOpts();
     const opts=selectedVal?rawOpts.replace(`value="${selectedVal}"`,`value="${selectedVal}" selected`):'<option value="">— select —</option>'+rawOpts;
     const type=a.classType||'makeup';
+    const scheduledOpt=(allowScheduled||type==='scheduled')?`<option value="scheduled"${type==='scheduled'?' selected':''}>Scheduled</option>`:'';
     let pendingOpts='',showMf=false;
     if(selectedVal&&type==='makeup'){
       const[bid,nm]=selectedVal.split('|');
       pendingOpts=getPendingClasses(nm,bid).filter(e=>!e.resolved||e.date===a.makeupFor).map(e=>`<option value="${e.date}"${e.date===a.makeupFor?' selected':''}>${e.label}</option>`).join('');
       showMf=true;
     }
-    return`<div class="ao-row" id="${id}"><select onchange="twaAoChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px">${opts}</select><select class="ao-type" onchange="twaAoChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px"><option value="makeup"${type==='makeup'?' selected':''}>Makeup</option><option value="additional"${type==='additional'?' selected':''}>Additional</option></select><button class="delbtn" onclick="document.getElementById('${id}').remove();document.getElementById('${id}-mf')?.remove()">×</button></div><div class="ao-mf-wrap" id="${id}-mf" style="display:${showMf?'':'none'};padding:0 7px 7px;background:var(--bg);margin-top:-4px;border-radius:0 0 var(--r) var(--r)"><select class="ao-mf" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px;width:100%"><option value="">— select pending —</option>${pendingOpts}</select></div>`;
+    return`<div class="ao-row" id="${id}" data-allow-scheduled="${allowScheduled||type==='scheduled'?'1':'0'}"><select onchange="twaAoChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px">${opts}</select><select class="ao-type" onchange="twaAoChange(this)" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px">${scheduledOpt}<option value="makeup"${type==='makeup'?' selected':''}>Makeup</option><option value="additional"${type==='additional'?' selected':''}>Additional</option></select><button class="delbtn" onclick="document.getElementById('${id}').remove();document.getElementById('${id}-mf')?.remove()">×</button></div><div class="ao-mf-wrap" id="${id}-mf" style="display:${showMf?'':'none'};padding:0 7px 7px;background:var(--bg);margin-top:-4px;border-radius:0 0 var(--r) var(--r)"><select class="ao-mf" style="font-size:11px;padding:3px 6px;border:1px solid var(--bdr);border-radius:5px;width:100%"><option value="">— select pending —</option>${pendingOpts}</select></div>`;
   }
   function twaAddAddon(){const id='ao-'+Date.now();document.getElementById('twa-addons').insertAdjacentHTML('beforeend',addonRowHtml(id));}
-function twaAoChange(sel){const row=sel.closest('.ao-row');const mfWrap=row.nextElementSibling;const typeEl=row.querySelector('.ao-type');const stuSel=row.querySelector('select');const val=stuSel.value;if(val&&sel===stuSel){const[bid,nm]=val.split('|');const cat=ss[bid+':'+nm]?.category||'A';typeEl.innerHTML=(cat==='A'||cat==='B'?'<option value="makeup">Makeup</option>':'')+'<option value="additional">Additional</option>';}if(mfWrap&&mfWrap.classList.contains('ao-mf-wrap')){const show=typeEl.value==='makeup'&&val;mfWrap.style.display=show?'':'none';if(show){const[bid,nm]=val.split('|');const pend=getPendingClasses(nm,bid).filter(e=>!e.resolved);mfWrap.querySelector('.ao-mf').innerHTML='<option value="">— select pending —</option>'+pend.map(e=>`<option value="${e.date}">${e.label}</option>`).join('');}}}
+function twaAoChange(sel){const row=sel.closest('.ao-row');const mfWrap=row.nextElementSibling;const typeEl=row.querySelector('.ao-type');const stuSel=row.querySelector('select');const val=stuSel.value;if(val&&sel===stuSel){const prev=typeEl.value;const[bid,nm]=val.split('|');const cat=ss[bid+':'+nm]?.category||'A';typeEl.innerHTML=(row.dataset.allowScheduled==='1'?'<option value="scheduled">Scheduled</option>':'')+(cat==='A'||cat==='B'?'<option value="makeup">Makeup</option>':'')+'<option value="additional">Additional</option>';if([...typeEl.options].some(o=>o.value===prev))typeEl.value=prev;}if(mfWrap&&mfWrap.classList.contains('ao-mf-wrap')){const show=typeEl.value==='makeup'&&val;mfWrap.style.display=show?'':'none';if(show){const[bid,nm]=val.split('|');const pend=getPendingClasses(nm,bid).filter(e=>!e.resolved);mfWrap.querySelector('.ao-mf').innerHTML='<option value="">— select pending —</option>'+pend.map(e=>`<option value="${e.date}">${e.label}</option>`).join('');}}}
 
 function twaConfirm(){
   const dv=document.getElementById('twa-dt').value,st=document.getElementById('twa-st').value,en=document.getElementById('twa-en').value;
@@ -3192,6 +3197,30 @@ function twaConfirm(){
 }
 
 // EDIT CLASS
+function tweAssignedRoles(ev){
+  normalizeTwEvent(ev);
+  const ds=twEventDate(ev),batch=getBatch(ev.batchId);
+  let roles=(ev.studentRoles||[]).map(r=>({name:r.name,batchId:r.batchId||ev.batchId,classType:r.classType||ev.classType||'scheduled',makeupFor:r.makeupFor||null}));
+  if(!roles.length&&ev.studentScope)roles=[{name:ev.studentScope,batchId:ev.batchId,classType:ev.classType||'scheduled',makeupFor:ev.makeupFor||null}];
+  if(!roles.length&&ev.batchId?.startsWith('ind_')&&batch?.name)roles=[{name:batch.name,batchId:ev.batchId,classType:ev.classType||'scheduled',makeupFor:null}];
+  if(!roles.length&&batch)roles=activeBatchStudents(batch,ds).map(name=>({name,batchId:ev.batchId,classType:'scheduled',makeupFor:null}));
+  return uniqueBy(roles.filter(r=>studentExistsInEntity(r.batchId,r.name,ds)),r=>`${r.batchId}:${r.name}:${r.classType}:${r.makeupFor||''}`);
+}
+function tweAddStudent(a={}){const id='as-'+Date.now()+'-'+Math.random().toString(36).slice(2);document.getElementById('twe-students').insertAdjacentHTML('beforeend',addonRowHtml(id,a,true));}
+function readTweRows(selector,{requireOne=false,label='student'}={}){
+  const rows=[];let invalid=false;
+  document.querySelectorAll(selector+' .ao-row').forEach(row=>{
+    if(invalid)return;
+    const sv=row.querySelector('select').value;if(!sv)return;
+    const[bid,nm]=sv.split('|');const type=row.querySelector('.ao-type')?.value||'additional';
+    const mfWrap=row.nextElementSibling;const mf=type==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;
+    if(type==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);invalid=true;return;}
+    rows.push({name:nm,batchId:bid,classType:type,makeupFor:mf||null});
+  });
+  if(invalid)return null;
+  if(requireOne&&!rows.length){showToast(`Add at least one ${label}`);return null;}
+  return uniqueBy(rows,r=>`${r.batchId}:${r.name}:${r.classType}:${r.makeupFor||''}`);
+}
 function twEditOpen(evId){
   twEditId=evId;const ev=twEvs.find(x=>x.id===evId);if(!ev)return;
   const batch=getBatch(ev.batchId);
@@ -3200,9 +3229,11 @@ function twEditOpen(evId){
   document.getElementById('twe-dt').value=twEventDate(ev);
   document.getElementById('twe-st').value=ev.start;document.getElementById('twe-en').value=ev.end;
   document.getElementById('twe-canc').style.display=ev.cancelled?'none':'';
-  const mainStus=ev.studentScope?[ev.studentScope]:(batch?(batch.students||'').split(',').map(s=>s.trim()).filter(Boolean):[]);
-  const hasNonB=mainStus.some(n=>(ss[ev.batchId+':'+n]?.category||'')!=='B');
+  const assigned=tweAssignedRoles(ev);
+  const hasNonB=assigned.some(r=>(ss[(r.batchId||ev.batchId)+':'+r.name]?.category||'')!=='B');
   document.getElementById('twe-warn').style.display=hasNonB?'':'none';
+  const sl=document.getElementById('twe-students');sl.innerHTML='';
+  assigned.forEach(a=>tweAddStudent(a));
   const al=document.getElementById('twe-addons');al.innerHTML='';
   (ev.addonStudents||[]).forEach(a=>{const id='ao-'+Date.now();al.insertAdjacentHTML('beforeend',addonRowHtml(id,a));});
   openOv('ov-twe');
@@ -3212,11 +3243,16 @@ function tweSave(){
   const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;
   const nd=document.getElementById('twe-dt').value,ns=document.getElementById('twe-st').value,ne=document.getElementById('twe-en').value;
   if(toMins(ne)<=toMins(ns)){showToast('End must be after start');return;}
-  const addons=[];let addonInvalid=false;document.querySelectorAll('#twe-addons .ao-row').forEach(row=>{if(addonInvalid)return;const sv=row.querySelector('select').value;if(!sv)return;const[bid,nm]=sv.split('|');const type=row.querySelector('.ao-type')?.value||'additional';const mfWrap=row.nextElementSibling;const mf=type==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;if(type==='makeup'&&!mf){showToast(`Select makeup for ${nm}`);addonInvalid=true;return;}addons.push({name:nm,batchId:bid,classType:type,makeupFor:mf||null});});
-  if(addonInvalid)return;
+  const assigned=readTweRows('#twe-students',{requireOne:true,label:'student in this class'});if(!assigned)return;
+  const addons=readTweRows('#twe-addons');if(!addons)return;
   twSnapshot('Edit class');
   const origDs=twEventDate(ev);markOriginalRemoved(ev,origDs);ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
+  ev.studentScope=null;ev.makeupFor=null;ev.studentRoles=assigned;
+  const roleSet=[...new Set(assigned.map(r=>r.classType))];
+  ev.classType=roleSet.length===1?roleSet[0]:'batch';
   ev.addonStudents=addons;
+  const valid=new Set(eventStudents(ev).map(s=>s.batchId+':'+s.name));
+  if(att[ev.id])att[ev.id].students=(att[ev.id].students||[]).filter(s=>valid.has(s.batchId+':'+s.name));
   syncAttendanceForEvent(ev);
   moveTwEventToDateWeek(ev,twEditId);closeOv('ov-twe');twRender();refreshSD();if(document.getElementById('ov-bd').classList.contains('open'))renderBatchDetail();if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
 }
