@@ -908,13 +908,25 @@ function studentActiveOn(batchId,name,dateStr){const af=studentAddFrom(batchId,n
 function activeBatchStudents(batch,dateStr){return(batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean).filter(name=>studentActiveOn(batch.id,name,dateStr));}
 function allTwEvents(){return Object.values(twWkCache).flatMap(evs=>Array.isArray(evs)?evs:[]);}
 function getTwEvent(id){return twEvs.find(e=>e.id===id)||allTwEvents().find(e=>e.id===id)||null;}
+function hasExplicitStudentRoster(ev){
+  normalizeTwEvent(ev);
+  if(ev.rosterEdited)return true;
+  if(!(ev.studentRoles||[]).length||ev.studentScope)return false;
+  if((ev.classType||'scheduled')!=='scheduled')return true;
+  const entity=getBatch(ev.batchId),ds=ev.date?twEventDate(ev):'';
+  if(!entity||ev.batchId?.startsWith('ind_'))return false;
+  const expected=activeBatchStudents(entity,ds).map(name=>ev.batchId+':'+name).sort().join('|');
+  const actual=(ev.studentRoles||[]).filter(r=>(r.classType||'scheduled')==='scheduled').map(r=>(r.batchId||ev.batchId)+':'+r.name).sort().join('|');
+  const allScheduled=(ev.studentRoles||[]).every(r=>(r.classType||'scheduled')==='scheduled');
+  return !allScheduled||actual!==expected;
+}
 function eventStudents(ev){
   normalizeTwEvent(ev);
   if((ev.classType||'scheduled')==='block')return[];
   const entity=getBatch(ev.batchId),students=[];
   const ds=ev.date?twEventDate(ev):'';
   let baseHandled=false;
-  if(ev.studentRoles?.length){ev.studentRoles.forEach(r=>{const bid=r.batchId||ev.batchId;if(studentExistsInEntity(bid,r.name,ds))students.push({name:r.name,batchId:bid,isAddon:false,classType:r.classType||ev.classType||'additional',makeupFor:r.makeupFor||null});});baseHandled=students.length>0;}
+  if(ev.studentRoles?.length){ev.studentRoles.forEach(r=>{const bid=r.batchId||ev.batchId;if(studentExistsInEntity(bid,r.name,ds))students.push({name:r.name,batchId:bid,isAddon:false,classType:r.classType||ev.classType||'additional',makeupFor:r.makeupFor||null});});baseHandled=((ev.classType||'scheduled')!=='scheduled'||hasExplicitStudentRoster(ev))&&students.length>0;}
   if((ev.classType||'scheduled')==='scheduled'&&!ev.studentScope&&entity&&!ev.batchId.startsWith('ind_')){
     const existing=new Set(students.map(s=>s.batchId+':'+s.name));
     activeBatchStudents(entity,ds).forEach(name=>{const key=ev.batchId+':'+name;if(!existing.has(key))students.push({name,batchId:ev.batchId,isAddon:false,classType:'scheduled',makeupFor:null});});
@@ -2739,7 +2751,7 @@ function buildAttRows(batchId,studentName,cat,fromDate,toDate,tabTz,showTz){
   });
   // Timing projections not yet in TW
   const entity=batchId.startsWith('ind_')?indStudents.find(s=>s.id===batchId):getBatch(batchId);
-  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);if(!studentActiveOn(batchId,studentName,ds))continue;const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const sameSlot=(ev)=>twEventDate(ev)===ds&&(((ev.originStart||ev.start)===slot.start&&(ev.originEnd||ev.end)===slot.end)||(ev.start===slot.start&&ev.end===slot.end));const matchingTw=allTwEvents().filter(sameSlot);const hasEditedRoster=matchingTw.some(ev=>ev.batchId===batchId&&!ev.studentScope&&(ev.studentRoles||[]).length);if(hasEditedRoster&&!matchingTw.some(ev=>getEventStudent(ev,batchId,studentName)))return;const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(r.studentScope===studentName||(!r.studentScope&&!hasEditedRoster)));if(removed)return;const exists=evRows.find(r=>r.date===ds&&((r.start===slot.start&&r.end===slot.end)||(r.originStart===slot.start&&r.originEnd===slot.end)))||matchingTw.some(ev=>getEventStudent(ev,batchId,studentName));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,originStart:slot.start,originEnd:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
+  if(entity){for(let d=new Date(fromDate+'T00:00:00');d<=new Date(toDate+'T23:59:59');d.setDate(d.getDate()+1)){const ds=localDS(d);if(!studentActiveOn(batchId,studentName,ds))continue;const wk=localDS(getMon(d));resolveClassForDate(entity,ds).forEach(slot=>{const sameSlot=(ev)=>twEventDate(ev)===ds&&(((ev.originStart||ev.start)===slot.start&&(ev.originEnd||ev.end)===slot.end)||(ev.start===slot.start&&ev.end===slot.end));const matchingTw=allTwEvents().filter(sameSlot);const hasEditedRoster=matchingTw.some(ev=>ev.batchId===batchId&&!ev.studentScope&&hasExplicitStudentRoster(ev));if(hasEditedRoster&&!matchingTw.some(ev=>getEventStudent(ev,batchId,studentName)))return;const removed=(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===ds&&(!r.start||r.start===slot.start)&&(!r.end||r.end===slot.end)&&(r.studentScope===studentName||(!r.studentScope&&!hasEditedRoster)));if(removed)return;const exists=evRows.find(r=>r.date===ds&&((r.start===slot.start&&r.end===slot.end)||(r.originStart===slot.start&&r.originEnd===slot.end)))||matchingTw.some(ev=>getEventStudent(ev,batchId,studentName));if(!exists){evRows.push({date:ds,start:slot.start,end:slot.end,originStart:slot.start,originEnd:slot.end,classType:'scheduled',isTemp:slot.isTemp,cancelled:false,status:null,makeupFor:null,evId:null,isAddon:false});}});}}
   Object.entries(att).forEach(([evId,rec])=>{
     if(rec.date<fromDate||rec.date>toDate)return;
     const sAtt=(rec.students||[]).find(s=>s.batchId===batchId&&s.name===studentName);
@@ -3321,7 +3333,7 @@ function tweSave(){
   const previousStudents=eventStudents(ev).filter(s=>!s.isAddon).map(s=>({name:s.name,batchId:s.batchId||ev.batchId}));
   twSnapshot('Edit class');
   const origDs=twEventDate(ev);markOriginalRemoved(ev,origDs);ev.date=new Date(nd+'T12:00:00');ev.start=ns;ev.end=ne;ev.manuallyMoved=true;
-  ev.studentScope=null;ev.makeupFor=null;ev.studentRoles=assigned;
+  ev.studentScope=null;ev.makeupFor=null;ev.studentRoles=assigned;ev.rosterEdited=true;
   const roleSet=[...new Set(assigned.map(r=>r.classType))];
   ev.classType=roleSet.length===1?roleSet[0]:'batch';
   ev.addonStudents=addons;
