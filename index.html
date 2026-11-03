@@ -244,8 +244,8 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
     <h2>⚙ Global Settings</h2>
     <div class="field"><label>Year</label><select id="gs-yr"><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field"><label>Summer starts on</label><input id="gs-su" type="date"/></div>
-      <div class="field"><label>Winter starts on</label><input id="gs-wi" type="date"/></div>
+      <div class="field"><label>Summer starts on</label><input id="gs-su" type="date" onchange="gsUpdateShowing()"/></div>
+      <div class="field"><label>Winter starts on</label><input id="gs-wi" type="date" onchange="gsUpdateShowing()"/></div>
     </div>
     <div style="background:var(--bg);border-radius:var(--r);padding:10px;font-size:12px;color:var(--mut);margin-bottom:8px" id="gs-showing">Currently showing: —</div>
     <div class="field"><label>Display timezone</label><select id="gs-tz"></select></div>
@@ -800,6 +800,7 @@ async function initLoad(){dataReady=false;setSS('⟳ Syncing…');const d=await 
   if(careerRaw)careerData=JSON.parse(careerRaw);
   if(tzRaw)curTz=tzRaw;
   if(twRaw){const p=JSON.parse(twRaw);const c=p.cache||p;twWkCache={};Object.entries(c).forEach(([wk,evs])=>{twWkCache[wk]=cleanTwEvents(evs.map(e=>({...e,date:new Date(e.date)})));});if(p.wkStart)twWkStart=new Date(p.wkStart);if(p.removed)twRemoved=p.removed;}
+  reconcileSeasonWeeks();
   normalizeAllData(true);
   ensureCareerData();syncCareerReminders();
   setSS(WK_URL?'':'⚠ Not connected');boot();dataReady=true;}
@@ -815,13 +816,15 @@ function openSettings(){
   tsel.innerHTML=TZ_LIST.map(t=>`<option value="${t.id}"${t.id===curTz?' selected':''}>${t.l}</option>`).join('');
   gsUpdateShowing();openOv('ov-settings');
 }
-function gsUpdateShowing(){const s=deriveSeason();document.getElementById('gs-showing').textContent='Currently showing: '+(s==='summer'?'☀ Summer Timings':'❄ Winter Timings');}
+function gsUpdateShowing(){const old=gSettings;gSettings={...old,summerStart:document.getElementById('gs-su').value,winterStart:document.getElementById('gs-wi').value};const s=deriveSeason();gSettings=old;document.getElementById('gs-showing').textContent='Currently showing: '+(s==='summer'?'☀ Summer Timings':'❄ Winter Timings');}
 function saveSettings(){
   gSettings.seasonYear=parseInt(document.getElementById('gs-yr').value);
   gSettings.summerStart=document.getElementById('gs-su').value;
   gSettings.winterStart=document.getElementById('gs-wi').value;
   curTz=document.getElementById('gs-tz').value;
   save('gSettings',gSettings);save('curTz',curTz);
+  reconcileSeasonWeeks();
+  if(twWkStart){twLoadWeek();if(document.getElementById('ov-tw').classList.contains('open'))twRender();}
   document.getElementById('tz-lbl').textContent=curTz;
   renderTzDd();updateSeasonBadge();renderCalendar();closeOv('ov-settings');showToast('Settings saved');
 }
@@ -1659,7 +1662,9 @@ function normalizeAllData(saveChanges=false){
 function deriveSeason(forDate){
   const d=forDate?new Date(forDate+'T12:00:00'):new Date();
   const{summerStart,winterStart}=gSettings;
-  if(!summerStart||!winterStart)return'summer';
+  if(!summerStart&&!winterStart)return'summer';
+  if(!summerStart)return localDS(d)>=winterStart?'winter':'summer';
+  if(!winterStart)return localDS(d)>=summerStart?'summer':'winter';
   const ss2=new Date(summerStart+'T00:00:00'),ws=new Date(winterStart+'T00:00:00');
   if(ss2<=ws){if(d>=ss2&&d<ws)return'summer';return'winter';}
   else{if(d>=ws&&d<ss2)return'winter';return'summer';}
@@ -2981,8 +2986,56 @@ function twSetWeek(){const v=document.getElementById('tw-dt').value;if(!v)return
 function twPrev(){twWkStart=addDays(twWkStart,-7);twSetWeekGo();}function twNext(){twWkStart=addDays(twWkStart,7);twSetWeekGo();}
 function twToday(){twWkStart=getMon(new Date());twSetWeekGo();}
 function twSetWeekGo(){document.getElementById('tw-dt').value=localDS(twWkStart);twLoadWeek();twRender();}
-function twLoadWeek(){const wk=twKey();if(!twWkCache[wk])twPopulate();else{const before=twWkCache[wk].length;twEvs=cleanTwEvents(twWkCache[wk].map(e=>({...e,date:new Date(e.date)})));const cleaned=twEvs.length!==before;if(twMerge()||cleaned)twSave();}}
-function twRemovedHas(wk,batchId,date,start,end){return(twRemoved[wk]||[]).some(r=>r.batchId===batchId&&r.date===date&&(!r.start||r.start===start)&&(!r.end||r.end===end)&&!r.studentScope);}
+// Reconcile only generated occurrences. Explicit class edits and recorded history stay intact.
+function reconcileSeasonWeeks(){
+  const original=JSON.stringify(twWkCache);
+  let changed=false;
+  Object.entries(twWkCache).forEach(([wk,events])=>{
+    const remove=new Set();
+    [...batches,...indStudents].forEach(entity=>{
+      for(let i=0;i<7;i++){
+        const ds=localDS(addDays(new Date(wk+'T12:00:00'),i));
+        const slots=resolveClassForDate(entity,ds).slice().sort((a,b)=>a.start.localeCompare(b.start));
+        const existing=events.filter(e=>e.batchId===entity.id&&(e.classType||'scheduled')==='scheduled'&&(e.originDate||twEventDate(e))===ds)
+          .sort((a,b)=>(a.originStart||a.start).localeCompare(b.originStart||b.start));
+        const pending=[];
+        existing.forEach(ev=>{
+          const at=slots.findIndex(t=>t.start===(ev.originStart||ev.start)&&t.end===(ev.originEnd||ev.end));
+          if(at>=0)slots.splice(at,1);else pending.push(ev);
+        });
+        pending.forEach(ev=>{
+          // A removed/moved/cancelled/attended occurrence reserves its place; never recreate it.
+          const protectedEvent=ev.manuallyMoved||ev.cancelled||ev.studentScope||(ev.addonStudents||[]).length||
+            (ev.studentRoles||[]).some(r=>(r.classType||'scheduled')!=='scheduled')||att[ev.id];
+          const slot=slots.shift();
+          if(protectedEvent)return;
+          if(!slot){remove.add(ev.id);changed=true;return;}
+          ev.originDate=ds;ev.originStart=slot.start;ev.originEnd=slot.end;
+          ev.start=slot.start;ev.end=slot.end;ev.isTemp=slot.isTemp;changed=true;
+        });
+      }
+    });
+    if(remove.size)twWkCache[wk]=events.filter(e=>!remove.has(e.id));
+  });
+  if(changed){
+    // Keep the complete previous weekly cache in browser storage before persisting adjustments.
+    const key='dance_season_backup_'+(gSettings.summerStart||'none')+'_'+(gSettings.winterStart||'none');
+    try{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({savedAt:new Date().toISOString(),cache:JSON.parse(original),att,removed:twRemoved}));}
+    catch(e){console.warn('Season backup could not be stored',e);}
+    if(twWkStart&&twWkCache[twKey()])twEvs=twWkCache[twKey()];
+    saveTwCacheOnly();
+  }
+  return changed;
+}
+function twLoadWeek(){reconcileSeasonWeeks();const wk=twKey();if(!twWkCache[wk])twPopulate();else{const before=twWkCache[wk].length;twEvs=cleanTwEvents(twWkCache[wk].map(e=>({...e,date:new Date(e.date)})));const cleaned=twEvs.length!==before;if(twMerge()||cleaned)twSave();}}
+function twRemovedHas(wk,batchId,date,start,end){
+  const records=(twRemoved[wk]||[]).filter(r=>r.batchId===batchId&&r.date===date&&!r.studentScope);
+  if(records.some(r=>(!r.start||r.start===start)&&(!r.end||r.end===end)))return true;
+  const slots=resolveClassForDate(getBatch(batchId),date).slice().sort((a,b)=>a.start.localeCompare(b.start));
+  const unmatched=records.filter(r=>!slots.some(t=>t.start===r.start&&(!r.end||t.end===r.end)));
+  const available=slots.filter(t=>!records.some(r=>r.start===t.start&&(!r.end||r.end===t.end)));
+  return available.slice(0,unmatched.length).some(t=>t.start===start&&t.end===end);
+}
 function makeScheduledTwEvent(entity,d,ds,slot){
   const roles=entity.id?.startsWith('ind_')?
     (studentActiveOn(entity.id,entity.name,ds)?[{name:entity.name,batchId:entity.id,classType:'scheduled',makeupFor:null}]:[]):
@@ -3031,6 +3084,10 @@ function twMerge(){
       resolveClassForDate(entity,ds).forEach(slot=>{
         if(twRemovedHas(wk,entity.id,ds,slot.start,slot.end))return;
         if(twHasScheduledOrigin(entity.id,ds,slot.start,slot.end))return;
+        const protectedOrigins=twEvs.filter(e=>e.batchId===entity.id&&(e.classType||'scheduled')==='scheduled'&&(e.originDate||twEventDate(e))===ds&&(e.manuallyMoved||e.cancelled||att[e.id]||(e.addonStudents||[]).length));
+        const expected=resolveClassForDate(entity,ds);
+        const onDate=twEvs.filter(e=>e.batchId===entity.id&&(e.classType||'scheduled')==='scheduled'&&(e.originDate||twEventDate(e))===ds);
+        if(protectedOrigins.length&&onDate.length>=expected.length)return;
         twEvs.push(makeScheduledTwEvent(entity,d,ds,slot));changed=true;
       });
     }
@@ -3640,6 +3697,15 @@ function boot(){
 document.getElementById('btn-ab').addEventListener('click',()=>openAddBatch());
 document.getElementById('btn-as').addEventListener('click',()=>openAddStudent());
 boot();initPromise=initLoad();
+let seasonRenderedDay=localDS(new Date());
+function refreshSeasonDay(){
+  if(!dataReady||seasonRenderedDay===localDS(new Date()))return;
+  seasonRenderedDay=localDS(new Date());
+  updateSeasonBadge();renderCalendar();
+  if(twWkStart){twLoadWeek();if(document.getElementById('ov-tw').classList.contains('open'))twRender();}
+}
+setInterval(refreshSeasonDay,30000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshSeasonDay();});
 </script>
 </body>
 </html>
