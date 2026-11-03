@@ -233,6 +233,11 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       <div id="sb-students"><div id="student-list"></div><div id="student-empty" style="font-size:11px;color:var(--sub);padding:6px 4px;display:none">No students yet.</div></div>
     </div>
     <div class="sb-div"></div>
+    <div class="sb-sec">
+      <div class="sb-lbl" onclick="toggleSec('archived')"><span id="archive-label">Archived students</span><svg id="cv-archived" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transform:rotate(-90deg);transition:transform .2s"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div id="sb-archived" style="display:none"><div id="archived-list"></div></div>
+    </div>
+    <div class="sb-div"></div>
     <div class="sb-sec"><div style="font-size:9px;color:var(--sub);padding:3px">Auto-saved to cloud</div></div>
   </aside>
   <main class="cal-outer"><div id="cal-inner"></div></main>
@@ -373,7 +378,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
       </div>
     </div>
     <div class="mf">
-      <button class="bd" id="s-del" onclick="deleteStudentConfirm()" style="display:none">Delete student</button>
+      <button class="bd" id="s-del" onclick="deleteStudentConfirm()" style="display:none">Archive student</button>
       <button class="bc" onclick="closeOv('ov-s1')">Cancel</button>
       <button class="bp" id="s-save" onclick="sStep1Save()">Save</button>
     </div>
@@ -470,7 +475,7 @@ body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--txt);min-h
   <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto">
     <h2>Add a Class</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="field"><label>Date</label><input id="twa-dt" type="date"/></div>
+      <div class="field"><label>Date</label><input id="twa-dt" type="date" onchange="twaDateChanged()"/></div>
       <div class="field"><label>Start (IST)</label><input id="twa-st" type="time"/></div>
       <div class="field"><label>End (IST)</label><input id="twa-en" type="time"/></div>
     </div>
@@ -700,7 +705,7 @@ const COLORS=[{id:'c1',bg:'#e8f0fe',b:'#4285f4',t:'#1a237e'},{id:'c2',bg:'#e6f4e
 // ═══════════════════════════════════════════════════
 let gSettings={seasonYear:new Date().getFullYear(),summerStart:'',winterStart:''};
 let curTz='EDT',istOnly=false,sbOpen=true;
-const sbSt={batches:true,students:true};
+const sbSt={batches:true,students:true,archived:false};
 let batches=[],indStudents=[],ss={},att={};
 let reminders=[];
 let careerData={performances:[],tasks:[],applications:[]};
@@ -902,6 +907,14 @@ function ssKeyFor(batchId,name){return batchId+':'+name;}
 function studentSetup(batchId,name){return ss[ssKeyFor(batchId,name)]||{};}
 function dayBefore(dateStr){const d=new Date((dateStr||localDS(new Date()))+'T12:00:00');d.setDate(d.getDate()-1);return localDS(d);}
 function inDateRange(dateStr,from,to){return(!from||dateStr>=from)&&(!to||dateStr<=to);}
+function studentRemovedFrom(batchId,name){return studentSetup(batchId,name).removedFrom||'';}
+function studentBeforeRemoval(batchId,name,dateStr){const end=studentRemovedFrom(batchId,name);return !end||dateStr<end;}
+function archivedStudentRows(){
+  return Object.entries(ss).filter(([k,v])=>v?.removedFrom).map(([key,v])=>{
+    const split=key.indexOf(':'),batchId=key.slice(0,split),name=key.slice(split+1);
+    return {batchId,name,removedFrom:v.removedFrom,batchName:batchId.startsWith('ind_')?'Individual':getBatch(batchId)?.name||v.archivedBatchName||'Previous batch',color:getBatch(batchId)?.color||'c17'};
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+}
 function studentAddFrom(batchId,name){
   const s=studentSetup(batchId,name);
   if(s.addFrom)return s.addFrom;
@@ -912,7 +925,7 @@ function studentAddFrom(batchId,name){
 function studentHistoryFor(batchId,name){const h=ss[ssKeyFor(batchId,name)]?.studentHistory;return Array.isArray(h)?h.filter(x=>x&&x.batchId&&x.name):[];}
 function studentAliasesFor(batchId,name){
   const s=studentSetup(batchId,name),from=studentAddFrom(batchId,name)||'0000-01-01';
-  return uniqueBy([...studentHistoryFor(batchId,name),{batchId,name,from,to:'9999-12-31',category:s.category||'',tzPref:s.tzPref||''}],x=>[x.batchId,x.name,x.from||'',x.to||'',x.category||''].join('|'));
+  return uniqueBy([...studentHistoryFor(batchId,name),{batchId,name,from,to:s.removedFrom?dayBefore(s.removedFrom):'9999-12-31',category:s.category||'',tzPref:s.tzPref||''}],x=>[x.batchId,x.name,x.from||'',x.to||'',x.category||''].join('|'));
 }
 function studentAliasesForPeriod(batchId,name,fromDate,toDate){return studentAliasesFor(batchId,name).filter(x=>inDateRange(x.from||'0000-01-01',null,toDate)&&inDateRange(x.to||'9999-12-31',fromDate,null));}
 function studentAliasForDate(batchId,name,dateStr){return studentAliasesFor(batchId,name).find(x=>x.batchId===batchId&&x.name===name&&inDateRange(dateStr,x.from||'0000-01-01',x.to||'9999-12-31'))||null;}
@@ -933,13 +946,15 @@ function historicalStudentsForEntity(entityId,dateStr){
   return names;
 }
 function studentActiveOn(batchId,name,dateStr){
+  if(!studentBeforeRemoval(batchId,name,dateStr))return false;
   const af=studentAddFrom(batchId,name);
   if((!af||dateStr>=af)&&getBatch(batchId))return true;
   return !!findStudentCurrentKeyForHistory(batchId,name,dateStr);
 }
 function activeBatchStudents(batch,dateStr){
   const names=new Set((batch?.students||'').split(',').map(s=>s.trim()).filter(Boolean).filter(name=>studentActiveOn(batch.id,name,dateStr)));
-  historicalStudentsForEntity(batch?.id,dateStr).forEach(name=>names.add(name));
+  historicalStudentsForEntity(batch?.id,dateStr).filter(name=>studentBeforeRemoval(batch.id,name,dateStr)).forEach(name=>names.add(name));
+  archivedStudentRows().filter(r=>r.batchId===batch?.id&&studentActiveOn(r.batchId,r.name,dateStr)).forEach(r=>names.add(r.name));
   return [...names];
 }
 function allTwEvents(){return Object.values(twWkCache).flatMap(evs=>Array.isArray(evs)?evs:[]);}
@@ -1110,7 +1125,7 @@ function typeBadge(cat){
   return`<span style="font-size:9px;background:${c[0]};color:${c[1]};padding:1px 5px;border-radius:8px;font-weight:600">${cat||'—'}</span>`;
 }
 const REMINDER_PRESETS=['Send recording','Send audio','Send payment reminder','Follow up fee','Confirm timing','Share Zoom/link','Send practice video','Ask about absence','Schedule makeup'];
-function activeReminders(){const today=localDS(new Date());return reminders.filter(r=>!r.done&&(!r.remindOn||r.remindOn<=today));}
+function activeReminders(){const today=localDS(new Date());return reminders.filter(r=>!r.done&&(!r.remindOn||r.remindOn<=today)&&!(r.targetType==='student'&&studentRemovedFrom(r.batchId,r.studentName)));}
 function saveReminders(){save('reminders',reminders);updateReminderBadge();}
 function reminderLabel(r){
   if(r.targetType==='batch'){const b=getBatch(r.batchId);return b?.name||'Batch';}
@@ -1320,7 +1335,7 @@ function allStudentInfoRows(){
   const rows=[];
   batches.forEach(b=>(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name=>rows.push({batchId:b.id,batchName:b.name,name,details:ss[b.id+':'+name]?.details||{}})));
   indStudents.forEach(s=>rows.push({batchId:s.id,batchName:'Individual',name:s.name,details:ss[s.id+':'+s.name]?.details||{}}));
-  return rows;
+  return rows.filter(r=>studentActiveOn(r.batchId,r.name,localDS(new Date())));
 }
 function countBy(rows,key){
   const out={};rows.forEach(r=>{const v=(typeof key==='function'?key(r):r.details?.[key])||'Not set';out[v]=(out[v]||0)+1;});
@@ -1934,6 +1949,7 @@ function cashFlowSummary(fromDate,toDate){
   const rows=[];
   batches.forEach(b=>(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(name=>rows.push({batchId:b.id,name})));
   indStudents.forEach(s=>rows.push({batchId:s.id,name:s.name}));
+  archivedStudentRows().forEach(r=>{if(!rows.some(x=>x.batchId===r.batchId&&x.name===r.name))rows.push(r);});
   let expected=0,received=0,overdue=0;
   rows.forEach(r=>{
     const ssKey=r.batchId+':'+r.name,sObj=ss[ssKey]||{},cat=sObj.category||'';
@@ -1942,7 +1958,7 @@ function cashFlowSummary(fromDate,toDate){
       for(let y=pY,m=pM;y<=parseInt(toDate.slice(0,4));m++){
         if(m>12){m=1;y++;}
         const billStart=`${y}-${String(m).padStart(2,'0')}-01`;
-        if(billStart>toDate)break;
+        if(billStart>toDate||sObj.removedFrom&&billStart>=sObj.removedFrom)break;
         const dueDate=expectedPaymentDateForMonth(cat,y,m);
         const amt=computeFeeAmt(r.name,r.batchId,y,m).amount;
         if(amt!=null&&dueDate&&dueDate>=fromDate&&dueDate<=toDate)expected+=amt;
@@ -2246,7 +2262,7 @@ function toggleSec(name){sbSt[name]=!sbSt[name];const b=document.getElementById(
 
 function renderSidebar(){
   const sortedBatches=batches.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{sensitivity:'base'}));
-  const sortedIndStudents=indStudents.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{sensitivity:'base'}));
+  const sortedIndStudents=indStudents.filter(s=>studentActiveOn(s.id,s.name,localDS(new Date()))).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{sensitivity:'base'}));
   // Batches — clicking opens batch detail popup (no edit icon per spec)
   document.getElementById('batch-list').innerHTML=sortedBatches.map(b=>{
     const col=getColor(b.color);
@@ -2266,19 +2282,25 @@ function renderSidebar(){
   };
   const parts=[];
   sortedBatches.forEach(b=>{
-    const names=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+    const names=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).filter(name=>studentActiveOn(b.id,name,localDS(new Date()))).sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
     if(!names.length)return;
     const col=getColor(b.color);
     parts.push(`<div style="display:flex;align-items:center;gap:6px;margin:8px 6px 3px;color:var(--sub);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em"><div style="width:7px;height:7px;border-radius:2px;background:${col.b}"></div>${escHtml(b.name)}</div>`);
     names.forEach(n=>{const s={name:n,batchId:b.id,batchName:b.name,color:b.color,isInd:false};all.push(s);parts.push(rowHtml(s));});
   });
-  if(indStudents.length){
+  if(sortedIndStudents.length){
     parts.push(`<div style="display:flex;align-items:center;gap:6px;margin:10px 6px 3px;color:var(--sub);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em"><div style="width:7px;height:7px;border-radius:2px;background:${getColor('c17').b}"></div>Individual</div>`);
     sortedIndStudents.forEach(s0=>{const s={name:s0.name,batchId:s0.id,batchName:'Individual',color:s0.color||'c17',isInd:true};all.push(s);parts.push(rowHtml(s));});
   }
   document.getElementById('student-list').innerHTML=parts.join('');
+  const archived=archivedStudentRows();
+  document.getElementById('archive-label').textContent='Archived students ('+archived.length+')';
+  document.getElementById('archived-list').innerHTML=archived.length?archived.map(r=>`<div class="brow" data-bid="${escHtml(r.batchId)}" data-sn="${encodeURIComponent(r.name)}" onclick="openArchivedStudent(this)"><div><div class="bname">${escHtml(r.name)}</div><div style="font-size:10px;color:var(--sub)">${escHtml(r.batchName)} · From ${r.removedFrom}</div></div></div>`).join(''):'<div style="font-size:11px;color:var(--sub);padding:6px">No archived students.</div>';
+
   const se=document.getElementById('student-empty');if(se)se.style.display=all.length===0?'block':'none';
 }
+function openArchivedFees(){const month=sdMonth,year=sdYear;openAtt();document.getElementById('att-mo').value=month;document.getElementById('att-yr').value=year;document.getElementById('att-bf').value=sdBid.startsWith('ind_')?'ind':sdBid;attTab('fee');}
+function openArchivedStudent(el){sdMonth=null;sdYear=null;openStudentDetail(el.dataset.bid,decodeURIComponent(el.dataset.sn));}
 function sbStudentClick(el){const bid=el.dataset.bid,nm=decodeURIComponent(el.dataset.sn);const sObj=ss[bid+':'+nm]||{};if(!sObj.category||sObj.needsTimings)openAddStudent(bid,nm);else openStudentDetail(bid,nm);}
 
 // ═══════════════════════════════════════════════════
@@ -2433,10 +2455,11 @@ function addFromParts(){const v=document.getElementById('s-add-from')?.value||lo
 // SECTION 12 — ADD/EDIT STUDENT
 // ═══════════════════════════════════════════════════
 function openAddStudent(prefBid,prefNm){
+  if(prefBid&&prefNm&&studentRemovedFrom(prefBid,prefNm)){openStudentDetail(prefBid,prefNm);return;}
   sEditBid=prefBid||null;sEditNm=prefNm||null;
   const isEdit=!!(prefBid&&prefNm);
   document.getElementById('s1-ttl').textContent=isEdit?'Edit Student Details':'Add Student Details';
-  document.getElementById('s-del').style.display=isEdit?'':'none';
+  document.getElementById('s-del').style.display=isEdit&&!studentRemovedFrom(prefBid,prefNm)?'':'none';
   document.getElementById('s-nm').value=prefNm||'';
   const bsel=document.getElementById('s-bat');
   bsel.innerHTML='<option value="">No batch — individual student</option>';
@@ -2551,16 +2574,20 @@ function sStep2Save(){
   save('batches',batches);save('indStudents',indStudents);save('ss',ss);saveTwCacheOnly();closeOv('ov-s2');renderSidebar();renderCalendar();showToast('Student saved');
 }
 function deleteStudentConfirm(){
-  if(!sEditBid||!sEditNm)return;
-  showConfirm(`Delete ${sEditNm}? This cannot be undone.`,()=>{
-    if(sEditBid.startsWith('ind_')){indStudents=indStudents.filter(s=>s.id!==sEditBid);}
-    else{const b=getBatch(sEditBid);if(b)b.students=(b.students||'').split(',').map(s=>s.trim()).filter(s=>s!==sEditNm).join(', ');}
-    Object.keys(att).forEach(k=>{const r=att[k];if(!r.students)return;r.students=r.students.filter(s=>!(s.batchId===sEditBid&&s.name===sEditNm));if(!r.students.length)delete att[k];});
-    delete ss[sEditBid+':'+sEditNm];
-    reminders=reminders.filter(r=>!(r.targetType==='student'&&r.batchId===sEditBid&&r.studentName===sEditNm));
-    save('batches',batches);save('indStudents',indStudents);save('att',att);save('ss',ss);saveTwCacheOnly();
-    saveReminders();
-    closeOv('ov-s1');renderSidebar();renderCalendar();showToast('Student deleted');
+  if(!sEditBid||!sEditNm||studentRemovedFrom(sEditBid,sEditNm))return;
+  const bid=sEditBid,name=sEditNm,date=localDS(new Date());
+  showConfirm(`Archive ${name} from ${date}? Earlier classes, attendance, fees and payments will remain available.`,()=>{
+    const key=ssKeyFor(bid,name);
+    if(!ss[key])ss[key]={};
+    ss[key].removedFrom=date;
+    ss[key].archivedAt=new Date().toISOString();
+    ss[key].archivedBatchName=getBatch(bid)?.name||'Individual';
+    // Keep entities, rosters, settings, attendance and cached occurrences for historical views.
+    save('ss',ss);
+    closeOv('ov-s1');closeOv('ov-sd');renderSidebar();renderCalendar();
+    if(twWkStart){twLoadWeek();if(document.getElementById('ov-tw').classList.contains('open'))twRender();}
+    if(document.getElementById('ov-att').classList.contains('open'))renderAtt();
+    updateReminderBadge();showToast('Student archived — history preserved');
   });
 }
 
@@ -2573,7 +2600,7 @@ function bdDeleteConfirm(){showConfirm('Delete this batch? Students will become 
 
 function renderBatchDetail(){
   const b=getBatch(detBid);if(!b){document.getElementById('bd-content').innerHTML='Not found.';return;}
-  const col=getColor(b.color);const students=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const col=getColor(b.color);const students=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).filter(name=>studentVisibleInFeePeriod(b.id,name,`${_bdY||new Date().getFullYear()}-${String(_bdM||new Date().getMonth()+1).padStart(2,'0')}-01`,'9999-12-31'));
   document.getElementById('bd-ttl').textContent=`Batch Details – ${b.name}`;
   const grp=TZ_GRP.find(g=>g.label===b.tzGroup)||null;
   const tabTz=grp?(deriveSeason()==='summer'?grp.s:grp.w):null;const showTz=tabTz&&tabTz!=='IST';
@@ -2711,10 +2738,10 @@ function clearBatchNote(){const b=getBatch(detBid);if(!b)return;b.note='';save('
 // ═══════════════════════════════════════════════════
 function openStudentDetail(batchId,studentName){
   sdBid=batchId;sdNm=studentName;sdEdit=false;sdUnsaved=false;
-  const now=new Date();if(!sdMonth)sdMonth=now.getMonth()+1;if(!sdYear)sdYear=now.getFullYear();
+  const removed=studentRemovedFrom(batchId,studentName);const now=removed?new Date(dayBefore(removed)+'T12:00:00'):new Date();if(!sdMonth)sdMonth=now.getMonth()+1;if(!sdYear)sdYear=now.getFullYear();
   renderStudentDetail();document.getElementById('sd-save').style.display='none';openOv('ov-sd');
 }
-function sdEditMode(){closeOv('ov-sd');openAddStudent(sdBid,sdNm);}
+function sdEditMode(){if(studentRemovedFrom(sdBid,sdNm)){showToast('Archived student — history available below');return;}closeOv('ov-sd');openAddStudent(sdBid,sdNm);}
 function sdSave(){sdEdit=false;sdUnsaved=false;document.getElementById('sd-save').style.display='none';renderStudentDetail();}
 function sdExitCheck(){if(sdUnsaved){showConfirm('You have unsaved changes. Discard and exit?',()=>{sdUnsaved=false;closeOv('ov-sd');});}else closeOv('ov-sd');}
 
@@ -2755,7 +2782,7 @@ function renderStudentDetail(){
   document.getElementById('sd-content').innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <div style="width:12px;height:12px;border-radius:3px;background:${col.b};flex-shrink:0"></div>
-      <div><div style="font-size:17px;font-weight:500">${sdNm}</div>
+      <div><div style="font-size:17px;font-weight:500">${sdNm}</div>${sObj.removedFrom?`<div class="warn" style="margin-top:8px">Archived from ${sObj.removedFrom}. Earlier classes, attendance and payment history are retained. <button class="bc" style="margin-top:7px;font-size:11px" onclick="openArchivedFees()">View fee history</button></div>`:''}
         <div style="font-size:12px;color:var(--mut)">${sdBid.startsWith('ind_')?'Individual':b?.name||'Individual'} · <span style="color:var(--blue)">${catNames[cat]||'Category not set'}</span> · Add from ${studentAddFrom(sdBid,sdNm)||'—'}${showTz?' · '+tabTz:''}</div></div>
     </div>
     <div style="border-top:1px solid var(--bdr);padding-top:14px;margin-bottom:14px"><div class="stitle">Class Schedule${editSchedLink}</div>${schedHtml}</div>
@@ -3315,14 +3342,26 @@ function twBlockRemove(){
 // ADD CLASS
 function openTwAdd(){
   const now=new Date();document.getElementById('twa-dt').value=localDS(addDays(twWkStart,0));document.getElementById('twa-st').value='';document.getElementById('twa-en').value='';document.getElementById('twa-fb').checked=false;twaToggleBatch();document.getElementById('twa-addons').innerHTML='';
-  const ssel=document.getElementById('twa-stu');ssel.innerHTML='<option value="">— select student —</option>'+buildStuOpts();
+  const ssel=document.getElementById('twa-stu');ssel.innerHTML='<option value="">— select student —</option>'+buildStuOpts(document.getElementById('twa-dt').value);
   document.getElementById('twa-bat').innerHTML=batches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
   document.getElementById('twa-type').value='makeup';twaTypeChange();openOv('ov-twa');
+}
+function twaDateChanged(){
+  const date=document.getElementById('twa-dt').value||localDS(new Date());
+  const sel=document.getElementById('twa-stu'),previous=sel.value;
+  sel.innerHTML='<option value="">— select student —</option>'+buildStuOpts(date);
+  if([...sel.options].some(o=>o.value===previous))sel.value=previous;
+  document.querySelectorAll('#twa-addons .ao-row').forEach(row=>{
+    const el=row.querySelector('select'),value=el.value;
+    el.innerHTML='<option value="">— select —</option>'+buildStuOpts(date);
+    if([...el.options].some(o=>o.value===value))el.value=value;
+  });
+  if(document.getElementById('twa-fb').checked)twaLoadBatch();else twaLoadStu();
 }
 function twaToggleBatch(){const ch=document.getElementById('twa-fb').checked;document.getElementById('twa-bwrap').style.display=ch?'':'none';document.getElementById('twa-iwrap').style.display=ch?'none':'';if(ch)twaLoadBatch();}
 function twaLoadBatch(){
   const bid=document.getElementById('twa-bat').value;const b=getBatch(bid);if(!b)return;
-  const stus=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const stus=activeBatchStudents(b,document.getElementById('twa-dt').value||localDS(new Date()));
   // Mixed batches are allowed: A/B students can use makeup, C/D students only use additional.
   const hasMakeupStudent=stus.some(name=>['A','B'].includes(ss[bid+':'+name]?.category||''));
   document.getElementById('twa-brows').innerHTML=`
@@ -3336,7 +3375,7 @@ function twaLoadBatch(){
 function twaLoadBatchRows(){
   const bid=document.getElementById('twa-bat').value;const b=getBatch(bid);if(!b)return;
   const btype=document.getElementById('twa-btype')?.value||'additional';
-  const stus=(b.students||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const stus=activeBatchStudents(b,document.getElementById('twa-dt').value||localDS(new Date()));
   document.getElementById('twa-bstus').innerHTML=stus.map(name=>{
     const cat=ss[bid+':'+name]?.category||'A';const canMakeup=cat==='A'||cat==='B';
     const pend=canMakeup?getPendingClasses(name,bid).filter(e=>!e.resolved).map(e=>`<option value="${e.date}">${e.label}</option>`).join(''):'';
@@ -3362,10 +3401,12 @@ function twaLoadStu(){
   twaTypeChange();
 }
   function twaTypeChange(){const type=document.getElementById('twa-type').value;const mfw=document.getElementById('twa-mfw');if(!mfw)return;mfw.style.display=type==='makeup'?'':'none';if(type==='makeup'){const val=document.getElementById('twa-stu').value;if(val){const[bid,nm]=val.split('|');const pend=getPendingClasses(nm,bid).filter(e=>!e.resolved);document.getElementById('twa-mf').innerHTML='<option value="">— select pending —</option>'+pend.map(e=>`<option value="${e.date}">${e.label}</option>`).join('');}}}
-  function buildStuOpts(){return batches.flatMap(b=>(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).map(n=>`<option value="${b.id}|${n}">${n} (${b.name})</option>`)).join('')+indStudents.map(s=>`<option value="${s.id}|${s.name}">${s.name} (Individual)</option>`).join('');}
-  function addonRowHtml(id,a={},allowScheduled=false){
+  function buildStuOpts(date=localDS(new Date())){return batches.flatMap(b=>activeBatchStudents(b,date).map(n=>`<option value="${escHtml(b.id+'|'+n)}">${escHtml(n)} (${escHtml(b.name)})</option>`)).join('')+indStudents.filter(s=>studentActiveOn(s.id,s.name,date)).map(s=>`<option value="${escHtml(s.id+'|'+s.name)}">${escHtml(s.name)} (Individual)</option>`).join('');}
+
+  function addonRowHtml(id,a={},allowScheduled=false,date=null){
     const selectedVal=a.batchId&&a.name?`${a.batchId}|${a.name}`:'';
-    const rawOpts=buildStuOpts();
+    const editDate=document.getElementById('ov-twe').classList.contains('open')?document.getElementById('twe-dt').value:document.getElementById('twa-dt').value;
+    const rawOpts=buildStuOpts(date||editDate||localDS(new Date()));
     const opts=selectedVal?rawOpts.replace(`value="${selectedVal}"`,`value="${selectedVal}" selected`):'<option value="">— select —</option>'+rawOpts;
     const type=a.classType||'makeup';
     const scheduledOpt=(allowScheduled||type==='scheduled')?`<option value="scheduled"${type==='scheduled'?' selected':''}>Scheduled</option>`:'';
@@ -3398,12 +3439,12 @@ function twaConfirm(){
     newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:roleSet.length===1?roleSet[0]:'batch',studentScope:null,makeupFor:null,studentRoles:roles,addonStudents:[]});
   } else {
     const val=document.getElementById('twa-stu').value;if(!val){showToast('Select student');return;}
-    const[bid,nm]=val.split('|');const type=document.getElementById('twa-type').value;const mf=type==='makeup'?document.getElementById('twa-mf').value||null:null;
+    const[bid,nm]=val.split('|');if(!studentExistsInEntity(bid,nm,dv)){showToast('Student is not active on this date');return;}const type=document.getElementById('twa-type').value;const mf=type==='makeup'?document.getElementById('twa-mf').value||null:null;
     if(type==='makeup'&&!mf){showToast('Select which pending class this makeup is for');return;}
     newEvs.push({id:'tw_'+Date.now()+'_'+Math.random().toString(36).slice(2),batchId:bid,date:new Date(dv+'T12:00:00'),start:st,end:en,isTemp:false,cancelled:false,classType:type,studentScope:nm,makeupFor:mf||null,addonStudents:[]});
   }
   // Collect addons
-  const addons=[];let addonInvalid=false;document.querySelectorAll('#twa-addons .ao-row').forEach(row=>{if(addonInvalid)return;const sv=row.querySelector('select').value;if(!sv)return;const[bid2,nm2]=sv.split('|');const type2=row.querySelector('.ao-type')?.value||'additional';const mfWrap=row.nextElementSibling;const mf2=type2==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;if(type2==='makeup'&&!mf2){showToast(`Select makeup for ${nm2}`);addonInvalid=true;return;}addons.push({name:nm2,batchId:bid2,classType:type2,makeupFor:mf2||null});});
+  const addons=[];let addonInvalid=false;document.querySelectorAll('#twa-addons .ao-row').forEach(row=>{if(addonInvalid)return;const sv=row.querySelector('select').value;if(!sv)return;const[bid2,nm2]=sv.split('|');if(!studentExistsInEntity(bid2,nm2,dv)){showToast('Additional student is not active on this date');addonInvalid=true;return;}const type2=row.querySelector('.ao-type')?.value||'additional';const mfWrap=row.nextElementSibling;const mf2=type2==='makeup'&&mfWrap?.querySelector('.ao-mf')?.value||null;if(type2==='makeup'&&!mf2){showToast(`Select makeup for ${nm2}`);addonInvalid=true;return;}addons.push({name:nm2,batchId:bid2,classType:type2,makeupFor:mf2||null});});
   if(addonInvalid)return;
   if(newEvs.length>0)newEvs[newEvs.length-1].addonStudents=addons;
   twSnapshot('Add class');
@@ -3425,7 +3466,7 @@ function tweAssignedRoles(ev){
   if(!roles.length&&batch)roles=activeBatchStudents(batch,ds).map(name=>({name,batchId:ev.batchId,classType:'scheduled',makeupFor:null}));
   return uniqueBy(roles.filter(r=>studentExistsInEntity(r.batchId,r.name,ds)),r=>`${r.batchId}:${r.name}:${r.classType}:${r.makeupFor||''}`);
 }
-function tweAddStudent(a={}){const id='as-'+Date.now()+'-'+Math.random().toString(36).slice(2);document.getElementById('twe-students').insertAdjacentHTML('beforeend',addonRowHtml(id,a,true));}
+function tweAddStudent(a={}){const id='as-'+Date.now()+'-'+Math.random().toString(36).slice(2);document.getElementById('twe-students').insertAdjacentHTML('beforeend',addonRowHtml(id,a,true,document.getElementById('twe-dt').value));}
 function readTweRows(selector,{requireOne=false,label='student'}={}){
   const rows=[];let invalid=false;
   document.querySelectorAll(selector+' .ao-row').forEach(row=>{
@@ -3454,10 +3495,10 @@ function twEditOpen(evId){
   const sl=document.getElementById('twe-students');sl.innerHTML='';
   assigned.forEach(a=>tweAddStudent(a));
   const al=document.getElementById('twe-addons');al.innerHTML='';
-  (ev.addonStudents||[]).forEach(a=>{const id='ao-'+Date.now();al.insertAdjacentHTML('beforeend',addonRowHtml(id,a));});
+  (ev.addonStudents||[]).forEach(a=>{const id='ao-'+Date.now();al.insertAdjacentHTML('beforeend',addonRowHtml(id,a,false,document.getElementById('twe-dt').value));});
   openOv('ov-twe');
 }
-function tweAddAddon(){const id='ao-'+Date.now();document.getElementById('twe-addons').insertAdjacentHTML('beforeend',addonRowHtml(id));}
+function tweAddAddon(){const id='ao-'+Date.now();document.getElementById('twe-addons').insertAdjacentHTML('beforeend',addonRowHtml(id,{},false,document.getElementById('twe-dt').value));}
 function tweSave(){
   const ev=twEvs.find(x=>x.id===twEditId);if(!ev)return;
   const nd=document.getElementById('twe-dt').value,ns=document.getElementById('twe-st').value,ne=document.getElementById('twe-en').value;
@@ -3516,17 +3557,21 @@ function attTab(t){
   document.getElementById('att-tab-fee')?.classList.toggle('act',t==='fee');
   renderAtt();
 }
-function attFilteredRows(){
+function attFilteredRows(includeArchived=false){
   const bFilter=document.getElementById('att-bf')?.value||'all';
   let rows=[];
   if(bFilter==='all'){batches.forEach(b=>(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>rows.push({name:n,batchId:b.id,batchName:b.name,color:b.color})));indStudents.forEach(s=>rows.push({name:s.name,batchId:s.id,batchName:'Individual',color:'c17'}));}
   else if(bFilter==='ind'){indStudents.forEach(s=>rows.push({name:s.name,batchId:s.id,batchName:'Individual',color:'c17'}));}
   else{const b=getBatch(bFilter);if(b)(b.students||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>rows.push({name:n,batchId:bFilter,batchName:b.name,color:b.color}));}
-  return rows;
+  const month=parseInt(document.getElementById('att-mo')?.value)||new Date().getMonth()+1;
+  const year=parseInt(document.getElementById('att-yr')?.value)||new Date().getFullYear();
+  const from=`${year}-${String(month).padStart(2,'0')}-01`,to=localDS(new Date(year,month,0));
+  archivedStudentRows().filter(r=>bFilter==='all'||bFilter==='ind'&&r.batchId.startsWith('ind_')||bFilter===r.batchId).forEach(r=>{if(!rows.some(x=>x.batchId===r.batchId&&x.name===r.name))rows.push(r);});
+  return includeArchived?rows:rows.filter(r=>studentVisibleInFeePeriod(r.batchId,r.name,from,to));
 }
 function studentVisibleInFeePeriod(batchId,name,fromDate,toDate){
   const addFrom=studentAddFrom(batchId,name);
-  return !addFrom||addFrom<=toDate;
+  return (!addFrom||addFrom<=toDate)&&studentBeforeRemoval(batchId,name,fromDate);
 }
 function renderAtt(){
   document.getElementById('att-tab-att')?.classList.toggle('act',attTrackerView==='att');
@@ -3599,7 +3644,7 @@ function renderFeeTrackerView(){
   const month=parseInt(document.getElementById('att-mo').value),year=parseInt(document.getElementById('att-yr').value);
   const ms=String(month).padStart(2,'0'),fromDate=`${year}-${ms}-01`,toDate=`${year}-${ms}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`;
   const rows=attFilteredRows().filter(r=>studentVisibleInFeePeriod(r.batchId,r.name,fromDate,toDate)).map(r=>feePeriodRow(r,year,month,fromDate,toDate));
-  if(!rows.length){document.getElementById('att-inner').innerHTML='<div style="font-size:13px;color:var(--mut);padding:14px">No students.</div>';return;}
+  if(!rows.length&&!studentCollectionRows(fromDate,toDate).length){document.getElementById('att-inner').innerHTML='<div style="font-size:13px;color:var(--mut);padding:14px">No students.</div>';return;}
   feeEditRows={};
   let totalFees=0,pendingFees=0,lastBatch='';
   const tr=rows.map((row,i)=>{
@@ -3630,7 +3675,7 @@ function renderFeeTrackerView(){
 }
 function studentCollectionRows(fromDate,toDate){
   const rows=[];
-  attFilteredRows().forEach(r=>{
+  attFilteredRows(true).forEach(r=>{
     const ssKey=r.batchId+':'+r.name,sObj=ss[ssKey]||{},cat=sObj.category||'';
     Object.keys(sObj).filter(k=>k.startsWith('fs_')&&!k.startsWith('fs_cycle_')).forEach(k=>{
       const v=sObj[k];if(feeStatusValue(v)!=='paid')return;
